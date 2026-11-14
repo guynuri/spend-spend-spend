@@ -1,1 +1,85 @@
 @import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: 'Heebo Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-bg: var(--mz-bg);
+  --color-surface: var(--mz-surface);
+  --color-surface-2: var(--mz-surface-2);
+  --color-border: var(--mz-border);
+  --color-text: var(--mz-text);
+  --color-muted: var(--mz-muted);
+  --color-accent: var(--mz-accent);
+  --color-accent-fg: var(--mz-accent-fg);
+  --color-good: var(--mz-good);
+  --color-warn: var(--mz-warn);
+  --color-bad: var(--mz-bad);
+  --color-chart-1: var(--mz-chart-1);
+  --color-chart-2: var(--mz-chart-2);
+  --color-chart-3: var(--mz-chart-3);
+}
+
+:root {
+  --mz-bg: #f4f6f5;
+  --mz-surface: #ffffff;
+  --mz-surface-2: #edf1f0;
+  --mz-border: #d9e1df;
+  --mz-text: #15201d;
+  --mz-muted: #56655f;
+  --mz-accent: #0d7068;
+  --mz-accent-fg: #ffffff;
+  --mz-good: #18794e;
+  --mz-warn: #a35200;
+  --mz-bad: #c0262d;
+  --mz-chart-1: #0d7068;
+  --mz-chart-2: #8a9a95;
+  --mz-chart-3: #c0262d;
+}
+
+.dark {
+  --mz-bg: #0e1312;
+  --mz-surface: #161d1b;
+  --mz-surface-2: #1f2826;
+  --mz-border: #2c3735;
+  --mz-text: #e6edeb;
+  --mz-muted: #9aaba6;
+  --mz-accent: #3cc4b5;
+  --mz-accent-fg: #062320;
+  --mz-good: #4cc38a;
+  --mz-warn: #f0a44b;
+  --mz-bad: #ff6b6b;
+  --mz-chart-1: #3cc4b5;
+  --mz-chart-2: #6b7c77;
+  --mz-chart-3: #ff6b6b;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background: var(--mz-bg);
+  color: var(--mz-text);
+  font-family: var(--font-sans);
+  overscroll-behavior-y: none;
+}
+#root {
+  min-height: 100dvh;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

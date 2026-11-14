@@ -1,0 +1,95 @@
+{
+  "app": {
+    "name": "Maazan",
+    "tagline": "Household money, calmly balanced"
+  },
+  "nav": {
+    "overview": "Overview",
+    "transactions": "Transactions",
+    "budget": "Budget",
+    "upcoming": "Upcoming",
+    "more": "More",
+    "recurring": "Recurring",
+    "accounts": "Accounts",
+    "goals": "Goals",
+    "trends": "Trends",
+    "review": "Monthly review",
+    "forecast": "Forecast",
+    "import": "Import",
+    "settings": "Settings",
+    "household": "Household",
+    "admin": "Admin",
+    "main": "Main navigation",
+    "uncategorizedBadge_one": "{{count}} uncategorized transaction",
+    "uncategorizedBadge_other": "{{count}} uncategorized transactions",
+    "overBudgetBadge": "Over budget",
+    "upcomingTab": "Upcoming"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "back": "Back",
+    "next": "Next",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "confirm": "Confirm",
+    "undo": "Undo",
+    "reload": "Reload",
+    "dismiss": "Dismiss",
+    "comingSoon": "This page is being built.",
+    "optional": "Optional",
+    "none": "None",
+    "all": "All",
+    "yes": "Yes",
+    "no": "No",
+    "copy": "Copy",
+    "copied": "Copied",
+    "share": "Share",
+    "search": "Search",
+    "notEnoughData": "Not enough data",
+    "today": "Today"
+  },
+  "explain": {
+    "open": "How is this calculated?",
+    "formula": "Formula",
+    "inputs": "Inputs used",
+    "total": "Total"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "locale": {
+    "label": "Language",
+    "en": "English",
+    "he": "עברית"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance"
+  },
+  "pwa": {
+    "updateAvailable": "An update is available.",
+    "installTitle": "Install on your iPhone",
+    "installBody": "Tap Share, then “Add to Home Screen”, to open the app like any other app.",
+    "offlineTitle": "You're offline",
+    "offlineBody": "Your financial data is never stored on this device, so it needs a connection."
+  },
+  "errors": {
+    "unknown": "Something went wrong. Please try again.",
+    "network": "Can't reach the server. Check your connection.",
+    "not_found": "Not found.",
+    "forbidden_role": "Your role in this household can't do that.",
+    "unauthorized": "Please sign in.",
+    "csrf": "The request was blocked for security reasons. Reload and try again.",
+    "rate_limited": "Too many attempts. Wait a few minutes and try again.",
+    "validation": "Some fields are invalid.",
+    "pageNotFound": "This page doesn't exist."
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "מאזן",
+    "tagline": "הכסף של הבית, במאזן רגוע"
+  },
+  "nav": {
+    "overview": "מבט־על",
+    "transactions": "תנועות",
+    "budget": "תקציב",
+    "upcoming": "תשלומים קרובים",
+    "more": "עוד",
+    "recurring": "תשלומים קבועים",
+    "accounts": "חשבונות",
+    "goals": "יעדים",
+    "trends": "מגמות",
+    "review": "סיכום חודשי",
+    "forecast": "תחזית",
+    "import": "ייבוא",
+    "settings": "הגדרות",
+    "household": "משק הבית",
+    "admin": "ניהול",
+    "main": "ניווט ראשי",
+    "uncategorizedBadge_one": "תנועה אחת ללא קטגוריה",
+    "uncategorizedBadge_two": "{{count}} תנועות ללא קטגוריה",
+    "uncategorizedBadge_other": "{{count}} תנועות ללא קטגוריה",
+    "overBudgetBadge": "חריגה מהתקציב",
+    "upcomingTab": "קרובים"
+  },
+  "common": {
+    "save": "שמירה",
+    "cancel": "ביטול",
+    "close": "סגירה",
+    "delete": "מחיקה",
+    "edit": "עריכה",
+    "add": "הוספה",
+    "back": "חזרה",
+    "next": "הבא",
+    "retry": "לנסות שוב",
+    "loading": "טוען…",
+    "confirm": "אישור",
+    "undo": "ביטול פעולה",
+    "reload": "טעינה מחדש",
+    "dismiss": "הסתרה",
+    "comingSoon": "העמוד הזה בבנייה.",
+    "optional": "רשות",
+    "none": "ללא",
+    "all": "הכול",
+    "yes": "כן",
+    "no": "לא",
+    "copy": "העתקה",
+    "copied": "הועתק",
+    "share": "שיתוף",
+    "search": "חיפוש",
+    "notEnoughData": "אין מספיק נתונים",
+    "today": "היום"
+  },
+  "explain": {
+    "open": "איך זה מחושב?",
+    "formula": "נוסחה",
+    "inputs": "נתונים שנלקחו בחשבון",
+    "total": "סה״כ"
+  },
+  "theme": {
+    "label": "ערכת צבעים",
+    "light": "בהירה",
+    "dark": "כהה",
+    "system": "לפי המכשיר"
+  },
+  "locale": {
+    "label": "שפה",
+    "en": "English",
+    "he": "עברית"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "appearance": "תצוגה"
+  },
+  "pwa": {
+    "updateAvailable": "יש גרסה חדשה.",
+    "installTitle": "התקנה באייפון",
+    "installBody": "יש להקיש על ׳שיתוף׳ ואז על ׳הוספה למסך הבית׳ כדי לפתוח את האפליקציה כמו כל אפליקציה אחרת.",
+    "offlineTitle": "אין חיבור לאינטרנט",
+    "offlineBody": "הנתונים הפיננסיים לעולם לא נשמרים במכשיר, ולכן נדרש חיבור."
+  },
+  "errors": {
+    "unknown": "משהו השתבש. כדאי לנסות שוב.",
+    "network": "אין תקשורת עם השרת. כדאי לבדוק את החיבור.",
+    "not_found": "לא נמצא.",
+    "forbidden_role": "התפקיד שלך במשק הבית לא מאפשר את הפעולה הזו.",
+    "unauthorized": "יש להתחבר.",
+    "csrf": "הבקשה נחסמה מטעמי אבטחה. כדאי לטעון מחדש ולנסות שוב.",
+    "rate_limited": "יותר מדי ניסיונות. כדאי לחכות כמה דקות ולנסות שוב.",
+    "validation": "חלק מהשדות אינם תקינים.",
+    "pageNotFound": "העמוד הזה לא קיים."
+  }
+}

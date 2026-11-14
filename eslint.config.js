@@ -58,8 +58,8 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/server/routes/**/*.ts', 'src/server/ai/**/*.ts', 'src/server/index.ts', 'src/shared/**/*.ts', 'src/client/**/*.{ts,tsx}'],
-    ignores: ['src/server/routes/auth.ts', 'src/server/routes/admin.ts'],
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/server/routes/auth.ts', 'src/server/routes/admin.ts', 'src/server/db/**', 'src/server/middleware/**', 'src/server/seed/**', 'src/server/env.ts'],
     rules: dbRestriction,
   },
   {

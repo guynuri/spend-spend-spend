@@ -1,11 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@fontsource-variable/heebo';
 import './styles.css';
-import { APP_NAME } from '../shared/app';
+import './i18n';
+import { initTheme } from './theme';
+import { App } from './app';
 
-function App() {
-  return <main data-testid="app-root" className="p-4 text-start">{APP_NAME}</main>;
-}
+initTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
