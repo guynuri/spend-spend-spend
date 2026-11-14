@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+fixtures/**/private/
+e2e/screenshots/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+dev-dist/
