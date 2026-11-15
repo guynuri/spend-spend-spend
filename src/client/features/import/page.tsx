@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload } from 'lucide-react';
 import { del, errorKey, get, post, put } from '../../api';
-import { Badge, Button, Card, CardTitle, cx, EmptyState, ErrorState, Field, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
+import { Badge, Button, Card, CardTitle, cx, EmptyState, ErrorState, Field, Input, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
+import { BankBadge, BankLink, useBankName } from '../../components/BankBadge';
 import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
 import { ConfirmSheet } from '../../components/Confirm';
 import { useToast } from '../../components/Toast';
-import { LEDGER_DEPENDENT, useAccounts, useCategoryMap } from '../../lib/queries';
+import { LEDGER_DEPENDENT, QK, useAccounts, useCategoryMap } from '../../lib/queries';
+import { inferAccount } from '../../../shared/banks';
 import { useCanWrite } from '../../lib/session';
 import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { IMPORT_CHUNK, type ParseResult } from '../../../shared/import/types';
@@ -26,7 +28,7 @@ const countTiles = (c: Record<RowStatus, number>, errors: number) =>
     ['countError', errors, 'error'],
   ] as const;
 const hasMismatch = (r: ParseResult) => r.warnings.includes('balance_mismatch');
-type Step = 'pick' | 'parsing' | 'map' | 'previewing' | 'preview' | 'committing' | 'done';
+type Step = 'pick' | 'parsing' | 'account' | 'map' | 'previewing' | 'preview' | 'committing' | 'done';
 
 function History() {
   const { t } = useTranslation();
@@ -97,7 +99,12 @@ export function Component() {
   const cats = useCategoryMap();
   const accountsQ = useAccounts();
   const accounts = (accountsQ.data?.accounts ?? []).filter((a) => !a.archived && a.type !== 'credit_card');
+  const bankName = useBankName();
+  // '' = detect from the file; ask only when it can't be inferred
   const [accountId, setAccountId] = useState('');
+  const [autoPicked, setAutoPicked] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [creating, setCreating] = useState(false);
   const [step, setStep] = useState<Step>('pick');
   const [fileError, setFileError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<Parsed | null>(null);
@@ -111,10 +118,8 @@ export function Component() {
   const [apiError, setApiError] = useState<unknown>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const acc = accountId || accounts[0]?.id || '';
-  useEffect(() => {
-    if (!accountId && accounts[0]) setAccountId(accounts[0].id);
-  }, [accountId, accounts]);
+  const acc = accountId;
+  const accObj = accounts.find((a) => a.id === acc);
 
   const reset = () => {
     setStep('pick');
@@ -125,6 +130,8 @@ export function Component() {
     setApiError(null);
     setFileError(null);
     setMapping(null);
+    if (autoPicked) setAccountId('');
+    setAutoPicked(false);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -149,22 +156,43 @@ export function Component() {
   };
 
   const onFile = async (file: File | undefined) => {
-    if (!file || !acc) return;
+    if (!file) return;
     setFileError(null);
     setApiError(null);
     setStep('parsing');
     try {
       const p = await parseFile(file);
       setParsed(p);
-      let account = acc;
       const mask = p.result?.accountMask;
-      if (mask) {
-        const hit = accounts.find((a) => a.accountMask === mask);
-        if (hit) {
-          account = hit.id;
-          setAccountId(hit.id);
-        }
-      }
+      const inferred = inferAccount(accounts, { accountMask: mask, bankIds: p.bankIds });
+      // an account-number match beats the pre-selection; otherwise the user's pick wins
+      const account = (mask && inferred?.accountMask === mask ? inferred.id : acc) || inferred?.id;
+      setAutoPicked(!!account && account !== acc);
+      if (!account) return setStep('account');
+      setAccountId(account);
+      await proceed(p, account);
+    } catch (e) {
+      setFileError(e instanceof FileError ? e.code : 'unsupported_file');
+      setStep('pick');
+    }
+  };
+
+  const createAccount = async () => {
+    setCreating(true);
+    try {
+      const { id } = await post<{ id: string }>('/api/accounts', { name: newName.trim(), type: 'checking', bankId: parsed?.bankIds[0] ?? null });
+      await qc.invalidateQueries({ queryKey: QK.accounts });
+      setAccountId(id);
+      await proceed(parsed!, id);
+    } catch (e) {
+      setApiError(e);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const proceed = async (p: Parsed, account: string) => {
+    try {
       if (p.result) return void (await runPreview(p.result, account));
       // generic: reuse a saved profile with the same header signature
       let m = p.guess!;
@@ -234,6 +262,13 @@ export function Component() {
     }
   };
 
+  const accountOptions = accounts.map((a) => (
+    <option key={a.id} value={a.id}>
+      {a.name}
+      {a.accountMask ? ` ··${a.accountMask}` : ''}
+    </option>
+  ));
+  const parserLabel = !parsed || parsed.parserId === 'generic' ? t('import.parsers.generic') : parsed.bankIds.map((id) => bankName({ bankId: id })).join(' / ');
   const errorLabel = (code: string) => t(`import.errorCodes.${code}`, { defaultValue: code });
   const errors = result?.errors ?? [];
   const toImport = preview ? preview.counts.new + preview.counts.matches_manual : 0;
@@ -266,14 +301,11 @@ export function Component() {
               <div className="flex flex-col gap-3">
                 <Field label={t('import.account')} htmlFor="imp-acc">
                   <Select id="imp-acc" value={acc} onChange={(e) => setAccountId(e.target.value)} data-testid="import-account">
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                        {a.accountMask ? ` ··${a.accountMask}` : ''}
-                      </option>
-                    ))}
+                    <option value="">{t('import.autoDetect')}</option>
+                    {accountOptions}
                   </Select>
                 </Field>
+                {accObj && <BankLink account={accObj} />}
                 <label
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -294,7 +326,7 @@ export function Component() {
                   </span>
                   <span className="hidden text-sm text-muted md:block">{t('import.drop')}</span>
                   <span className="text-xs text-muted">{t('import.accepted')}</span>
-                  <input ref={inputRef} type="file" accept={ACCEPT} className="sr-only" data-testid="import-file" disabled={!acc} onChange={(e) => void onFile(e.target.files?.[0])} />
+                  <input ref={inputRef} type="file" accept={ACCEPT} className="sr-only" data-testid="import-file" onChange={(e) => void onFile(e.target.files?.[0])} />
                 </label>
                 {fileError && (
                   <p role="alert" className="rounded-xl bg-bad/10 p-3 text-sm text-bad" data-testid="import-file-error">
@@ -302,6 +334,40 @@ export function Component() {
                   </p>
                 )}
                 {!!apiError && <ErrorState error={apiError} />}
+              </div>
+            </Card>
+          )}
+
+          {step === 'account' && parsed && (
+            <Card data-testid="import-ask-account">
+              <CardTitle>{t('import.whichAccount')}</CardTitle>
+              <p className="mb-3 text-sm text-muted">
+                {parsed.parserId === 'generic' ? t('import.whichAccountBody') : t('import.whichAccountBank', { bank: parserLabel })}
+              </p>
+              <div className="flex flex-col gap-3">
+                <Field label={t('import.account')} htmlFor="imp-ask">
+                  <Select id="imp-ask" value={acc} onChange={(e) => setAccountId(e.target.value)} data-testid="import-ask-select">
+                    <option value="" disabled>
+                      {t('import.pickAccount')}
+                    </option>
+                    {accountOptions}
+                  </Select>
+                </Field>
+                <Button disabled={!acc} onClick={() => void proceed(parsed, acc)} data-testid="import-ask-continue">
+                  {t('common.next')}
+                </Button>
+                <Field label={t('import.orCreate')} htmlFor="imp-new">
+                  <div className="flex gap-2">
+                    <Input id="imp-new" dir="auto" maxLength={60} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={bankName({ bankId: parsed.bankIds[0] }) ?? ''} data-testid="import-new-name" />
+                    <Button variant="secondary" disabled={!newName.trim()} busy={creating} onClick={() => void createAccount()} data-testid="import-new-create">
+                      {t('import.create')}
+                    </Button>
+                  </div>
+                </Field>
+                {!!apiError && <ErrorState error={apiError} />}
+                <Button variant="ghost" onClick={reset}>
+                  {t('import.cancel')}
+                </Button>
               </div>
             </Card>
           )}
@@ -335,11 +401,32 @@ export function Component() {
             <Card data-testid="import-preview">
               <CardTitle>{t('import.previewTitle')}</CardTitle>
               <p className="mb-2 text-sm text-muted">
-                {t('import.detected', { parser: t(parsed.parserId === 'generic' ? 'import.parsers.generic' : 'import.parsers.otsar') })} · {t('import.rowsInFile', { count: result.rows.length })}
+                {t('import.detected', { parser: parserLabel })} · {t('import.rowsInFile', { count: result.rows.length })}
               </p>
+              <div className="mb-2 flex items-end gap-2">
+                <BankBadge bankId={accObj?.bankId} institution={accObj?.institution} size="md" />
+                <div className="min-w-0 flex-1">
+                  <Field label={autoPicked ? t('import.accountDetected') : t('import.account')} htmlFor="imp-acc2">
+                    <Select
+                      id="imp-acc2"
+                      value={acc}
+                      disabled={step === 'committing'}
+                      onChange={(e) => {
+                        setAccountId(e.target.value);
+                        setAutoPicked(false);
+                        void runPreview(result, e.target.value);
+                      }}
+                      data-testid="import-preview-account"
+                    >
+                      {accountOptions}
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+              {accObj && <BankLink account={accObj} className="mb-2" />}
               {result.accountMask && (
-                <p className={cx('mb-2 text-sm', accounts.find((a) => a.id === acc)?.accountMask && accounts.find((a) => a.id === acc)?.accountMask !== result.accountMask ? 'text-warn' : 'text-muted')}>
-                  {accounts.find((a) => a.id === acc)?.accountMask && accounts.find((a) => a.id === acc)?.accountMask !== result.accountMask
+                <p className={cx('mb-2 text-sm', accObj?.accountMask && accObj.accountMask !== result.accountMask ? 'text-warn' : 'text-muted')}>
+                  {accObj?.accountMask && accObj.accountMask !== result.accountMask
                     ? t('import.maskMismatch', { mask: result.accountMask })
                     : t('import.maskHint', { mask: result.accountMask })}
                 </p>

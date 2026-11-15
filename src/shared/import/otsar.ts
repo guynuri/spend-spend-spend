@@ -34,7 +34,8 @@ function headerInfo(grid: Grid) {
 
 const PERIOD = /מתאריך\s*:?\s*([\d/.-]+)\s*עד\s*תאריך\s*:?\s*([\d/.-]+)/;
 
-function metadata(grid: Grid, headerRow: number) {
+/** Period ("מתאריך … עד תאריך …") and account-number mask from the title rows above the header. */
+export function metadata(grid: Grid, headerRow: number) {
   let period: { from: string; to: string } | null = null;
   let accountMask: string | null = null;
   for (let i = 0; i < headerRow; i++) {
@@ -57,6 +58,8 @@ function metadata(grid: Grid, headerRow: number) {
 export const otsarParser: BankParser = {
   id: 'otsar-hahayal',
   labelKey: 'import.parsers.otsar',
+  // FIBI group banks share one online-banking platform; assumed to share this layout (unverified).
+  bankIds: ['otsar', 'fibi', 'massad'],
   detect: (grid) => headerInfo(grid).score / 8,
   parse(grid) {
     const h = headerInfo(grid);

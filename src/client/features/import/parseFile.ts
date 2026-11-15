@@ -7,7 +7,9 @@ export interface Parsed {
   fileHash: string;
   kind: FileKind;
   grid: Grid;
-  parserId: 'otsar-hahayal' | 'generic';
+  parserId: string;
+  /** Catalog banks that export this layout (empty for generic). */
+  bankIds: readonly string[];
   result: ParseResult | null;
   guess: Mapping | null;
   signature: string | null;
@@ -40,12 +42,14 @@ export async function parseFile(file: File): Promise<Parsed> {
   const fileHash = await sha256(bytes);
   const p = pickParser(grid);
   if (p) {
+    // Card statements would double count the card lump already in the bank file (PLAN D-10).
+    if (p.card) throw new FileError('card_file');
     const result = p.parse(grid);
     if (!result.rows.length && !result.errors.length) throw new FileError('no_rows');
-    return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'otsar-hahayal', result, guess: null, signature: null };
+    return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: p.id, bankIds: p.bankIds ?? [], result, guess: null, signature: null };
   }
   const guess = generic.guessMapping(grid);
-  return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'generic', result: null, guess, signature: generic.headerSignature(grid, guess.headerRow) };
+  return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'generic', bankIds: [], result: null, guess, signature: generic.headerSignature(grid, guess.headerRow) };
 }
 
 export function errorReportCsv(errors: { row: number; code: string }[], label: (code: string) => string) {

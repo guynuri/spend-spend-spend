@@ -88,6 +88,23 @@ test('generic windows-1255 CSV goes through the column mapper', async ({ page })
   await expect(page.getByTestId('mapper')).toContainText(/saved|נשמרה/);
 });
 
+test('account picked from the bank list; a file without a known account asks which one', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/accounts');
+  await page.getByTestId('account-card').filter({ hasText: 'Other bank' }).getByRole('button', { name: /Edit|עריכה/ }).click();
+  await page.getByTestId('bank-leumi').click();
+  await page.getByTestId('account-save').click();
+  await expect(page.getByTestId('account-card').filter({ hasText: 'Other bank' }).getByTestId('bank-link')).toHaveAttribute('href', /leumi\.co\.il/);
+  // no account pre-selected; the generic CSV names no account → the user is asked
+  await page.goto('/import');
+  await page.getByTestId('import-file').setInputFiles(`${FIX}/generic_bank.csv`);
+  await expect(page.getByTestId('import-ask-account')).toBeVisible();
+  await expect(page.getByTestId('import-ask-continue')).toBeDisabled();
+  await page.getByTestId('import-ask-select').selectOption({ label: 'Other bank' });
+  await page.getByTestId('import-ask-continue').click();
+  await expect(page.getByTestId('mapper')).toContainText(/saved|נשמרה/);
+});
+
 test('undo an import removes its transactions', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/import');
