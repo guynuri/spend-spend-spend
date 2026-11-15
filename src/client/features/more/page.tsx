@@ -18,6 +18,7 @@ export function Component() {
             <Link to={it.to} data-testid={it.testId} className="flex min-h-14 items-center gap-3 px-4 active:bg-surface-2">
               <it.icon className="size-5 text-accent" aria-hidden />
               <span className="flex-1 font-medium">{t(it.key)}</span>
+              {it.to === '/review' && me?.badges.reviewDue && <span className="size-2 rounded-full bg-accent" data-testid="badge-review" role="img" aria-label={t('nav.reviewBadge')} />}
               <ChevronRight className="size-5 text-muted rtl:-scale-x-100" aria-hidden />
             </Link>
           </li>

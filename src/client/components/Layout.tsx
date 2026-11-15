@@ -19,6 +19,8 @@ function Badge({ item }: { item: NavItem }) {
     );
   if (item.to === '/budget' && me?.badges.overBudget)
     return <span className="absolute top-1 end-3 size-2 rounded-full bg-bad lg:static lg:ms-auto" data-testid="badge-over-budget" role="img" aria-label={t('nav.overBudgetBadge')} />;
+  if ((item.to === '/review' || item.to === '/more') && me?.badges.reviewDue)
+    return <span className="absolute top-1 end-3 size-2 rounded-full bg-accent lg:static lg:ms-auto" data-testid="badge-review" role="img" aria-label={t('nav.reviewBadge')} />;
   return null;
 }
 
