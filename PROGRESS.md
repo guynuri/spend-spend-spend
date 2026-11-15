@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-14T22:46Z — currently: M2 auth & tenancy (starting)
+Last updated: 2026-11-15T00:55Z — currently: M3 accounts, categories, ledger (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -14,8 +14,19 @@ Last updated: 2026-11-14T22:46Z — currently: M2 auth & tenancy (starting)
   unit tests (key parity, plural categories, interpolation vars, money/date formatting,
   physical-direction class ban, restricted DB imports).
 
+- **M2** — auth & tenancy: global + all tenant tables (migrations 0002/0003), passkey
+  register/login (SimpleWebAuthn), bootstrap `/setup#token` (410 after first use), owner/member/
+  recovery invites (hashed, single-use, expiring, constant-time bootstrap compare), sessions
+  (`__Host-mz_session`, rolling 60 d / absolute 180 d, hourly refresh, logout / logout-all),
+  CSRF (Origin + `X-MZ` + JSON), D1 rate limits, `tenantDb` (throws on unscoped SQL),
+  `TENANT_TABLES` registry, household/role middleware, members & invites UI, household
+  switcher, admin UI (metadata only), cron cleanup, `npm run admin:recovery`.
+  AC1.1–1.9: API tests with a software authenticator (real WebAuthn verification), isolation
+  suite (route classification + cross-household + canary + registry), e2e `01-setup`,
+  `02-auth`, `08-household` (Chromium CDP virtual authenticator).
+
 ## In progress
-- M2 — auth & tenancy.
+- M3 — accounts, categories, rules, ledger.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -32,7 +43,7 @@ Last updated: 2026-11-14T22:46Z — currently: M2 auth & tenancy (starting)
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M1: `npm run verify` green — unit 19, api 2, e2e 35 (iphone 34 + desktop 1).
+- M2: `npm run verify` green — unit 19, api 22, e2e 16.
 
 ## Security checklist
 - (ticked in M10)

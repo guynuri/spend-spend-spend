@@ -2,8 +2,13 @@ import { createBrowserRouter } from 'react-router';
 import { Layout } from './components/Layout';
 import { NotFound, Placeholder } from './features/common/Placeholder';
 import { SessionGate } from './features/auth/SessionGate';
+import { InvitePage, RecoverPage, SetupPage, SignInPage } from './features/auth/pages';
 
 export const router = createBrowserRouter([
+  { path: '/signin', element: <SignInPage /> },
+  { path: '/setup', element: <SetupPage /> },
+  { path: '/invite', element: <InvitePage /> },
+  { path: '/recover', element: <RecoverPage /> },
   {
     element: <SessionGate />,
     children: [
@@ -22,7 +27,8 @@ export const router = createBrowserRouter([
           { path: 'trends', element: <Placeholder titleKey="nav.trends" /> },
           { path: 'review', element: <Placeholder titleKey="nav.review" /> },
           { path: 'import', element: <Placeholder titleKey="nav.import" /> },
-          { path: 'household', element: <Placeholder titleKey="nav.household" /> },
+          { path: 'household', lazy: () => import('./features/household/page') },
+          { path: 'admin', lazy: () => import('./features/admin/page') },
           { path: 'settings', lazy: () => import('./features/settings/page') },
           { path: '*', element: <NotFound /> },
         ],

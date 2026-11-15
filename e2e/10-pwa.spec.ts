@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { ensureAdmin, signIn } from './auth';
+
+test.beforeAll(async ({ browser }) => ensureAdmin(browser));
 
 test('manifest has required fields', async ({ request }) => {
   const res = await request.get('/manifest.webmanifest');
@@ -12,7 +15,7 @@ test('manifest has required fields', async ({ request }) => {
 });
 
 test('service worker registers; /api is never cached', async ({ page }) => {
-  await page.goto('/');
+  await signIn(page, 'admin');
   const scope = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.ready;
     return reg.scope;

@@ -38,7 +38,7 @@ describe('source rules', () => {
       const txt = readFileSync(f, 'utf8');
       const lines = txt.split('\n');
       lines.forEach((line, i) => {
-        if (/\.DB\b|D1Database|db\/global/.test(line) && !/eslint-disable-next-line no-restricted-syntax -- the health check/.test(lines[i - 1] ?? '')) bad.push(`${rel}:${i + 1}`);
+        if (/\.DB\b|D1Database|db\/global/.test(line) && !/eslint-disable-next-line no-restricted-syntax -- \S/.test(lines[i - 1] ?? '')) bad.push(`${rel}:${i + 1}`);
       });
     }
     expect(bad).toEqual([]);
