@@ -27,6 +27,7 @@ export interface HealthMonth {
   month: MonthStr;
   input: HealthInput;
   result: HealthResult;
+  goals: GoalView[];
 }
 export interface HealthBundle {
   months: HealthMonth[];
@@ -102,7 +103,7 @@ export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthS
         extraMonthlyMinor: dated.filter((v) => v.status === 'behind').reduce((s, v) => s + Math.max(0, (v.requiredMonthlyMinor ?? 0) - v.paceMinor), 0),
       },
     };
-    return { month: m, input, result: computeHealth(input) };
+    return { month: m, input, result: computeHealth(input), goals: views };
   });
   const current = out[out.length - 1]!;
   const prev = out[out.length - 2];

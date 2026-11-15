@@ -101,9 +101,15 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/dashboard': 'tenant',
   'POST /api/household/reset': 'tenant',
   'DELETE /api/household': 'tenant',
+  'GET /api/reviews': 'tenant',
+  'GET /api/reviews/:month': 'tenant',
+  'POST /api/reviews/:month/complete': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';
+/** Path params that are not tenant-owned ids (a month or a due date is valid in any household). */
+const NON_ID_PARAMS = new Set(['month', 'dueDate']);
+const idParams = (pattern: string) => [...pattern.matchAll(/:(\w+)/g)].map((m) => m[1]!).filter((p) => !NON_ID_PARAMS.has(p));
 
 function registered() {
   const seen = new Set<string>();
@@ -145,7 +151,7 @@ describe('tenant routes with B ids → 404 (or 400), B unchanged', () => {
     for (const [key, cls] of Object.entries(ROUTES)) {
       if (cls !== 'tenant') continue;
       const [method, pattern] = key.split(' ') as [string, string];
-      if (!pattern.includes(':')) continue;
+      if (!idParams(pattern).length) continue;
       const path = pattern.replace(/:(\w+)/g, (_, p: string) => fx.idForB(pattern, p));
       const body = fx.bodyFor(key, 'B');
       const r = await json(method, path, { cookie: fx.a.ownerCookie, body });
@@ -162,7 +168,7 @@ describe('tenant routes with B ids → 404 (or 400), B unchanged', () => {
     for (const [key, cls] of Object.entries(ROUTES)) {
       if (cls !== 'tenant') continue;
       const [method, pattern] = key.split(' ') as [string, string];
-      if (method === 'GET' || pattern.includes(':')) continue;
+      if (method === 'GET' || idParams(pattern).length) continue;
       const body = fx.bodyFor(key, 'B');
       if (body === undefined) continue;
       const r = await json(method, pattern, { cookie: fx.a.ownerCookie, body });

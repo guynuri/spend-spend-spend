@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T01:59Z — currently: M8 monthly review (starting)
+Last updated: 2026-11-15T02:08Z — currently: M9 AI (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -77,8 +77,15 @@ Last updated: 2026-11-15T01:59Z — currently: M8 monthly review (starting)
   `tests/unit/health-goals.test.ts` (50), `tests/api/dashboard.test.ts` (5), e2e
   `06-budget-goals.spec.ts`, `08-household.spec.ts` (sample data + clear).
 
+- **M8** — monthly review: language-neutral snapshot builder (7 chapters, rule-chosen
+  commentary keys, headline by score label × change, chips, notable transactions, wins / watch
+  list / next steps), stepper UI with progress, back/next, skip to wrap-up; "Complete review"
+  stores an immutable snapshot; history reopens from it; demo ships a completed review.
+  AC12.1–12.2: `tests/api/reviews.test.ts`, unit review-builder test, e2e `07-review-ai.spec.ts`
+  (AI-off path), `12-review-screens.spec.ts`.
+
 ## In progress
-- M8 — monthly review.
+- M9 — AI (opt-in).
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -98,7 +105,7 @@ Last updated: 2026-11-15T01:59Z — currently: M8 monthly review (starting)
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M7: `npm run verify` green — unit 129, api 53, e2e 36.
+- M8: `npm run verify` green — unit 130, api 54, e2e 39.
 
 ## Security checklist
 - (ticked in M10)

@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 import { Layout } from './components/Layout';
-import { NotFound, Placeholder } from './features/common/Placeholder';
+import { NotFound } from './features/common/Placeholder';
 import { SessionGate } from './features/auth/SessionGate';
 import { InvitePage, RecoverPage, SetupPage, SignInPage } from './features/auth/pages';
 
@@ -26,7 +26,7 @@ export const router = createBrowserRouter([
           { path: 'categories', lazy: () => import('./features/categories/page') },
           { path: 'goals', lazy: () => import('./features/goals/page') },
           { path: 'trends', lazy: () => import('./features/trends/page') },
-          { path: 'review', element: <Placeholder titleKey="nav.review" /> },
+          { path: 'review', lazy: () => import('./features/review/page') },
           { path: 'import', lazy: () => import('./features/import/page') },
           { path: 'household', lazy: () => import('./features/household/page') },
           { path: 'admin', lazy: () => import('./features/admin/page') },

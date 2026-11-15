@@ -165,3 +165,16 @@ Format: date · milestone · what · why · alternatives rejected.
   the name. Reset keeps `audit_log` and re-seeds default categories/rules.
 - Bug fixed: after a successful passkey registration the client re-inspected the spent invite
   link, which counted toward the 5-per-15-minute token-failure limit (found by e2e).
+
+## D-R13 · 2026-11-15 · M8 · Monthly review
+- The snapshot stores numbers, category/goal names, notable transaction descriptions and
+  catalog keys + params; all prose is rendered on the client, so a stored review reads in
+  either language. The AI text (M9) is stored separately in `reviews.ai_json`.
+- Review route is `/review?month=YYYY-MM&step=N` (one lazy route; step in the URL).
+- A month with no previous-month data reports "about the same" rather than "+0 %".
+- Current-month-only insights (pace vs last month) are excluded from reviews of past months.
+- The sample household ships a completed review of the previous month; building it adds ~30
+  D1 statements to the sample-data request (total ≈ 43, under the Free limit of 50).
+- Path params that are not tenant-owned ids (`:month`, `:dueDate`) are excluded from the
+  isolation suite's "B id → 404" check; those routes are still covered by the B-unchanged and
+  GET-canary checks.

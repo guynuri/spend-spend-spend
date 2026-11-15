@@ -16,6 +16,7 @@ import { importProfileRoutes, importRoutes } from './routes/imports';
 import { budgetRoutes } from './routes/budgets';
 import { trendRoutes } from './routes/trends';
 import { dashboardRoutes } from './routes/dashboard';
+import { reviewRoutes } from './routes/reviews';
 import { goalRoutes, healthRoutes } from './routes/goals';
 import { forecastRoutes, plannedRoutes, recurringRoutes, upcomingRoutes } from './routes/recurring';
 import './ai/register';
@@ -38,6 +39,7 @@ export const TENANT_GROUPS = {
   '/api/goals': goalRoutes,
   '/api/health-score': healthRoutes,
   '/api/dashboard': dashboardRoutes,
+  '/api/reviews': reviewRoutes,
 } as const;
 
 export function createApp() {

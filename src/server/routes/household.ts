@@ -4,12 +4,14 @@ import type { Ctx } from '../types';
 import { tctx, originOf } from '../ctx';
 import { HttpError, body, notFound } from '../http';
 import { requireOwner } from '../middleware/auth';
-import { randomToken, sha256Hex } from '../lib/crypto';
+import { newId, nowIso, randomToken, sha256Hex } from '../lib/crypto';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
 import { sendInviteEmail } from '../lib/email';
 import { roleSchema } from '../../shared/schemas/me';
 import { buildDemoFor, demoInsertStatements } from '../seed/insert';
 import { householdToday } from '../lib/today';
+import { loadBase } from '../db/sql/facts';
+import { buildReviewFor, defaultReviewMonth } from '../db/sql/review';
 import { KEEP_ON_RESET, TENANT_TABLES } from '../db/tables';
 import { householdInitStatements } from '../db/householdInit';
 
@@ -123,6 +125,20 @@ householdRoutes.post('/sample-data', requireOwner, async (c) => {
   const loc = (c.req.header('x-mz-locale') === 'he' ? 'he' : c.req.header('x-mz-locale') === 'en' ? 'en' : hh.locale === 'he' ? 'he' : 'en') as 'en' | 'he';
   const data = await buildDemoFor(db, householdToday(hh), loc);
   await db.batch([...demoInsertStatements(db, data), db.members.setSampleDataStmt(true), db.audit(userId, 'household.sample_data', 'household', hh.id)]);
+  // The sample household includes a completed review of the previous month (PLAN §14).
+  const base = await loadBase(db, hh);
+  const month = defaultReviewMonth(base);
+  const snap = await buildReviewFor(db, hh, month, base);
+  await db.run(
+    `INSERT INTO reviews (id, household_id, month, status, snapshot_json, health_score, completed_at, completed_by)
+     SELECT ?2, ?1, ?3, 'completed', ?4, ?5, ?6, ?7 WHERE NOT EXISTS (SELECT 1 FROM reviews WHERE household_id = ?1 AND month = ?3)`,
+    newId(),
+    month,
+    JSON.stringify(snap),
+    snap.summary.score,
+    nowIso(),
+    userId,
+  );
   return c.json({ ok: true, transactions: data.transactions.length }, 201);
 });
 

@@ -86,6 +86,7 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
     if (pattern.startsWith('/api/imports/')) return s.ids.import!;
     if (pattern.startsWith('/api/recurring/')) return param === 'dueDate' ? new Date().toISOString().slice(0, 10) : s.ids.recurring!;
     if (pattern.startsWith('/api/planned/')) return s.ids.planned!;
+    if (pattern.startsWith('/api/reviews/')) return '2001-01';
     if (pattern.startsWith('/api/goals/')) return param === 'cid' ? s.ids.contribution! : s.ids.goal!;
     throw new Error(`no id mapping for ${pattern} :${param}`);
   };

@@ -780,5 +780,97 @@
     "deleteBody": "Deletes the household and all of its data for every member. This cannot be undone.",
     "typeName": "Type the household name to confirm: {{name}}",
     "done": "Done"
+  },
+  "review": {
+    "title": "Monthly review",
+    "history": "Past reviews",
+    "none": "No completed reviews yet.",
+    "start": "Review {{month}}",
+    "draft": "Draft",
+    "completed": "Completed",
+    "completedOn": "Completed on {{date}}",
+    "step": "Step {{n}} of {{total}}",
+    "back": "Back",
+    "next": "Next",
+    "toWrapup": "Skip to wrap-up",
+    "complete": "Complete review",
+    "completeDone": "Review saved.",
+    "open": "Open",
+    "chapters": {
+      "summary": "Summary",
+      "income": "Income",
+      "spending": "Spending",
+      "budget": "Budget",
+      "goals": "Goals",
+      "cashflow": "Cash flow & upcoming",
+      "wrapup": "Wrap-up"
+    },
+    "chips": {
+      "score_up": "Health score up",
+      "milestone": "Goal milestone",
+      "under_budget": "Within budget"
+    },
+    "vsPrev": "vs previous month",
+    "notable": "Notable transactions",
+    "byCategory": "By category",
+    "adherence": "{{ok}} of {{total}} budgeted categories within limit",
+    "savingsRate": "Savings rate",
+    "forecastNow": "Forecast for this month",
+    "wins": "Wins",
+    "watch": "Watch list",
+    "nextSteps": "Next steps",
+    "ruleBased": "Written by rules from your numbers.",
+    "noItems": "Nothing here this month.",
+    "c": {
+      "summary": {
+        "positive": "You finished {{month}} with {{net}} left over.",
+        "negative": "In {{month}} you spent {{net}} more than came in."
+      },
+      "income": {
+        "up": "Income rose {{pct}} compared with the month before.",
+        "down": "Income fell {{pct}} compared with the month before.",
+        "flat": "Income was about the same as the month before."
+      },
+      "spending": {
+        "up_over": "Spending rose {{pct}}, and {{count}} budget categories went over their limit.",
+        "up_under": "Spending rose {{pct}}, but budgeted categories stayed within their limits.",
+        "down_over": "Spending fell {{pct}}, though {{count}} budget categories went over.",
+        "down_under": "Spending fell {{pct}} and budgets held.",
+        "flat_over": "Spending was steady; {{count}} budget categories went over.",
+        "flat_under": "Spending was steady and within budget."
+      },
+      "budget": {
+        "none": "No budgets set yet — setting a few limits makes this chapter useful.",
+        "all_within": "Every budgeted category stayed within its limit.",
+        "some_over": "{{count}} of {{total}} budgeted categories went over."
+      },
+      "goals": {
+        "none": "No goals yet.",
+        "some_behind": "{{count}} goal(s) are behind schedule.",
+        "all_on_track": "All dated goals are on track."
+      },
+      "cashflow": {
+        "no_income": "No income was recorded this month.",
+        "strong": "You kept {{pct}} of your income — a strong month.",
+        "positive": "You kept {{pct}} of your income.",
+        "negative": "Spending exceeded income by {{pct}} of income."
+      },
+      "wrapup": "Here are the steps that would improve your score the most."
+    },
+    "h": {
+      "no_score": "Not enough data for a score yet — keep importing statements.",
+      "excellent_up": "Excellent month, and getting better ({{score}}).",
+      "excellent_down": "Still excellent ({{score}}), a little below last month.",
+      "excellent_flat": "A steady, excellent month ({{score}}).",
+      "good_up": "A good month, improving ({{score}}).",
+      "good_down": "A good month ({{score}}), slightly down.",
+      "good_flat": "A steady, good month ({{score}}).",
+      "fair_up": "A fair month, moving in the right direction ({{score}}).",
+      "fair_down": "A fair month ({{score}}) that slipped a little.",
+      "fair_flat": "A fair month ({{score}}).",
+      "needs_attention_up": "Needs attention ({{score}}), but improving.",
+      "needs_attention_down": "Needs attention ({{score}}) — a harder month.",
+      "needs_attention_flat": "Needs attention ({{score}})."
+    }
   }
 }

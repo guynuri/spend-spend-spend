@@ -125,3 +125,30 @@ describe('action items (§10.7, AC11.2)', () => {
     expect(buildInsights(inp({ pace: { thisMinor: 80, prevMinor: 100, day: 3 } })).find((x) => x.key === 'pace_less')!.severity).toBe('good');
   });
 });
+
+import { buildReview, notableTransactions, trend } from '../../src/shared/domain/review';
+describe('review builder (§10.8)', () => {
+  it('trend, notable transactions, commentary keys, chips', () => {
+    expect([trend(106, 100), trend(94, 100), trend(103, 100), trend(5, 0), trend(0, 0)]).toEqual(['up', 'down', 'flat', 'flat', 'flat']);
+    const txs = [-100, -200, -300, -100000, -60000, -1000].map((a, i) => ({ amountMinor: a, i }));
+    expect(notableTransactions(txs).map((t) => t.amountMinor)).toEqual([-100000, -60000]);
+    const r = buildReview({
+      month: '2026-10',
+      isLatestMonth: true,
+      health: { score: 72, label: 'good', change: 4, recommendations: [] },
+      income: { totalMinor: 1000, prevMinor: 1000, byCategory: [{ categoryId: 'a', name: 'A', amountMinor: 1000 }] },
+      spending: { totalMinor: 1200, prevMinor: 1000, byCategory: [], transactions: [] },
+      budget: { budgetedMinor: 100, spentBudgetedMinor: 90, lines: [{ name: 'x', spentMinor: 90, limitMinor: 100 }] },
+      goals: { activeCount: 1, savedMinor: 5, targetMinor: 10, items: [{ name: 'g', progress: 0.5, requiredMonthlyMinor: 1, status: 'on_track', milestones: [{ pct: 50, date: '2026-10-03' }] }] },
+      forecast: { eomMinor: 1, lowMinor: 0, lowDate: '2026-11-20' },
+      upcoming: [],
+      insights: [],
+    });
+    expect(r.summary.chips).toEqual(['score_up', 'milestone', 'under_budget']);
+    expect(r.spending.commentary.key).toBe('review.c.spending.up_under');
+    expect(r.income.commentary.key).toBe('review.c.income.flat');
+    expect(r.cashflow.commentary.key).toBe('review.c.cashflow.negative');
+    expect(r.wrapup.headline.key).toBe('review.h.good_up');
+    expect(r.goals.items[0]!.milestones).toEqual([50]);
+  });
+});

@@ -33,7 +33,7 @@ export const CHAPTERS = ['summary', 'income', 'spending', 'budget', 'goals', 'ca
 export type Chapter = (typeof CHAPTERS)[number];
 
 export const trend = (cur: number, prev: number): 'up' | 'down' | 'flat' => {
-  if (prev === 0) return cur === 0 ? 'flat' : 'up';
+  if (prev === 0) return 'flat'; // no previous month to compare with
   const d = (cur - prev) / Math.abs(prev);
   return d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat';
 };
