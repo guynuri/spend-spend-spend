@@ -10,6 +10,8 @@ export interface Parsed {
   parserId: string;
   /** Catalog banks that export this layout (empty for generic). */
   bankIds: readonly string[];
+  /** Card-issuer statement. The import page refuses these (PLAN D-10); parseCardStatement accepts only these. */
+  card: boolean;
   result: ParseResult | null;
   guess: Mapping | null;
   signature: string | null;
@@ -42,14 +44,22 @@ export async function parseFile(file: File): Promise<Parsed> {
   const fileHash = await sha256(bytes);
   const p = pickParser(grid);
   if (p) {
-    // Card statements would double count the card lump already in the bank file (PLAN D-10).
-    if (p.card) throw new FileError('card_file');
     const result = p.parse(grid);
     if (!result.rows.length && !result.errors.length) throw new FileError('no_rows');
-    return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: p.id, bankIds: p.bankIds ?? [], result, guess: null, signature: null };
+    return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: p.id, bankIds: p.bankIds ?? [], card: !!p.card, result, guess: null, signature: null };
   }
   const guess = generic.guessMapping(grid);
-  return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'generic', bankIds: [], result: null, guess, signature: generic.headerSignature(grid, guess.headerRow) };
+  return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'generic', bankIds: [], card: false, result: null, guess, signature: generic.headerSignature(grid, guess.headerRow) };
+}
+
+/**
+ * Card-issuer statement (Isracard/Amex, Max, Cal) → rows, charges negative, refunds positive.
+ * Throws FileError: sniff codes, 'unsupported_file', 'no_rows', or 'not_card' for any other file.
+ */
+export async function parseCardStatement(file: File): Promise<ParseResult & { bankIds: readonly string[] }> {
+  const p = await parseFile(file);
+  if (!p.card || !p.result) throw new FileError('not_card');
+  return { ...p.result, bankIds: p.bankIds };
 }
 
 export function errorReportCsv(errors: { row: number; code: string }[], label: (code: string) => string) {

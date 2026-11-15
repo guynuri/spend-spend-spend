@@ -4,7 +4,9 @@ import * as XLSX from 'xlsx';
 import { sniffFile } from '../../src/shared/import/sniff';
 import { toGrid } from '../../src/shared/import/grid';
 import { pickParser } from '../../src/shared/import/registry';
-import { guessMapping, mappingValid, parseWithMapping } from '../../src/shared/import/generic';
+import { findProfile, guessMapping, headerSignature, mappingValid, parseWithMapping, type Mapping } from '../../src/shared/import/generic';
+import { dedupeKey } from '../../src/shared/import/dedupe';
+import { FORMAT_PARSERS, PARSER_IDS } from '../../src/shared/import/formats';
 import { BANKS, bankUrl, inferAccount } from '../../src/shared/banks';
 import type { Cell } from '../../src/shared/import/types';
 
@@ -62,16 +64,6 @@ const CASES: { id: string; card?: boolean; aoa: Cell[][]; amounts: number[]; des
     amounts: [-20000, 150025],
     descriptions: ['משיכת מזומן', 'העברה מחשבון'],
     closing: 230025,
-  },
-  {
-    id: 'mizrahi',
-    aoa: [
-      ['פירוט תנועות'],
-      ['תאריך', 'סוג תנועה', 'זכות', 'חובה', 'יתרה בש"ח', 'אסמכתא', 'תאריך ערך'],
-      ['08/10/2026', 'שיק', null, '90.00', '910.00', '3', '08/10/2026'],
-    ],
-    amounts: [-9000],
-    descriptions: ['שיק'],
   },
   {
     id: 'isracard',
@@ -148,6 +140,47 @@ describe('known bank / card layouts', () => {
     }),
   );
 
+  it('unverified (guessed) layouts are not auto-parsed: Mizrahi-like file goes to the Mapper, pre-filled', () => {
+    const g = grid([
+      ['פירוט תנועות'],
+      ['תאריך', 'סוג תנועה', 'זכות', 'חובה', 'יתרה בש"ח', 'אסמכתא', 'תאריך ערך'],
+      ['08/10/2026', 'שיק', null, '90.00', '910.00', '3', '08/10/2026'],
+      ['09/10/2026', 'הפקדה', '50.00', null, '960.00', '4', '09/10/2026'],
+    ]);
+    expect(pickParser(g)).toBeNull();
+    const m = guessMapping(g);
+    expect(m.columns).toMatchObject({ date: 0, type: 1, credit: 2, debit: 3, balance: 4, reference: 5, valueDate: 6 });
+    // no description column: the user points it at "סוג תנועה" in the Mapper
+    expect(mappingValid(m)).toBe(false);
+    const fixed = { ...m, columns: { ...m.columns, description: 1 } };
+    expect(parseWithMapping(g, fixed).rows.map((x) => x.amountMinor)).toEqual([-9000, 5000]);
+  });
+
+  it('card layouts parse but the import route does not accept them', () => {
+    const cards = FORMAT_PARSERS.filter((p) => p.card).map((p) => p.id);
+    expect(cards).toEqual(['isracard', 'max', 'cal']);
+    expect(PARSER_IDS.some((id) => cards.includes(id))).toBe(false);
+    expect(PARSER_IDS).toContain('hapoalim');
+  });
+
+  it('a saved column mapping wins over format detection, so re-import dedupe keys do not change', () => {
+    const g = grid([
+      ['מספר חשבון 12-345-678901'],
+      [],
+      ['תאריך', 'הפעולה', 'פרטים', 'אסמכתא', 'חובה', 'זכות', "יתרה בש''ח", 'תאריך ערך'],
+      ['01/10/2026', 'העברה', 'לבעל הבית', '1001', 3000, null, 7000, '01/10/2026'],
+      ['02/10/2026', 'כרטיס דביט', 'סופר', '1002', 100, null, 6900, '02/10/2026'],
+    ]);
+    // what the Mapper saved before formats existed: description = פרטים, header found two rows lower
+    const saved: Mapping = { headerRow: 0, columns: { date: 0, description: 2, reference: 3, debit: 4, credit: 5, balance: 6, valueDate: 7 }, dateFormat: 'dmy', negate: false };
+    const before = parseWithMapping(g, { ...saved, headerRow: 2 }).rows.map(dedupeKey);
+    const prof = findProfile(g, new Map([[headerSignature(g, 2), saved]]));
+    expect(prof?.mapping.headerRow).toBe(2);
+    expect(parseWithMapping(g, prof!.mapping).rows.map(dedupeKey)).toEqual(before);
+    // the format parser alone would pick another description column, i.e. new keys → duplicates
+    expect(pickParser(g)!.parse(g).rows.map(dedupeKey)).not.toEqual(before);
+  });
+
   it('an unknown layout falls back to the generic mapper (debit/credit with currency suffix)', () => {
     const g = grid([
       ['תאריך', 'אסמכתא', 'תיאור פעולה', 'חובה (₪)', 'זכות (₪)', 'יתרה (₪)'],
@@ -176,6 +209,11 @@ describe('bank catalog & account inference', () => {
     expect(inferAccount(accs, {})).toBeNull();
     expect(inferAccount([...accs, { id: 'd', accountMask: null, bankId: 'leumi' }], { bankIds: ['leumi'] })).toBeNull();
     expect(inferAccount([accs[2]!], {})?.id).toBe('c');
+  });
+  it('never picks an account whose number contradicts the file', () => {
+    expect(inferAccount([{ id: 'a', accountMask: '8901', bankId: null }], { accountMask: '1234' })).toBeNull();
+    expect(inferAccount(accs, { accountMask: '1234', bankIds: ['hapoalim'] })).toBeNull();
+    expect(inferAccount([{ id: 'a', accountMask: null, bankId: 'leumi' }], { accountMask: '1234', bankIds: ['leumi'] })?.id).toBe('a');
   });
   it('bankUrl', () => {
     expect(bankUrl({ bankId: 'leumi' })).toMatch(/^https:\/\//);

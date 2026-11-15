@@ -13,7 +13,7 @@ import { useToast } from '../../components/Toast';
 import { LEDGER_DEPENDENT, QK, useAccounts, useCategoryMap } from '../../lib/queries';
 import { inferAccount } from '../../../shared/banks';
 import { useCanWrite } from '../../lib/session';
-import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
+import { findProfile, mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { IMPORT_CHUNK, type ParseResult } from '../../../shared/import/types';
 import { toWire, type ImportSummary, type PreviewResponse, type PreviewRow, type RowStatus } from '../../../shared/schemas/imports';
 import { Mapper } from './Mapper';
@@ -162,6 +162,8 @@ export function Component() {
     setStep('parsing');
     try {
       const p = await parseFile(file);
+      // Card statements would double count the card lump already in the bank file (PLAN D-10).
+      if (p.card) throw new FileError('card_file');
       setParsed(p);
       const mask = p.result?.accountMask;
       const inferred = inferAccount(accounts, { accountMask: mask, bankIds: p.bankIds });
@@ -192,38 +194,21 @@ export function Component() {
   };
 
   const proceed = async (p: Parsed, account: string) => {
+    // A mapping the household saved for this header wins over format detection, so re-imports keep
+    // the same description column and dedupe keys.
+    let prof: ReturnType<typeof findProfile> = null;
     try {
-      if (p.result) return void (await runPreview(p.result, account));
-      // generic: reuse a saved profile with the same header signature
-      let m = p.guess!;
-      let sig = p.signature;
-      let used = false;
-      try {
-        const prof = await get<{ profiles: { headerSignature: string; mapping: Mapping }[] }>(`/api/import-profiles?accountId=${account}`);
-        const sigs = new Map(prof.profiles.map((x) => [x.headerSignature, x.mapping]));
-        const { headerSignature } = await import('../../../shared/import/generic');
-        for (let i = 0; i < Math.min(40, p.grid.length); i++) {
-          const s = headerSignature(p.grid, i);
-          const saved = sigs.get(s);
-          if (saved) {
-            // The profile applies at the row where its header was found; keep its own signature.
-            m = { ...saved, headerRow: i };
-            sig = s;
-            used = true;
-            break;
-          }
-        }
-      } catch {
-        /* no profiles */
-      }
-      setMapping(m);
-      setProfileUsed(used);
-      setSignature(sig);
-      setStep('map');
-    } catch (e) {
-      setFileError(e instanceof FileError ? e.code : 'unsupported_file');
-      setStep('pick');
+      const r = await get<{ profiles: { headerSignature: string; mapping: Mapping }[] }>(`/api/import-profiles?accountId=${account}`);
+      prof = findProfile(p.grid, new Map(r.profiles.map((x) => [x.headerSignature, x.mapping])));
+    } catch {
+      /* no profiles */
     }
+    if (!prof && p.result) return void (await runPreview(p.result, account));
+    if (prof && p.result) setParsed({ ...p, parserId: 'generic', result: null });
+    setMapping(prof?.mapping ?? p.guess!);
+    setProfileUsed(!!prof);
+    setSignature(prof?.signature ?? p.signature);
+    setStep('map');
   };
 
   const commit = async () => {

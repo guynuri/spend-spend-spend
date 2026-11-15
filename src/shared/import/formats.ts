@@ -93,5 +93,7 @@ const toParser = (f: BankFormat): BankParser => ({
   parse: (grid) => parseFormat(f, grid),
 });
 
-export const FORMAT_PARSERS = FORMATS.map(toParser);
-export const PARSER_IDS = ['otsar-hahayal', 'generic', ...FORMATS.map((f) => f.id)] as [string, ...string[]];
+/** Only verified layouts auto-parse; guesses reach the Mapper pre-filled by the synonym table. */
+export const FORMAT_PARSERS = FORMATS.filter((f) => f.verified).map(toParser);
+/** Parser ids the import route accepts: card statements are refused (PLAN D-10). */
+export const PARSER_IDS = ['otsar-hahayal', 'generic', ...FORMAT_PARSERS.filter((p) => !p.card).map((p) => p.id)] as [string, ...string[]];

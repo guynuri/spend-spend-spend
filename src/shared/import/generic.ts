@@ -66,6 +66,16 @@ export function headerSignature(grid: Grid, headerRow: number): string {
   return (grid[headerRow] ?? []).map((c) => norm(c === null ? '' : String(c))).join('|');
 }
 
+/** A saved mapping whose header signature appears in the first 40 rows, re-anchored at that row. */
+export function findProfile(grid: Grid, profiles: Map<string, Mapping>): { mapping: Mapping; signature: string } | null {
+  for (let i = 0; i < Math.min(40, grid.length); i++) {
+    const signature = headerSignature(grid, i);
+    const saved = profiles.get(signature);
+    if (saved) return { mapping: { ...saved, headerRow: i }, signature };
+  }
+  return null;
+}
+
 export function guessMapping(grid: Grid): Mapping {
   const headerRow = guessHeaderRow(grid);
   const columns = guessColumns(grid[headerRow] ?? []);

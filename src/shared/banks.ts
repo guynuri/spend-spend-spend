@@ -46,13 +46,16 @@ interface InferAccount {
  * bank, else the only account. null = ask the user.
  */
 export function inferAccount<A extends InferAccount>(accounts: A[], file: { accountMask?: string | null; bankIds?: readonly string[] }): A | null {
-  if (file.accountMask) {
-    const hit = accounts.filter((a) => a.accountMask === file.accountMask);
+  const fm = file.accountMask;
+  if (fm) {
+    const hit = accounts.filter((a) => a.accountMask === fm);
     if (hit.length === 1) return hit[0]!;
   }
+  // never guess an account whose own number contradicts the file's
+  const ok = (a: A | undefined) => (a && (!fm || !a.accountMask || a.accountMask === fm) ? a : null);
   if (file.bankIds?.length) {
     const hit = accounts.filter((a) => a.bankId && file.bankIds!.includes(a.bankId));
-    if (hit.length === 1) return hit[0]!;
+    if (hit.length === 1) return ok(hit[0]);
   }
-  return accounts.length === 1 ? accounts[0]! : null;
+  return accounts.length === 1 ? ok(accounts[0]) : null;
 }

@@ -60,7 +60,11 @@ export const otsarParser: BankParser = {
   labelKey: 'import.parsers.otsar',
   // FIBI group banks share one online-banking platform; assumed to share this layout (unverified).
   bankIds: ['otsar', 'fibi', 'massad'],
-  detect: (grid) => headerInfo(grid).score / 8,
+  // Without a description or operation-type column every row would fail; leave such files to the Mapper.
+  detect: (grid) => {
+    const h = headerInfo(grid);
+    return h.cols.description !== undefined || h.cols.type !== undefined ? h.score / 8 : 0;
+  },
   parse(grid) {
     const h = headerInfo(grid);
     const c = h.cols;

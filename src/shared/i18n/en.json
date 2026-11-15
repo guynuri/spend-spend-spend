@@ -463,6 +463,7 @@
     "undoConfirm": "Remove the {{count}} transactions added by this import? Manual entries that were merged return to how they were.",
     "undone": "Undone",
     "fileErrors": {
+      "not_card": "This isn't a card statement we recognize (Isracard, American Express, Max or Cal).",
       "card_file": "This is a credit-card statement. Card imports aren't supported yet: import your bank account file, where the monthly card charge appears.",
       "file_too_large": "The file is larger than 5 MB.",
       "file_type": "Choose an .xlsx, .xls or .csv file.",
