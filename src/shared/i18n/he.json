@@ -23,6 +23,7 @@
     "uncategorizedBadge_one": "תנועה אחת ללא קטגוריה",
     "uncategorizedBadge_two": "{{count}} תנועות ללא קטגוריה",
     "uncategorizedBadge_other": "{{count}} תנועות ללא קטגוריה",
+    "moreBadge": "יש משהו תחת „עוד” שדורש תשומת לב",
     "overBudgetBadge": "חריגה מהתקציב",
     "reviewBadge": "סקירה חודשית מוכנה",
     "upcomingTab": "קרובים",
@@ -76,7 +77,13 @@
   },
   "settings": {
     "title": "הגדרות",
-    "appearance": "תצוגה"
+    "appearance": "תצוגה",
+    "navBar": "סרגל ניווט תחתון",
+    "navBarHint": "בחרו אילו דפים יופיעו סביב כפתור ה־+ בטלפון. כל השאר נמצא תחת „עוד”. נשמר במכשיר הזה.",
+    "navSlot": "מיקום {{n}}",
+    "moveUp": "הזזה למעלה",
+    "moveDown": "הזזה למטה",
+    "navReset": "איפוס לברירת המחדל"
   },
   "pwa": {
     "updateAvailable": "יש גרסה חדשה.",
@@ -258,6 +265,7 @@
     "expense": "הוצאה",
     "income": "הכנסה",
     "description": "תיאור",
+    "noDescription": "ללא תיאור",
     "category": "קטגוריה",
     "notes": "הערות",
     "reference": "אסמכתא",

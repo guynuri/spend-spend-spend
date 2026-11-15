@@ -22,6 +22,7 @@
     "main": "Main navigation",
     "uncategorizedBadge_one": "{{count}} uncategorized transaction",
     "uncategorizedBadge_other": "{{count}} uncategorized transactions",
+    "moreBadge": "Something under More needs attention",
     "overBudgetBadge": "Over budget",
     "reviewBadge": "Monthly review ready",
     "upcomingTab": "Upcoming",
@@ -75,7 +76,13 @@
   },
   "settings": {
     "title": "Settings",
-    "appearance": "Appearance"
+    "appearance": "Appearance",
+    "navBar": "Bottom bar",
+    "navBarHint": "Choose the pages shown around the + button on your phone. Everything else is under More. Saved on this device.",
+    "navSlot": "Position {{n}}",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "navReset": "Reset to default"
   },
   "pwa": {
     "updateAvailable": "An update is available.",
@@ -252,6 +259,7 @@
     "expense": "Expense",
     "income": "Income",
     "description": "Description",
+    "noDescription": "No description",
     "category": "Category",
     "notes": "Notes",
     "reference": "Reference",

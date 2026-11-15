@@ -107,7 +107,7 @@ export function ChapterView({ ch, s }: { ch: Chapter; s: ReviewSnapshot }) {
                 {s.spending.notable.map((n, i) => (
                   <li key={i} className="flex justify-between gap-2 py-2">
                     <span className="min-w-0 truncate">
-                      <DateText date={n.date} format="dayMonth" className="text-muted" /> · <bdi>{n.description}</bdi>
+                      <DateText date={n.date} format="dayMonth" className="text-muted" /> · <bdi>{n.description || n.category || t('ledger.noDescription')}</bdi>
                     </span>
                     <Money minor={n.amountMinor} decimals={0} />
                   </li>
