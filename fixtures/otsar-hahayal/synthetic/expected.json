@@ -1,0 +1,119 @@
+{
+  "otsar_2026-10.xlsx": {
+    "rows": 46,
+    "sumMinor": 150291,
+    "inMinor": 2447300,
+    "outMinor": 2297009,
+    "first": "2026-10-01",
+    "last": "2026-10-30",
+    "closing": {
+      "date": "2026-10-30",
+      "minor": 1384858
+    },
+    "period": {
+      "from": "2026-10-01",
+      "to": "2026-10-31"
+    },
+    "mask": "6789",
+    "errors": 0
+  },
+  "otsar_2026-10.xls": {
+    "rows": 46,
+    "sumMinor": 150291,
+    "inMinor": 2447300,
+    "outMinor": 2297009,
+    "first": "2026-10-01",
+    "last": "2026-10-30",
+    "closing": {
+      "date": "2026-10-30",
+      "minor": 1384858
+    },
+    "period": {
+      "from": "2026-10-01",
+      "to": "2026-10-31"
+    },
+    "mask": "6789",
+    "errors": 0
+  },
+  "otsar_2026-10-15_2026-11-14.xlsx": {
+    "rows": 46,
+    "sumMinor": 37789,
+    "inMinor": 2447300,
+    "outMinor": 2409511,
+    "first": "2026-10-15",
+    "last": "2026-11-14",
+    "closing": {
+      "date": "2026-11-14",
+      "minor": 1858366
+    },
+    "period": {
+      "from": "2026-10-15",
+      "to": "2026-11-14"
+    },
+    "mask": "6789",
+    "errors": 0,
+    "newRowsAfterOctober": 25
+  },
+  "otsar_shifted_header.xlsx": {
+    "rows": 12,
+    "sumMinor": 493608,
+    "inMinor": 1450000,
+    "outMinor": 956392,
+    "first": "2026-10-01",
+    "last": "2026-10-06",
+    "closing": {
+      "date": "2026-10-06",
+      "minor": 1728175
+    },
+    "headerRow": 9,
+    "errors": 0
+  },
+  "broken.xlsx": {
+    "rows": 5,
+    "errors": [
+      {
+        "row": 12,
+        "code": "date_invalid"
+      },
+      {
+        "row": 13,
+        "code": "amount_invalid"
+      },
+      {
+        "row": 14,
+        "code": "amount_invalid"
+      },
+      {
+        "row": 15,
+        "code": "date_invalid"
+      }
+    ]
+  },
+  "html_table.xls": {
+    "rows": 10,
+    "sumMinor": 531921,
+    "inMinor": 1450000,
+    "outMinor": 918079,
+    "first": "2026-10-01",
+    "last": "2026-10-05",
+    "closing": {
+      "date": "2026-10-05",
+      "minor": 1766488
+    },
+    "errors": 0
+  },
+  "generic_bank.csv": {
+    "rows": 33,
+    "sumMinor": 330650,
+    "inMinor": 2447300,
+    "outMinor": 2116650,
+    "first": "2026-10-01",
+    "last": "2026-10-20",
+    "closing": {
+      "date": "2026-10-20",
+      "minor": 1565217
+    },
+    "headerRow": 2,
+    "errors": 0
+  }
+}

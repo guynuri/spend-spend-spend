@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["tests/unit", "e2e", "scripts", "*.config.ts", "vitest.*.ts", "src/shared/import/cpexcel.d.ts"]
+}

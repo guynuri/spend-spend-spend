@@ -1,0 +1,64 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AI payloads (AC13.2) — PII canary > categorize payload carries only scrubbed text, direction, rounded amount and category names 1`] = `
+{
+  "categories": [
+    "Groceries",
+    "Eating out",
+  ],
+  "items": [
+    {
+      "amount": 120,
+      "dir": "out",
+      "i": 0,
+      "text": "SuperShop ref",
+    },
+    {
+      "amount": 10,
+      "dir": "in",
+      "i": 1,
+      "text": "Store",
+    },
+  ],
+}
+`;
+
+exports[`AI payloads (AC13.2) — PII canary > review payload contains aggregates only 1`] = `
+{
+  "budget": {
+    "budgeted": 0,
+    "overLines": [],
+    "withinLimit": 0,
+  },
+  "forecast": null,
+  "goals": [],
+  "income": 1000,
+  "incomeByCategory": [
+    {
+      "amount": 1000,
+      "category": "Salary",
+      "sharePct": 100,
+    },
+  ],
+  "incomePrev": 900,
+  "leftOver": 200,
+  "month": "2026-10",
+  "nextSteps": [
+    "spend_less",
+  ],
+  "savingsRatePct": 20,
+  "score": 60,
+  "scoreChange": 1,
+  "scoreLabel": "fair",
+  "signals": [],
+  "spending": 800,
+  "spendingByCategory": [
+    {
+      "amount": 800,
+      "category": "Groceries",
+      "sharePct": 100,
+    },
+  ],
+  "spendingPrev": 700,
+}
+`;

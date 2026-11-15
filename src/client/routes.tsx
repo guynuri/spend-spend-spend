@@ -1,0 +1,39 @@
+import { createBrowserRouter } from 'react-router';
+import { Layout } from './components/Layout';
+import { NotFound } from './features/common/Placeholder';
+import { SessionGate } from './features/auth/SessionGate';
+import { InvitePage, RecoverPage, SetupPage, SignInPage } from './features/auth/pages';
+
+export const router = createBrowserRouter([
+  { path: '/signin', element: <SignInPage /> },
+  { path: '/setup', element: <SetupPage /> },
+  { path: '/invite', element: <InvitePage /> },
+  { path: '/recover', element: <RecoverPage /> },
+  {
+    element: <SessionGate />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
+          { index: true, lazy: () => import('./features/overview/page') },
+          { path: 'transactions', lazy: () => import('./features/ledger/page') },
+          { path: 'budget', lazy: () => import('./features/budget/page') },
+          { path: 'upcoming', lazy: () => import('./features/upcoming/page') },
+          { path: 'more', lazy: () => import('./features/more/page') },
+          { path: 'forecast', lazy: () => import('./features/forecast/page') },
+          { path: 'recurring', lazy: () => import('./features/recurring/page') },
+          { path: 'accounts', lazy: () => import('./features/accounts/page') },
+          { path: 'categories', lazy: () => import('./features/categories/page') },
+          { path: 'goals', lazy: () => import('./features/goals/page') },
+          { path: 'trends', lazy: () => import('./features/trends/page') },
+          { path: 'review', lazy: () => import('./features/review/page') },
+          { path: 'import', lazy: () => import('./features/import/page') },
+          { path: 'household', lazy: () => import('./features/household/page') },
+          { path: 'admin', lazy: () => import('./features/admin/page') },
+          { path: 'settings', lazy: () => import('./features/settings/page') },
+          { path: '*', element: <NotFound /> },
+        ],
+      },
+    ],
+  },
+]);
