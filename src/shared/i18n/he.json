@@ -75,7 +75,13 @@
   },
   "settings": {
     "title": "הגדרות",
-    "appearance": "תצוגה"
+    "appearance": "תצוגה",
+    "navBar": "סרגל ניווט תחתון",
+    "navBarHint": "בחרו אילו דפים יופיעו סביב כפתור ה־+ בטלפון. כל השאר נמצא תחת „עוד”. נשמר במכשיר הזה.",
+    "navSlot": "מיקום {{n}}",
+    "moveUp": "הזזה למעלה",
+    "moveDown": "הזזה למטה",
+    "navReset": "איפוס לברירת המחדל"
   },
   "pwa": {
     "updateAvailable": "יש גרסה חדשה.",
@@ -257,6 +263,7 @@
     "expense": "הוצאה",
     "income": "הכנסה",
     "description": "תיאור",
+    "noDescription": "ללא תיאור",
     "category": "קטגוריה",
     "notes": "הערות",
     "reference": "אסמכתא",

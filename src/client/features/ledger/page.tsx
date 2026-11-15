@@ -17,6 +17,7 @@ import type { Tx, TxList } from '../../../shared/schemas/ledger';
 import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
+import { TxTitle } from '../../components/TxTitle';
 import { UnsplitCardBanner } from './UnsplitCardBanner';
 import { AiSuggestButton } from '../ai/AiSuggest';
 
@@ -221,7 +222,7 @@ export function Component() {
                         {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={tx.description} />}
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
-                            <bdi>{tx.description}</bdi>
+                            <TxTitle tx={tx} />
                           </div>
                           <div className="flex min-w-0 items-center gap-2">
                             <CategoryLabel tx={tx} />
@@ -260,7 +261,7 @@ export function Component() {
                       <DateText date={tx.date} />
                     </td>
                     <td className="max-w-80 truncate px-3 py-2">
-                      <bdi>{tx.description}</bdi>
+                      <TxTitle tx={tx} />
                     </td>
                     <td className="px-3 py-2">
                       <CategoryLabel tx={tx} />

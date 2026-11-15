@@ -74,7 +74,13 @@
   },
   "settings": {
     "title": "Settings",
-    "appearance": "Appearance"
+    "appearance": "Appearance",
+    "navBar": "Bottom bar",
+    "navBarHint": "Choose the pages shown around the + button on your phone. Everything else is under More. Saved on this device.",
+    "navSlot": "Position {{n}}",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "navReset": "Reset to default"
   },
   "pwa": {
     "updateAvailable": "An update is available.",
@@ -251,6 +257,7 @@
     "expense": "Expense",
     "income": "Income",
     "description": "Description",
+    "noDescription": "No description",
     "category": "Category",
     "notes": "Notes",
     "reference": "Reference",

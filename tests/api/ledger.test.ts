@@ -106,6 +106,14 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
 });
 
 describe('ledger list (AC3.4)', () => {
+  it('lists a just-added row first within its day; description is optional', async () => {
+    const s = await setup();
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) ids.push((await s.add('2026-04-10', -100 - i, i === 4 ? '' : `Same day ${i}`)).id);
+    const r = await json<TxList>('GET', '/api/transactions?from=2026-04-01&to=2026-04-30', { cookie: s.cookie });
+    expect(r.body.items.map((t) => t.id)).toEqual([...ids].reverse());
+    expect(r.body.items[0]!.description).toBe('');
+  });
   it('filters, search normalization, cursor pagination of 50', async () => {
     const s = await setup();
     const stmts = [];
