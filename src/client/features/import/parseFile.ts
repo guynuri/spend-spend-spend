@@ -1,6 +1,6 @@
 import { sniffFile } from '../../../shared/import/sniff';
 import type { FileKind, Grid, ParseResult } from '../../../shared/import/types';
-import type { Mapping } from '../../../shared/import/generic';
+import { findProfile, type Mapping } from '../../../shared/import/generic';
 
 export interface Parsed {
   fileName: string;
@@ -60,6 +60,16 @@ export async function parseCardStatement(file: File): Promise<ParseResult & { ba
   const p = await parseFile(file);
   if (!p.card || !p.result) throw new FileError('not_card');
   return { ...p.result, bankIds: p.bankIds };
+}
+
+/**
+ * The one place that decides how a parsed file continues for an account: a saved mapping for its
+ * header wins over format detection (same description column ⇒ same dedupe keys on re-import).
+ */
+export function decideParse(p: Parsed, profiles: Map<string, Mapping>): { result: ParseResult } | { mapping: Mapping; signature: string | null; profileUsed: boolean } {
+  const prof = findProfile(p.grid, profiles);
+  if (!prof && p.result) return { result: p.result };
+  return { mapping: prof?.mapping ?? p.guess!, signature: prof?.signature ?? p.signature, profileUsed: !!prof };
 }
 
 export function errorReportCsv(errors: { row: number; code: string }[], label: (code: string) => string) {

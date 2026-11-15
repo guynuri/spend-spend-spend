@@ -13,11 +13,11 @@ import { useToast } from '../../components/Toast';
 import { LEDGER_DEPENDENT, QK, useAccounts, useCategoryMap } from '../../lib/queries';
 import { inferAccount } from '../../../shared/banks';
 import { useCanWrite } from '../../lib/session';
-import { findProfile, mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
+import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { IMPORT_CHUNK, type ParseResult } from '../../../shared/import/types';
 import { toWire, type ImportSummary, type PreviewResponse, type PreviewRow, type RowStatus } from '../../../shared/schemas/imports';
 import { Mapper } from './Mapper';
-import { download, errorReportCsv, FileError, parseFile, type Parsed } from './parseFile';
+import { decideParse, download, errorReportCsv, FileError, parseFile, type Parsed } from './parseFile';
 
 const ACCEPT = '.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv';
 const countTiles = (c: Record<RowStatus, number>, errors: number) =>
@@ -108,6 +108,8 @@ export function Component() {
   const [step, setStep] = useState<Step>('pick');
   const [fileError, setFileError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<Parsed | null>(null);
+  // the file as parsed, before a saved mapping may have turned it into a generic import
+  const [orig, setOrig] = useState<Parsed | null>(null);
   const [mapping, setMapping] = useState<Mapping | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [profileUsed, setProfileUsed] = useState(false);
@@ -165,6 +167,7 @@ export function Component() {
       // Card statements would double count the card lump already in the bank file (PLAN D-10).
       if (p.card) throw new FileError('card_file');
       setParsed(p);
+      setOrig(p);
       const mask = p.result?.accountMask;
       const inferred = inferAccount(accounts, { accountMask: mask, bankIds: p.bankIds });
       // an account-number match beats the pre-selection; otherwise the user's pick wins
@@ -185,7 +188,7 @@ export function Component() {
       const { id } = await post<{ id: string }>('/api/accounts', { name: newName.trim(), type: 'checking', bankId: parsed?.bankIds[0] ?? null });
       await qc.invalidateQueries({ queryKey: QK.accounts });
       setAccountId(id);
-      await proceed(parsed!, id);
+      await proceed(orig!, id);
     } catch (e) {
       setApiError(e);
     } finally {
@@ -196,18 +199,22 @@ export function Component() {
   const proceed = async (p: Parsed, account: string) => {
     // A mapping the household saved for this header wins over format detection, so re-imports keep
     // the same description column and dedupe keys.
-    let prof: ReturnType<typeof findProfile> = null;
+    let profiles = new Map<string, Mapping>();
     try {
       const r = await get<{ profiles: { headerSignature: string; mapping: Mapping }[] }>(`/api/import-profiles?accountId=${account}`);
-      prof = findProfile(p.grid, new Map(r.profiles.map((x) => [x.headerSignature, x.mapping])));
+      profiles = new Map(r.profiles.map((x) => [x.headerSignature, x.mapping]));
     } catch {
       /* no profiles */
     }
-    if (!prof && p.result) return void (await runPreview(p.result, account));
-    if (prof && p.result) setParsed({ ...p, parserId: 'generic', result: null });
-    setMapping(prof?.mapping ?? p.guess!);
-    setProfileUsed(!!prof);
-    setSignature(prof?.signature ?? p.signature);
+    const d = decideParse(p, profiles);
+    if ('result' in d) {
+      setParsed(p);
+      return void (await runPreview(d.result, account));
+    }
+    setParsed(p.result ? { ...p, parserId: 'generic', result: null } : p);
+    setMapping(d.mapping);
+    setProfileUsed(d.profileUsed);
+    setSignature(d.signature);
     setStep('map');
   };
 
@@ -338,7 +345,7 @@ export function Component() {
                     {accountOptions}
                   </Select>
                 </Field>
-                <Button disabled={!acc} onClick={() => void proceed(parsed, acc)} data-testid="import-ask-continue">
+                <Button disabled={!acc} onClick={() => void proceed(orig ?? parsed, acc)} data-testid="import-ask-continue">
                   {t('common.next')}
                 </Button>
                 <Field label={t('import.orCreate')} htmlFor="imp-new">
@@ -399,7 +406,9 @@ export function Component() {
                       onChange={(e) => {
                         setAccountId(e.target.value);
                         setAutoPicked(false);
-                        void runPreview(result, e.target.value);
+                        // a recognized layout may meet a saved mapping on the other account: decide again
+                        if (orig && orig.parserId !== 'generic') void proceed(orig, e.target.value);
+                        else void runPreview(result, e.target.value);
                       }}
                       data-testid="import-preview-account"
                     >

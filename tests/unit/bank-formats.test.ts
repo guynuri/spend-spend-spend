@@ -7,6 +7,7 @@ import { pickParser } from '../../src/shared/import/registry';
 import { findProfile, guessMapping, headerSignature, mappingValid, parseWithMapping, type Mapping } from '../../src/shared/import/generic';
 import { dedupeKey } from '../../src/shared/import/dedupe';
 import { FORMAT_PARSERS, PARSER_IDS } from '../../src/shared/import/formats';
+import { decideParse, type Parsed } from '../../src/client/features/import/parseFile';
 import { BANKS, bankUrl, inferAccount } from '../../src/shared/banks';
 import type { Cell } from '../../src/shared/import/types';
 
@@ -178,7 +179,15 @@ describe('known bank / card layouts', () => {
     expect(prof?.mapping.headerRow).toBe(2);
     expect(parseWithMapping(g, prof!.mapping).rows.map(dedupeKey)).toEqual(before);
     // the format parser alone would pick another description column, i.e. new keys → duplicates
-    expect(pickParser(g)!.parse(g).rows.map(dedupeKey)).not.toEqual(before);
+    const p = pickParser(g)!;
+    expect(p.parse(g).rows.map(dedupeKey)).not.toEqual(before);
+    // decideParse (upload and preview account switch): account without profile → format result;
+    // account with the saved mapping → that mapping, same keys as before
+    const parsed: Parsed = { fileName: 'f.xlsx', fileHash: '', kind: 'xlsx', grid: g, parserId: p.id, bankIds: p.bankIds!, card: false, result: p.parse(g), guess: null, signature: null };
+    expect('result' in decideParse(parsed, new Map())).toBe(true);
+    const d = decideParse(parsed, new Map([[headerSignature(g, 2), saved]]));
+    expect('mapping' in d && d.profileUsed).toBe(true);
+    if ('mapping' in d) expect(parseWithMapping(g, d.mapping).rows.map(dedupeKey)).toEqual(before);
   });
 
   it('an unknown layout falls back to the generic mapper (debit/credit with currency suffix)', () => {
