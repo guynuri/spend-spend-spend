@@ -94,25 +94,28 @@ export const SEED_RULES: SeedRule[] = [
 
 export { CARD_ISSUER_PATTERNS } from '../../shared/domain/constants';
 
-type Stmt<S> = (table: string, row: Record<string, string | number | null>) => S;
+export interface SeedRows {
+  categories: Record<string, string | number | null>[];
+  rules: Record<string, string | number | null>[];
+}
 
-/** Statements that create the default categories and seed rules for a household. */
-export function defaultCategoryStatements<S>(insert: Stmt<S>, locale: Locale) {
+/** Rows for the default categories and seed rules of a household (inserted set-based). */
+export function defaultCategoryRows(locale: Locale): SeedRows {
   const ids = new Map<string, string>();
-  const stmts: S[] = [];
-  DEFAULT_CATEGORIES.forEach((d, i) => {
+  const categories = DEFAULT_CATEGORIES.map((d, i) => {
     const id = newId();
     ids.set(d.key, id);
-    stmts.push(insert('categories', { id, name: locale === 'he' ? d.he : d.en, kind: d.kind, grp: d.grp, is_debt: d.isDebt ? 1 : 0, system_key: d.systemKey ?? null, icon: d.icon, sort: i }));
+    return { id, name: locale === 'he' ? d.he : d.en, kind: d.kind, grp: d.grp, is_debt: d.isDebt ? 1 : 0, system_key: d.systemKey ?? null, icon: d.icon, sort: i };
   });
   const now = nowIso();
   const seen = new Set<string>();
+  const rules: SeedRows['rules'] = [];
   for (const r of SEED_RULES) {
     const pat = norm(r.pattern);
     const k = `${r.field}|${r.match}|${pat}|${r.sign}`;
     if (seen.has(k)) continue;
     seen.add(k);
-    stmts.push(insert('category_rules', { id: newId(), field: r.field, match: r.match, pattern_norm: pat, sign: r.sign, category_id: ids.get(r.cat)!, source: 'seed', created_at: now }));
+    rules.push({ id: newId(), field: r.field, match: r.match, pattern_norm: pat, sign: r.sign, category_id: ids.get(r.cat)!, source: 'seed', created_at: now });
   }
-  return { stmts, ids };
+  return { categories, rules };
 }

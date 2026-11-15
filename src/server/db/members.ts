@@ -22,5 +22,7 @@ export function householdMembers(db: D1Database, householdId: string) {
     setAi: (enabled: boolean, userId: string, provider: string) => g.setAi(householdId, enabled, userId, provider),
     setSampleData: (v: boolean) => g.setSampleData(householdId, v).run(),
     setSampleDataStmt: (v: boolean) => g.setSampleData(householdId, v),
+    /** Deletes the household row; memberships/invites cascade, sessions lose it (SET NULL). */
+    deleteHouseholdStmt: () => g.deleteHouseholdStmt(householdId),
   };
 }

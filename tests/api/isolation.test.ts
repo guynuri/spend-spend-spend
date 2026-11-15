@@ -91,6 +91,16 @@ export const ROUTES: Record<string, Cls> = {
   'DELETE /api/planned/:id': 'tenant',
   'GET /api/forecast': 'tenant',
   'GET /api/upcoming': 'tenant',
+  'GET /api/goals': 'tenant',
+  'POST /api/goals': 'tenant',
+  'PATCH /api/goals/:id': 'tenant',
+  'DELETE /api/goals/:id': 'tenant',
+  'POST /api/goals/:id/contributions': 'tenant',
+  'DELETE /api/goals/:id/contributions/:cid': 'tenant',
+  'GET /api/health-score': 'tenant',
+  'GET /api/dashboard': 'tenant',
+  'POST /api/household/reset': 'tenant',
+  'DELETE /api/household': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';

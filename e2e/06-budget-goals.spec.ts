@@ -45,3 +45,33 @@ test('trends: tapping a category opens the filtered ledger', async ({ page }) =>
   await page.goto('/trends?tab=months');
   await expect(page.locator('.recharts-surface').first()).toBeVisible();
 });
+
+test('add a goal and a contribution; progress and milestones update', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/goals');
+  await page.getByTestId('goal-add').click();
+  await page.getByTestId('goal-name').fill('Emergency fund E2E');
+  await page.getByTestId('goal-target').fill('10000');
+  await page.getByTestId('goal-date').fill('2027-12-31');
+  await page.getByTestId('goal-save').click();
+  const card = page.getByTestId('goal-card').filter({ hasText: 'Emergency fund E2E' });
+  await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  await card.getByTestId('goal-contribute').click();
+  await page.getByTestId('contribution-amount').fill('5000');
+  await page.getByTestId('contribution-save').click();
+  await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+  await expect(card.getByTestId('goal-milestones')).toContainText('50%');
+  await page.goto('/');
+  await expect(page.getByTestId('dash-goals')).toContainText('Emergency fund E2E');
+});
+
+test('overview shows the cards in order and the health explanation', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/');
+  const ids = ['forecast-card', 'pnl-card', 'insights', 'budget-card', 'dash-goals', 'health-card'];
+  const tops: number[] = [];
+  for (const id of ids) tops.push((await page.getByTestId(id).first().boundingBox())!.y);
+  expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+  await page.getByTestId('health-open').click();
+  await expect(page.getByTestId('health-sheet')).toContainText(/Savings rate/);
+});

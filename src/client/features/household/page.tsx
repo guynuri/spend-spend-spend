@@ -10,6 +10,7 @@ import { DateText } from '../../components/DateText';
 import { useIsOwner, useMe } from '../../lib/session';
 import { useApiMutation } from '../../lib/mutate';
 import { useSignOut } from '../auth/useSignOut';
+import { DataControl } from './DataControl';
 import type { Role } from '../../../shared/schemas/me';
 
 const ROLES: Role[] = ['owner', 'member', 'viewer'];
@@ -242,6 +243,7 @@ export function Component() {
       <Members />
       {owner && <Invites />}
       <SessionCard />
+      {owner && <DataControl />}
     </div>
   );
 }

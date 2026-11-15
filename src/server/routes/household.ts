@@ -10,6 +10,8 @@ import { sendInviteEmail } from '../lib/email';
 import { roleSchema } from '../../shared/schemas/me';
 import { buildDemoFor, demoInsertStatements } from '../seed/insert';
 import { householdToday } from '../lib/today';
+import { KEEP_ON_RESET, TENANT_TABLES } from '../db/tables';
+import { householdInitStatements } from '../db/householdInit';
 
 export const householdRoutes = tenantGroup();
 
@@ -122,4 +124,28 @@ householdRoutes.post('/sample-data', requireOwner, async (c) => {
   const data = await buildDemoFor(db, householdToday(hh), loc);
   await db.batch([...demoInsertStatements(db, data), db.members.setSampleDataStmt(true), db.audit(userId, 'household.sample_data', 'household', hh.id)]);
   return c.json({ ok: true, transactions: data.transactions.length }, 201);
+});
+
+/** Owner: remove every tenant row (audit history kept), re-seed defaults (AC15.1). Typed confirmation = household name. */
+householdRoutes.post('/reset', requireOwner, async (c) => {
+  const b = await body(c, z.object({ confirm: z.string().max(80) }).strict());
+  const { db, hh, userId } = tctx(c);
+  if (b.confirm.trim() !== hh.name.trim()) throw new HttpError(400, 'confirm_mismatch', 'Confirmation text does not match');
+  await db.batch([
+    ...TENANT_TABLES.filter((t) => !KEEP_ON_RESET.includes(t)).map((t) => db.stmt(`DELETE FROM ${t} WHERE household_id = ?1`)),
+    // eslint-disable-next-line no-restricted-syntax -- re-seeding defaults uses the same helper as household creation
+    ...householdInitStatements(c.env.DB, hh.id, hh.locale === 'he' ? 'he' : 'en'),
+    db.members.setSampleDataStmt(false),
+    db.audit(userId, 'household.reset', 'household', hh.id),
+  ]);
+  return c.json({ ok: true });
+});
+
+/** Owner: delete the household and all its data. */
+householdRoutes.delete('/', requireOwner, async (c) => {
+  const b = await body(c, z.object({ confirm: z.string().max(80) }).strict());
+  const { db, hh } = tctx(c);
+  if (b.confirm.trim() !== hh.name.trim()) throw new HttpError(400, 'confirm_mismatch', 'Confirmation text does not match');
+  await db.batch([...TENANT_TABLES.map((t) => db.stmt(`DELETE FROM ${t} WHERE household_id = ?1`)), db.members.deleteHouseholdStmt()]);
+  return c.json({ ok: true });
 });

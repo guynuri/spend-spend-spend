@@ -147,3 +147,21 @@ Format: date · milestone · what · why · alternatives rejected.
   (account, card lump) for card charges, in any status — so dismissed suggestions never return.
 - Recurring amounts are entered as positive numbers; the sign follows the kind (income +,
   payment and card charge −).
+
+## D-R12 · 2026-11-15 · M7 · Goals, health, dashboard
+- `GET /api/dashboard` reuses `computeBudget`, `forecastFor` and `healthBundle` (same functions
+  as the dedicated pages; AC5.4 is asserted by an API test). It issues ≈ 31 D1 statements —
+  within the Workers Free limit of 50 per invocation, above the "≤ 20" convention of PLAN §4.2,
+  accepted because it replaces 5+ separate page requests. Health liquid balances for all six
+  month-ends are computed in a single query.
+- Default categories and seed rules are now inserted with two set-based statements (they were
+  ~70 single-row inserts, which risked the per-invocation query limit at household creation).
+- Health "goal progress" counts dated goals (active or completed) as of each month end;
+  recommendation 4's ₪ figure is Σ (required monthly − recent pace) over behind goals.
+- `under_budget` uses the last complete month's total spending in budgeted categories vs the
+  total of their limits (as §10.7 says), computed inside the health bundle.
+- "Clear sample data" = household reset (confirmation sheet; the server still requires the
+  household name, which the banner supplies). Reset/delete in Household settings require typing
+  the name. Reset keeps `audit_log` and re-seeds default categories/rules.
+- Bug fixed: after a successful passkey registration the client re-inspected the spent invite
+  link, which counted toward the 5-per-15-minute token-failure limit (found by e2e).

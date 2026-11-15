@@ -60,6 +60,8 @@ async function side(label: 'A' | 'B'): Promise<Side> {
   const cats = (await json<{ categories: { id: string; kind: string }[] }>('GET', '/api/categories', { cookie })).body.categories.filter((c) => c.kind === 'expense');
   ids.recurring = (await post('/api/recurring', { name: `Rec${tag}`, kind: 'expense', amountMinor: 100, cadence: 'monthly', dayOfMonth: 5, anchorDate: today, accountId: ids.account, categoryId: ids.category, matchText: `rec${tag}` })).id as string;
   ids.planned = (await post('/api/planned', { name: `Plan${tag}`, amountMinor: 100, date: today, accountId: ids.account, notes: `n${tag}` })).id as string;
+  ids.goal = (await post('/api/goals', { name: `Goal${tag}`, targetMinor: 1000, description: `d${tag}` })).id as string;
+  ids.contribution = (await post(`/api/goals/${ids.goal}/contributions`, { date: today, amountMinor: 10, note: `c${tag}` })).id as string;
   const wire = { row: 1, date: today, valueDate: null, amountMinor: -777, description: `Imported${tag}`, reference: `R${tag}`.slice(0, 40), operationType: null, balanceMinor: 5000, occ: 1 };
   ids.import = (await post('/api/imports', { accountId: ids.account, parserId: 'generic', fileName: `f${tag}.csv`, fileHash: 'b'.repeat(64), period: null, rowsTotal: 1, rowsError: 0, closingBalance: { date: today, minor: 5000 } })).importId as string;
   await post(`/api/imports/${ids.import}/rows`, { rows: [wire] });
@@ -84,6 +86,7 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
     if (pattern.startsWith('/api/imports/')) return s.ids.import!;
     if (pattern.startsWith('/api/recurring/')) return param === 'dueDate' ? new Date().toISOString().slice(0, 10) : s.ids.recurring!;
     if (pattern.startsWith('/api/planned/')) return s.ids.planned!;
+    if (pattern.startsWith('/api/goals/')) return param === 'cid' ? s.ids.contribution! : s.ids.goal!;
     throw new Error(`no id mapping for ${pattern} :${param}`);
   };
   const bodyFor = (key: string, sideL: 'A' | 'B'): unknown => {
@@ -128,6 +131,10 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         return { name: 'x', amountMinor: 1, date: today, accountId: s.ids.account };
       case 'PATCH /api/planned/:id':
         return { name: 'y', matchedTxId: s.ids.tx };
+      case 'PATCH /api/goals/:id':
+        return { name: 'g' };
+      case 'POST /api/goals/:id/contributions':
+        return { date: today, amountMinor: 5 };
       case 'PUT /api/budgets':
         return { month: today.slice(0, 7), items: [{ categoryId: s.ids.category, limitMinor: 100 }] };
       case 'PUT /api/import-profiles':

@@ -59,6 +59,9 @@ export async function prepPage(page: Page, locale: 'en' | 'he' = 'en') {
 export async function registerVia(page: Page, url: string, displayName: string | null, who: string) {
   const auth = await addAuthenticator(page);
   await page.goto(url);
+  const ready = page.getByTestId('create-passkey').or(page.getByTestId('link-invalid'));
+  await expect(ready).toBeVisible();
+  if (await page.getByTestId('link-invalid').isVisible()) throw new Error(`invite link rejected: ${await page.getByTestId('link-invalid').textContent()}`);
   if (displayName !== null) await page.getByTestId('display-name').fill(displayName);
   await page.getByTestId('create-passkey').click();
   await expect(page.getByTestId('app-root').or(page.getByTestId('auth-layout').getByRole('heading'))).toBeVisible();

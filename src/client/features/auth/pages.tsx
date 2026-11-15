@@ -33,8 +33,8 @@ function useAfterAuth() {
   const qc = useQueryClient();
   const nav = useNavigate();
   return async (to = '/') => {
-    // The link is spent: never re-inspect it (a failed inspect counts against the token rate limit).
-    qc.removeQueries({ queryKey: ['inspect'] });
+    // The link is spent: keep the cached inspection (staleTime ∞) so it is never re-inspected —
+    // a failed inspect counts against the token rate limit. Only the profile is refreshed.
     await qc.invalidateQueries({ queryKey: ['me'] });
     nav(to, { replace: true });
   };

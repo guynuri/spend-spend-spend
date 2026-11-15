@@ -119,7 +119,9 @@
     "too_many_rows": "Too many rows in one request.",
     "row_invalid": "A row in the file is invalid.",
     "import_closed": "This import was already finished.",
-    "not_empty": "This household already has data."
+    "not_empty": "This household already has data.",
+    "confirm_mismatch": "The confirmation text doesn't match.",
+    "not_expense_category": "Only expense categories can have a budget."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -637,5 +639,146 @@
     "cancel": "Cancel it",
     "empty": "No planned expenses.",
     "cardHint": "Paid by card: added to that card's next charge."
+  },
+  "dashboard": {
+    "title": "Overview",
+    "latestData": "Latest data: {{month}}. Import a newer statement to see this month.",
+    "pnl": "This month",
+    "income": "Income",
+    "expenses": "Spending",
+    "net": "Left over",
+    "expected": "Expected by month end",
+    "actions": "What needs attention",
+    "noActions": "Nothing needs attention right now.",
+    "budget": "Budget",
+    "upcoming": "Next payments",
+    "goals": "Goals",
+    "health": "Health score",
+    "seeAll": "See all",
+    "noUpcoming": "Nothing scheduled.",
+    "goalsSummary": "{{saved}} saved of {{target}}",
+    "goalsBehind_one": "{{count}} behind",
+    "goalsBehind_other": "{{count}} behind",
+    "noGoals": "No goals yet."
+  },
+  "onboarding": {
+    "title": "Let's get started",
+    "body": "Upload your bank statement, or explore the app with realistic sample data first.",
+    "upload": "Upload a statement",
+    "sample": "Load sample data",
+    "sampleBody": "A fictional household with 6 months of data. You can clear it in one tap.",
+    "banner": "You're looking at sample data.",
+    "clear": "Clear sample data",
+    "clearConfirm": "Remove all sample data? Your categories and settings are kept.",
+    "needOwner": "Ask an owner of this household to upload the first statement."
+  },
+  "health": {
+    "title": "Health score",
+    "labels": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "fair": "Fair",
+      "needs_attention": "Needs attention"
+    },
+    "change": "{{change}} vs last month",
+    "noScore": "Not enough data yet",
+    "noScoreBody": "The score needs at least two of: income history, a liquid account, budgets, or a goal with a date.",
+    "subs": {
+      "savings": "Savings rate",
+      "debt": "Debt load",
+      "cushion": "Safety cushion",
+      "budget": "Budget adherence",
+      "goals": "Goal progress"
+    },
+    "inputs": {
+      "savings": "Left over ÷ income, last 3 complete months",
+      "debt": "Debt payments ÷ income, last 3 complete months",
+      "cushion": "Months of spending covered by available money",
+      "budget": "Budgeted categories within their limit this month",
+      "goals": "Dated goals on track"
+    },
+    "weight": "weight {{weight}}",
+    "formula": "Each part turns a measured value into 0–100 points along a published curve. The score is the weighted average of the parts that have data (weights 25 / 20 / 25 / 15 / 15).",
+    "curves": {
+      "savings": "−10 %→0 · 0→30 · 10 %→65 · 20 %→90 · 30 %→100",
+      "debt": "0→100 · 15 %→90 · 30 %→65 · 36 %→50 · 50 %→15 · 60 %→0",
+      "cushion": "0→0 · 1 month→25 · 3→70 · 6→100",
+      "budget": "0→0 · 50 %→40 · 80 %→80 · 100 %→100",
+      "goals": "0→0 · 100 %→100"
+    },
+    "trend": "Last 6 months",
+    "recommendations": "What would raise it",
+    "gain": "+{{points}} points",
+    "recs": {
+      "spend_less": "Spend {{amount}} less per month (5 % of income)",
+      "fix_budget": "Bring over-limit categories back to their limits ({{amount}} over)",
+      "add_cushion": "Add one month of spending ({{amount}}) to available money",
+      "goals_on_track": "Put goals back on track ({{amount}} more per month)",
+      "reduce_debt": "Reduce debt payments by 10 % ({{amount}} per month)"
+    }
+  },
+  "insights": {
+    "stale_data": "Your latest data is from {{date}}. Import a recent statement.",
+    "no_forecast_account": "Mark your main account “Include in the forecast” to see where the month is heading.",
+    "low_point_negative": "Your balance may drop to {{amount}} on {{date}}.",
+    "low_point_buffer": "Your balance may drop to {{amount}} on {{date}}, below your {{buffer}} buffer.",
+    "uncategorized_one": "{{count}} transaction needs a category",
+    "uncategorized_other": "{{count}} transactions need a category",
+    "card_unsplit": "{{amount}} in card charges isn't split into categories",
+    "budget_over": "{{category}} is over budget by {{amount}}",
+    "budget_over_more_one": "{{count}} more category over budget",
+    "budget_over_more_other": "{{count}} more categories over budget",
+    "category_spike": "{{category}} is heading for {{amount}} — well above the usual {{avg}}",
+    "pace_more": "You've spent {{pct}} more than last month by day {{day}}",
+    "pace_less": "You've spent {{pct}} less than last month by day {{day}}",
+    "recurring_suggested_one": "{{count}} possible recurring payment to confirm",
+    "recurring_suggested_other": "{{count}} possible recurring payments to confirm",
+    "payment_soon": "{{label}}: {{amount}} on {{date}}",
+    "goal_behind": "{{goal}} is behind — {{amount}} a month gets it back on track",
+    "goal_milestone": "{{goal}} reached {{pct}}",
+    "savings_good": "You saved {{pct}} of your income in {{month}}",
+    "under_budget": "You stayed within your budget in {{month}}"
+  },
+  "goals": {
+    "title": "Goals",
+    "add": "Add goal",
+    "name": "Name",
+    "target": "Target",
+    "targetDate": "Target date (optional)",
+    "start": "Already saved",
+    "priority": "Priority",
+    "saved": "Saved",
+    "remaining": "Remaining",
+    "required": "Needed per month",
+    "status": {
+      "completed": "Completed",
+      "on_track": "On track",
+      "behind": "Behind",
+      "no_deadline": "No deadline"
+    },
+    "contribute": "Add contribution",
+    "contribution": "Amount",
+    "note": "Note",
+    "contributions": "Contributions",
+    "pace": "Recent pace: {{amount}} / month",
+    "projected": "At this pace: {{date}}",
+    "milestones": "Milestones",
+    "summary": "{{active}} active · {{behind}} behind",
+    "allocation": "Committed to goals",
+    "allocationLine": "{{committed}} per month of an average {{surplus}} left over",
+    "noSurplus": "No monthly surplus in the last 3 months.",
+    "empty": "No goals yet. Add one to start tracking.",
+    "archive": "Archive",
+    "deleteConfirm": "Delete this goal and its contributions?",
+    "explain": "Required per month = remaining ÷ months left (rounded up). On track = saved ≥ the straight-line target for today − 5 % of the goal."
+  },
+  "data": {
+    "title": "Data control",
+    "reset": "Reset all data",
+    "resetBody": "Removes every transaction, account, budget, goal and import. Categories return to the defaults.",
+    "delete": "Delete household",
+    "deleteBody": "Deletes the household and all of its data for every member. This cannot be undone.",
+    "typeName": "Type the household name to confirm: {{name}}",
+    "done": "Done"
   }
 }

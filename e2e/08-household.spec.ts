@@ -48,7 +48,26 @@ test('super-admin creates a second household; its owner sees an empty, separate 
   await prepPage(p);
   await registerVia(p, new URL(link).pathname + new URL(link).hash, 'Sara Second', 'owner2');
   await expect(p.getByTestId('household-name')).toHaveText('Second family');
+  // empty household: onboarding, none of the first household's data
+  await expect(p.getByTestId('onboarding')).toBeVisible();
+  const tx = await p.request.get('/api/transactions?from=2000-01-01&to=2100-01-01');
+  expect((await tx.json()).summary.count).toBe(0);
   await p.goto('/household');
   await expect(p.getByTestId('member-row')).toHaveCount(1);
+  // sample data fills every page; the banner offers to clear it (AC14.1)
+  await p.goto('/');
+  await p.getByTestId('onboarding-sample').click();
+  await expect(p.getByTestId('sample-banner')).toBeVisible();
+  await expect(p.getByTestId('forecast-card')).toBeVisible();
+  for (const r of ['/transactions', '/budget', '/upcoming', '/recurring', '/goals', '/trends']) {
+    await p.goto(r);
+    await expect(p.getByTestId('app-root')).toBeVisible();
+    await expect(p.getByTestId('sample-banner')).toBeVisible();
+  }
+  await p.getByTestId('sample-clear').click();
+  await p.getByTestId('sample-clear-confirm-ok').click();
+  await expect(p.getByTestId('sample-banner')).toBeHidden();
+  await p.goto('/');
+  await expect(p.getByTestId('onboarding')).toBeVisible();
   await ctx.close();
 });

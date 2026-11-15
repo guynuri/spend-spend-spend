@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T01:46Z — currently: M7 goals, health, dashboard (starting)
+Last updated: 2026-11-15T01:59Z — currently: M8 monthly review (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -67,8 +67,18 @@ Last updated: 2026-11-15T01:46Z — currently: M7 goals, health, dashboard (star
   (13), `tests/unit/forecast.test.ts` (15, every §10.3 edge case + exact-sum invariant + AC7.2),
   `tests/api/forecast.test.ts` (6), e2e `05-forecast.spec.ts`.
 
+- **M7** — goals (target/date/start, contributions, required monthly, on track/behind, pace +
+  projected finish, 25/50/75/100 % milestones, auto-complete, summary + capital allocation);
+  health score (5 sub-scores on published curves, null rules + re-normalization, labels, change,
+  6-month trend, top-3 recommendations with point gains) with explain sheet; action items (all
+  §10.7 rules, severity order, ≤ 8); Overview dashboard in AC11.1 order with "latest data"
+  banner; onboarding (upload / sample data), persistent sample-data banner with clear; reset /
+  delete household (typed confirmation). AC8.x, AC9.x, AC11.x, AC14.1, AC15.1:
+  `tests/unit/health-goals.test.ts` (50), `tests/api/dashboard.test.ts` (5), e2e
+  `06-budget-goals.spec.ts`, `08-household.spec.ts` (sample data + clear).
+
 ## In progress
-- M7 — goals, health score, dashboard, action items, onboarding.
+- M8 — monthly review.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -88,7 +98,7 @@ Last updated: 2026-11-15T01:46Z — currently: M7 goals, health, dashboard (star
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M6: `npm run verify` green — unit 79, api 48, e2e 34.
+- M7: `npm run verify` green — unit 129, api 53, e2e 36.
 
 ## Security checklist
 - (ticked in M10)
