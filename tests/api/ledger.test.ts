@@ -72,6 +72,23 @@ describe('categories (AC3.2)', () => {
     // re-adding a hidden default restores it
     expect((await json<{ id: string }>('POST', '/api/categories/suggestions/phone', { cookie: s.cookie })).body.id).toBe(phone.id);
   });
+
+  it('hide unused is refused before any transaction; old default names still match; custom name of a hidden category restores it', async () => {
+    const s = await setup();
+    expect((await json<{ error: { code: string } }>('POST', '/api/categories/hide-unused', { cookie: s.cookie })).body.error.code).toBe('no_history');
+    expect((await json<{ hasTransactions: boolean }>('GET', '/api/categories/suggestions', { cookie: s.cookie })).body.hasTransactions).toBe(false);
+    const loans = s.cat('Loan repayments');
+    expect((await json('PATCH', `/api/categories/${loans}`, { cookie: s.cookie, body: { name: 'Loans' } })).status).toBe(200);
+    const sug = (await json<{ suggestions: { key: string }[] }>('GET', '/api/categories/suggestions', { cookie: s.cookie })).body.suggestions;
+    expect(sug.some((x) => x.key === 'loans')).toBe(false);
+    expect((await json<{ id: string }>('POST', '/api/categories/suggestions/loans', { cookie: s.cookie })).body.id).toBe(loans);
+    const c = await json<{ id: string }>('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Hobby', kind: 'expense' } });
+    expect((await json('PATCH', `/api/categories/${c.body.id}`, { cookie: s.cookie, body: { archived: true } })).status).toBe(200);
+    const again = await json<{ id: string }>('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Hobby', kind: 'expense' } });
+    expect(again.status).toBe(200);
+    expect(again.body.id).toBe(c.body.id);
+    expect((await json('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Hobby', kind: 'expense' } })).status).toBe(409);
+  });
 });
 
 describe('transactions, rules, learning (AC3.3, AC3.5)', () => {

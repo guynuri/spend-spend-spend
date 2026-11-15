@@ -4,7 +4,8 @@ import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { del, patch, post } from '../../api';
 import { Badge, Button, Card, CardTitle, Checkbox, cx, ErrorState, Field, IconButton, Input, PageHeader, Select, Spinner } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
-import { AddCategorySheet } from '../../components/AddCategorySheet';
+import { AddCategorySheet, useCategorySuggestions } from '../../components/AddCategorySheet';
+import { ConfirmSheet } from '../../components/Confirm';
 import { CategorySelect } from '../../components/CategorySelect';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
@@ -144,6 +145,8 @@ export function Component() {
   const [editing, setEditing] = useState<Category | null>(null);
   const [adding, setAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [confirmHide, setConfirmHide] = useState(false);
+  const hasTx = useCategorySuggestions().data?.hasTransactions;
   const [addingRule, setAddingRule] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
   const delRule = useApiMutation((id: string) => del(`/api/rules/${id}`), { invalidate: [['rules']] });
@@ -171,8 +174,8 @@ export function Component() {
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         {hiddenCount > 0 ? <Checkbox label={t('categories.showHidden', { count: hiddenCount })} checked={showHidden} onChange={setShowHidden} testId="show-hidden" /> : <span />}
-        {canWrite && (
-          <Button size="sm" variant="ghost" busy={hideUnused.isPending} onClick={() => hideUnused.mutate(undefined)} data-testid="hide-unused">
+        {canWrite && hasTx && (
+          <Button size="sm" variant="ghost" busy={hideUnused.isPending} onClick={() => setConfirmHide(true)} data-testid="hide-unused">
             {t('categories.hideUnused')}
           </Button>
         )}
@@ -260,6 +263,16 @@ export function Component() {
         {editing && <CategoryForm cat={editing} onDone={() => setEditing(null)} />}
       </Sheet>
       <AddCategorySheet open={adding} onOpenChange={setAdding} />
+      <ConfirmSheet
+        open={confirmHide}
+        onOpenChange={setConfirmHide}
+        title={t('categories.hideUnused')}
+        body={t('categories.hideUnusedBody')}
+        confirmLabel={t('categories.hideUnused')}
+        danger={false}
+        testId="hide-unused-confirm"
+        onConfirm={() => hideUnused.mutateAsync(undefined).then(() => undefined)}
+      />
       <Sheet open={addingRule} onOpenChange={setAddingRule} title={t('categories.addRule')}>
         {addingRule && <RuleForm onDone={() => setAddingRule(false)} />}
       </Sheet>

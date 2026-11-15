@@ -4,7 +4,7 @@ import { HttpError, body, notFound } from '../http';
 import { categoryCreate, categoryPatch, type Category } from '../../shared/schemas/ledger';
 import { newId } from '../lib/crypto';
 import type { Ctx } from '../types';
-import { DEFAULT_CATEGORIES, categoryRow, seedRuleRows } from '../seed/defaults';
+import { DEFAULT_CATEGORIES, categoryRow, defaultNames, seedRuleRows } from '../seed/defaults';
 
 export const categoryRoutes = tenantGroup();
 
@@ -41,9 +41,13 @@ const usageSql = (cat: string) => `(SELECT COUNT(*) FROM transactions WHERE hous
 /** Catalog of default categories the household does not have (active): one tap to add. */
 categoryRoutes.get('/suggestions', async (c) => {
   const { db } = tctx(c);
-  const active = new Set((await db.all<{ name: string }>('SELECT name FROM categories WHERE household_id = ?1 AND archived = 0')).map((r) => r.name));
-  const suggestions = DEFAULT_CATEGORIES.filter((d) => !d.systemKey && !active.has(d.en) && !active.has(d.he)).map((d) => ({ key: d.key, en: d.en, he: d.he, kind: d.kind }));
-  return c.json({ suggestions });
+  const [rows, tx] = await Promise.all([
+    db.all<{ name: string }>('SELECT name FROM categories WHERE household_id = ?1 AND archived = 0'),
+    db.first('SELECT 1 FROM transactions WHERE household_id = ?1 LIMIT 1'),
+  ]);
+  const active = new Set(rows.map((r) => r.name));
+  const suggestions = DEFAULT_CATEGORIES.filter((d) => !d.systemKey && !defaultNames(d).some((n) => active.has(n))).map((d) => ({ key: d.key, en: d.en, he: d.he, kind: d.kind }));
+  return c.json({ suggestions, hasTransactions: !!tx });
 });
 
 /** Adds a catalog category (with its built-in rules), or restores it when archived. */
@@ -51,7 +55,7 @@ categoryRoutes.post('/suggestions/:key', async (c) => {
   const d = DEFAULT_CATEGORIES.find((x) => x.key === c.req.param('key') && !x.systemKey);
   if (!d) throw notFound();
   const { db } = tctx(c);
-  const hit = await db.first<{ id: string }>('SELECT id FROM categories WHERE household_id = ?1 AND name IN (?2, ?3)', d.en, d.he);
+  const hit = await db.first<{ id: string }>('SELECT id FROM categories WHERE household_id = ?1 AND name IN (SELECT value FROM json_each(?2))', JSON.stringify(defaultNames(d)));
   if (hit) {
     await db.run('UPDATE categories SET archived = 0 WHERE household_id = ?1 AND id = ?2', hit.id);
     return c.json({ id: hit.id });
@@ -78,9 +82,13 @@ categoryRoutes.post('/suggestions/:key', async (c) => {
   return c.json({ id: row.id }, 201);
 });
 
-/** Declutter: archives (never deletes) categories with no transactions, budgets, plans or own rules. */
+/**
+ * Declutter: archives (never deletes) categories with no transactions, budgets, plans or own rules.
+ * Refused before the first transaction: built-in rules have not had a chance to use anything yet.
+ */
 categoryRoutes.post('/hide-unused', async (c) => {
   const { db } = tctx(c);
+  if (!(await db.first('SELECT 1 FROM transactions WHERE household_id = ?1 LIMIT 1'))) throw new HttpError(409, 'no_history', 'No transactions yet');
   const r = await db.run(
     `UPDATE categories SET archived = 1 WHERE household_id = ?1 AND archived = 0 AND system_key IS NULL
        AND ${usageSql('categories.id')} = 0
@@ -92,7 +100,11 @@ categoryRoutes.post('/hide-unused', async (c) => {
 categoryRoutes.post('/', async (c) => {
   const b = await body(c, categoryCreate);
   const { db } = tctx(c);
-  const dup = await db.first('SELECT id FROM categories WHERE household_id = ?1 AND name = ?2', b.name);
+  const dup = await db.first<{ id: string; archived: number }>('SELECT id, archived FROM categories WHERE household_id = ?1 AND name = ?2', b.name);
+  if (dup?.archived) {
+    await db.run('UPDATE categories SET archived = 0 WHERE household_id = ?1 AND id = ?2', dup.id);
+    return c.json({ id: dup.id });
+  }
   if (dup) throw new HttpError(409, 'name_taken', 'Name already used');
   const id = newId();
   const max = await db.first<{ m: number }>('SELECT COALESCE(MAX(sort), 0) AS m FROM categories WHERE household_id = ?1');

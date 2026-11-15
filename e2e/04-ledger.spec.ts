@@ -31,7 +31,7 @@ test('add manual transactions; categorizing one learns and categorizes the rest,
   await expect(rows).toHaveCount(3);
   await rows.first().click();
   const sheet = page.getByTestId('tx-sheet');
-  await sheet.getByTestId('tx-category').selectOption({ index: 14 });
+  await sheet.getByTestId('tx-category').selectOption({ label: 'Eating out' });
   await expect(page.getByTestId('toast').filter({ hasText: /2 more categorized/ })).toBeVisible();
   await closeSheet(page, 'tx-sheet');
   await page.getByTestId('ledger-search').fill('cafe roma e2e');
@@ -62,7 +62,7 @@ test('undo of a learned categorization reverts the others', async ({ page }) => 
   await page.goto('/transactions?q=undo+me+e2e');
   for (const a of ['10', '11']) await addTx(page, a, 'Undo Me E2E');
   await page.getByTestId('tx-row').first().click();
-  await page.getByTestId('tx-sheet').getByTestId('tx-category').selectOption({ index: 15 });
+  await page.getByTestId('tx-sheet').getByTestId('tx-category').selectOption({ label: 'Leisure' });
   await page.getByTestId('toast-action').click();
   await closeSheet(page, 'tx-sheet');
   await page.goto('/transactions?q=undo+me+e2e&uncategorized=1');
@@ -76,9 +76,9 @@ test('split a card charge into categories', async ({ page }) => {
   await page.getByTestId('tx-row').filter({ hasText: 'ISRACARD E2E' }).first().click();
   await page.getByTestId('tx-split').click();
   const lines = page.getByTestId('split-line');
-  await lines.nth(0).locator('select').selectOption({ index: 13 });
+  await lines.nth(0).locator('select').selectOption({ label: 'Groceries' });
   await lines.nth(0).locator('input').fill('600');
-  await lines.nth(1).locator('select').selectOption({ index: 14 });
+  await lines.nth(1).locator('select').selectOption({ label: 'Home' });
   await lines.nth(1).locator('input').fill('300');
   await expect(page.getByTestId('split-save')).toBeDisabled();
   await lines.nth(1).locator('input').fill('400');
@@ -94,7 +94,7 @@ test('bulk categorize and CSV export', async ({ page }) => {
   for (const a of ['5', '6']) await addTx(page, a, `Bulk E2E ${a}`);
   await page.getByTestId('ledger-select').click();
   for (const r of await page.getByTestId('tx-row').all()) await r.click();
-  await page.getByTestId('bulk-category').selectOption({ index: 16 });
+  await page.getByTestId('bulk-category').selectOption({ label: 'Health' });
   await page.getByTestId('bulk-apply').click();
   await expect(page.getByTestId('toast').filter({ hasText: /2 transactions updated/ })).toBeVisible();
   const res = await page.request.get('/api/transactions/export.csv?q=bulk+e2e');

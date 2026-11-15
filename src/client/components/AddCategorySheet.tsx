@@ -16,12 +16,16 @@ interface Suggestion {
   kind: Kind;
 }
 
+/** Catalog suggestions (+ whether the household has any transaction yet); shared by the categories page. */
+export const useCategorySuggestions = (enabled = true) =>
+  useQuery({ queryKey: ['categories', 'suggestions'], queryFn: () => get<{ suggestions: Suggestion[]; hasTransactions: boolean }>('/api/categories/suggestions'), enabled });
+
 /** Add a category: one tap from the suggested catalog, or a custom name. */
 export function AddCategorySheet({ open, onOpenChange, kinds = ['expense', 'income', 'transfer'], onAdded }: { open: boolean; onOpenChange: (v: boolean) => void; kinds?: Kind[]; onAdded?: (id: string) => void }) {
   const { t, i18n } = useTranslation();
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Kind>(kinds[0]!);
-  const sq = useQuery({ queryKey: ['categories', 'suggestions'], queryFn: () => get<{ suggestions: Suggestion[] }>('/api/categories/suggestions'), enabled: open });
+  const sq = useCategorySuggestions(open);
   const done = (r: { id: string }) => {
     setName('');
     onOpenChange(false);

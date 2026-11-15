@@ -56,6 +56,7 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/categories/suggestions': 'tenant',
   'POST /api/categories/suggestions/:key': 'tenant',
   'POST /api/categories/hide-unused': 'tenant',
+  'GET /api/ai/uncategorized': 'tenant',
   'GET /api/rules': 'tenant',
   'POST /api/rules': 'tenant',
   'PATCH /api/rules/:id': 'tenant',

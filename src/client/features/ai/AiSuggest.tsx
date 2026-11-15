@@ -9,7 +9,9 @@ import { CategorySelect } from '../../components/CategorySelect';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT } from '../../lib/queries';
-import { useCanWrite, useMe } from '../../lib/session';
+import { useQuery } from '@tanstack/react-query';
+import { get } from '../../api';
+import { useCanWrite } from '../../lib/session';
 import { useAiStatus } from './useAi';
 
 interface Suggestion {
@@ -32,7 +34,9 @@ export function AiSuggestButton() {
   const toast = useToast();
   const canWrite = useCanWrite();
   const s = useAiStatus();
-  const uncategorized = useMe()?.badges.uncategorized;
+  const on0 = !!s.data?.available && !!s.data.enabled;
+  // All dates, like /categorize (the nav badge counts 60 days); under 'transactions' so ledger writes refresh it.
+  const uncategorized = useQuery({ queryKey: ['transactions', 'uncategorized-all'], queryFn: () => get<{ count: number }>('/api/ai/uncategorized'), enabled: canWrite && on0 }).data?.count;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<(Suggestion & { on: boolean })[] | null>(null);
   const [err, setErr] = useState<unknown>(null);
@@ -54,7 +58,7 @@ export function AiSuggestButton() {
       setOpen(false);
     },
   });
-  if (!canWrite || !s.data?.available || !s.data.enabled || uncategorized === 0) return null;
+  if (!canWrite || !on0 || uncategorized === 0) return null;
   const on = (items ?? []).filter((i) => i.on).length;
   const setOn = (k: number | null, v: boolean) => setItems((xs) => xs!.map((x, j) => (k === null || j === k ? { ...x, on: v } : x)));
   return (

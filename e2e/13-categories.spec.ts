@@ -4,8 +4,6 @@ import { ensureAdmin, signIn } from './auth';
 test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ browser }) => ensureAdmin(browser));
 
-const H = { 'X-MZ': '1' };
-
 test('categories: add from the catalog or a custom name; hide unused ones', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/categories');
@@ -21,6 +19,7 @@ test('categories: add from the catalog or a custom name; hide unused ones', asyn
   await expect(page.getByTestId('category-chip').filter({ hasText: 'E2E beans' })).toBeVisible();
 
   await page.getByTestId('hide-unused').click();
+  await page.getByTestId('hide-unused-confirm-ok').click();
   await expect(page.getByTestId('show-hidden')).toBeVisible();
   await expect(page.getByTestId('category-chip').filter({ hasText: 'E2E beans' })).toHaveCount(0);
   await page.getByTestId('show-hidden').check();
@@ -29,9 +28,12 @@ test('categories: add from the catalog or a custom name; hide unused ones', asyn
 
 test('AI suggestions: review sheet with reason, approve all, apply', async ({ page }) => {
   await signIn(page, 'admin');
-  const acc = (await (await page.request.post('/api/accounts', { headers: H, data: { name: 'E2E AI', type: 'checking' } })).json()) as { id: string };
+  await page.goto('/transactions');
+  const H = { 'x-mz': '1', origin: new URL(page.url()).origin };
+  const acc = ((await (await page.request.get('/api/accounts')).json()) as { accounts: { id: string }[] }).accounts[0]!;
   const date = new Date().toISOString().slice(0, 10);
-  expect((await page.request.post('/api/transactions', { headers: H, data: { date, amountMinor: 4200, direction: 'out', description: 'Zzyzx Gadgets', accountId: acc.id } })).ok()).toBe(true);
+  const tx = await page.request.post('/api/transactions', { headers: H, data: { date, amountMinor: 4200, direction: 'out', description: 'Zzyzx Gadgets', accountId: acc.id } });
+  expect(tx.ok(), await tx.text()).toBe(true);
   expect((await page.request.post('/api/ai/consent', { headers: H, data: { enabled: true } })).ok()).toBe(true);
   try {
     await page.goto('/transactions?uncategorized=1');

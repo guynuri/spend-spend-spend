@@ -5,7 +5,7 @@
 import { addDays, addMonths, clampDay, daysInMonth, monthOf } from '../../shared/dates';
 import { normKey } from '../../shared/normalize';
 import type { Locale } from '../../shared/money';
-import { DEFAULT_CATEGORIES } from './defaults';
+import { DEFAULT_CATEGORIES, defaultNames } from './defaults';
 
 type Row = Record<string, string | number | null>;
 export interface DemoData {
@@ -35,7 +35,7 @@ function mulberry32(seed: number) {
 export function categoryKeyMap(cats: { id: string; name: string; system_key: string | null }[]) {
   const m = new Map<string, string>();
   for (const d of DEFAULT_CATEGORIES) {
-    const hit = cats.find((c) => (d.systemKey && c.system_key === d.systemKey) || c.name === d.en || c.name === d.he);
+    const hit = cats.find((c) => (d.systemKey && c.system_key === d.systemKey) || defaultNames(d).includes(c.name));
     if (hit) m.set(d.key, hit.id);
   }
   return m;

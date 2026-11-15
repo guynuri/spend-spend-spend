@@ -14,7 +14,12 @@ export interface DefaultCategory {
   icon: string;
   /** Not seeded: offered in the "add category" catalog instead (keeps new households short). */
   extra?: true;
+  /** Earlier default names, still matched for households created with them. */
+  aliases?: string[];
 }
+
+/** Every name a household may have this default under. */
+export const defaultNames = (d: DefaultCategory) => [d.en, d.he, ...(d.aliases ?? [])];
 
 export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: 'salary', en: 'Salary', he: 'משכורת', kind: 'income', grp: null, icon: 'briefcase' },
@@ -22,7 +27,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: 'other_income', en: 'Other income', he: 'הכנסות אחרות', kind: 'income', grp: null, icon: 'plus-circle' },
   { key: 'rent', en: 'Rent', he: 'שכר דירה', kind: 'expense', grp: 'fixed', icon: 'home' },
   { key: 'mortgage', en: 'Mortgage', he: 'משכנתא', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'landmark', extra: true },
-  { key: 'loans', en: 'Loan repayments', he: 'החזרי הלוואות', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'banknote' },
+  { key: 'loans', en: 'Loan repayments', he: 'החזרי הלוואות', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'banknote', aliases: ['Loans', 'הלוואות'] },
   { key: 'utilities', en: 'Municipal tax & utilities', he: 'ארנונה וחשבונות', kind: 'expense', grp: 'fixed', icon: 'zap' },
   { key: 'phone', en: 'Phone & internet', he: 'טלפון ואינטרנט', kind: 'expense', grp: 'fixed', icon: 'smartphone' },
   { key: 'insurance', en: 'Insurance', he: 'ביטוחים', kind: 'expense', grp: 'fixed', icon: 'shield' },

@@ -66,7 +66,14 @@ aiRoutes.post('/consent', requireOwner, async (c) => {
   return c.json({ ok: true });
 });
 
-const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional(), reason: z.string().max(120).optional() }));
+const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional(), reason: z.string().transform((x) => x.slice(0, 120)).optional() }));
+
+/** All-time count of what /categorize can look at (the nav badge only covers 60 days). */
+aiRoutes.get('/uncategorized', async (c) => {
+  const { db } = tctx(c);
+  const r = await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm <> ''");
+  return c.json({ count: r?.n ?? 0 });
+});
 
 aiRoutes.post('/categorize', async (c) => {
   const { db } = tctx(c);
@@ -82,7 +89,14 @@ aiRoutes.post('/categorize', async (c) => {
   const { payload, keys } = buildCategorizePayload(rows, cats.map((x) => x.name));
   if (!payload.items.length) return c.json({ suggestions: [] });
   const p = await gate(c, 'categorize');
-  const res = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload }), schema: catOut, maxTokens: 1600, temperature: 0 }));
+  // Batches of 20 keep each reply (with reasons) well inside maxTokens; one reserved call per request.
+  const res = { data: [] as z.infer<typeof catOut>, tokensIn: 0, tokensOut: 0 };
+  for (let k = 0; k < payload.items.length; k += 20) {
+    const part = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload, items: payload.items.slice(k, k + 20) }), schema: catOut, maxTokens: 1600, temperature: 0 }));
+    res.data.push(...part.data);
+    res.tokensIn += part.tokensIn;
+    res.tokensOut += part.tokensOut;
+  }
   await recordTokensStmt(db, 'categorize', res.tokensIn, res.tokensOut).run();
   const byName = new Map(cats.map((x) => [norm(x.name), x.id]));
   const byKey = new Map(rows.map((r) => [r.key, r]));

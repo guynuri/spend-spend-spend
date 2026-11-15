@@ -32,6 +32,13 @@ describe('AI opt-in, limits, features (AC12.3, AC13.1–13.4)', () => {
     expect(s.body.suggestions.some((x) => /bit|paybox/i.test(x.description))).toBe(false);
     const all = await DB.prepare("SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL").bind(o.householdId).first<{ n: number }>();
     expect(all!.n).toBeGreaterThan(0);
+    const unc = (await json<{ count: number }>('GET', '/api/ai/uncategorized', { cookie: o.cookie })).body.count;
+    expect(unc).toBeGreaterThan(0);
+    expect(unc).toBeLessThanOrEqual(all!.n);
+    // sample data adds only the catalog categories it uses
+    const names = (await DB.prepare('SELECT name FROM categories WHERE household_id = ?1').bind(o.householdId).all<{ name: string }>()).results.map((r) => r.name);
+    expect(names).toContain('Car');
+    expect(names).not.toContain('Pets');
     if (s.body.suggestions.length) {
       const a = await json<{ updated: number }>('POST', '/api/ai/categorize/apply', { cookie: o.cookie, body: { items: s.body.suggestions.map((x) => ({ key: x.key, categoryId: x.categoryId, direction: x.direction })) } });
       expect(a.body.updated).toBeGreaterThan(0);
