@@ -126,7 +126,7 @@ describe('action items (§10.7, AC11.2)', () => {
   });
 });
 
-import { buildReview, notableTransactions, trend } from '../../src/shared/domain/review';
+import { buildReview, finalSummary, notableTransactions, trend } from '../../src/shared/domain/review';
 describe('review builder (§10.8)', () => {
   it('trend, notable transactions, commentary keys, chips', () => {
     expect([trend(106, 100), trend(94, 100), trend(103, 100), trend(5, 0), trend(0, 0)]).toEqual(['up', 'down', 'flat', 'flat', 'flat']);
@@ -150,5 +150,17 @@ describe('review builder (§10.8)', () => {
     expect(r.cashflow.commentary.key).toBe('review.c.cashflow.negative');
     expect(r.wrapup.headline.key).toBe('review.h.good_up');
     expect(r.goals.items[0]!.milestones).toEqual([50]);
+    // final summary: deterministic wins / focus / numbered actions from the snapshot alone
+    const f = finalSummary(r);
+    expect(f.savingsRate).toBeCloseTo(-0.2);
+    expect(f.wins.map((w) => w.key)).toEqual(['review.fin.win.score_up', 'review.fin.win.budgets', 'review.fin.win.milestone']);
+    expect(f.wins[2]!.params).toEqual({ name: 'g', pct: 0.5 });
+    expect(f.focus.map((w) => w.key)).toEqual(['review.fin.focus.net', 'review.fin.focus.spending_up']);
+    expect(f.focus[0]!.params.netMinor).toBe(200);
+    expect(f.actions.map((a) => a.key)).toEqual(['review.fin.act.next_review']);
+    const over = finalSummary({ ...r, budget: { ...r.budget, total: 1, ok: 0, lines: [{ name: 'x', spentMinor: 150, limitMinor: 100, overMinor: 50 }] }, wrapup: { ...r.wrapup, nextSteps: [{ key: 'savings', gain: 2, amountMinor: 10 } as never] } });
+    expect(over.focus[1]).toEqual({ key: 'review.fin.focus.over', params: { name: 'x', overMinor: 50 } });
+    expect(over.actions.map((a) => a.key)).toEqual(['health.recs.savings', 'review.fin.act.over', 'review.fin.act.next_review']);
+    expect(over.actions[0]!.gain).toBe(2);
   });
 });

@@ -242,7 +242,7 @@ authRoutes.get('/me', requireSession, async (c) => {
   if (!user) throw new HttpError(401, 'unauthorized', 'Sign in required');
   let active: MeResponse['active'] = null;
   let role: MeResponse['role'] = null;
-  let badges: MeResponse['badges'] = { uncategorized: 0, overBudget: false };
+  let badges: MeResponse['badges'] = { uncategorized: 0, overBudget: false, reviewDue: null };
   const m = households.find((h) => h.id === s.activeHouseholdId);
   if (m) {
     const h = await g.getHousehold(m.id);

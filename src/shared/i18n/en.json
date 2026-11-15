@@ -23,6 +23,7 @@
     "uncategorizedBadge_one": "{{count}} uncategorized transaction",
     "uncategorizedBadge_other": "{{count}} uncategorized transactions",
     "overBudgetBadge": "Over budget",
+    "reviewBadge": "Monthly review ready",
     "upcomingTab": "Upcoming",
     "categories": "Categories"
   },
@@ -792,6 +793,8 @@
   "review": {
     "title": "Monthly review",
     "history": "Past reviews",
+    "ready": "Ready to review",
+    "notReviewed": "Not reviewed",
     "none": "No completed reviews yet.",
     "start": "Review {{month}}",
     "draft": "Draft",
@@ -800,9 +803,13 @@
     "step": "Step {{n}} of {{total}}",
     "back": "Back",
     "next": "Next",
-    "toWrapup": "Skip to wrap-up",
+    "toWrapup": "Skip to final summary",
     "complete": "Complete review",
     "completeDone": "Review saved.",
+    "dueTitle": "Your {{month}} review is ready",
+    "dueBody": "The month has ended. Take a few minutes to see how it went and what to do next.",
+    "dueOpen": "Open review",
+    "dueDismiss": "Not now",
     "open": "Open",
     "chapters": {
       "summary": "Summary",
@@ -811,7 +818,7 @@
       "budget": "Budget",
       "goals": "Goals",
       "cashflow": "Cash flow & upcoming",
-      "wrapup": "Wrap-up"
+      "wrapup": "Final summary"
     },
     "chips": {
       "score_up": "Health score up",
@@ -823,9 +830,11 @@
     "byCategory": "By category",
     "adherence": "{{ok}} of {{total}} budgeted categories within limit",
     "savingsRate": "Savings rate",
+    "score": "Health score",
     "forecastNow": "Forecast for this month",
     "wins": "Wins",
     "watch": "Watch list",
+    "focus": "Areas to focus on",
     "nextSteps": "Next steps",
     "ruleBased": "Written by rules from your numbers.",
     "noItems": "Nothing here this month.",
@@ -879,6 +888,31 @@
       "needs_attention_up": "Needs attention ({{score}}), but improving.",
       "needs_attention_down": "Needs attention ({{score}}) — a harder month.",
       "needs_attention_flat": "Needs attention ({{score}})."
+    },
+    "fin": {
+      "win": {
+        "net": "You ended the month {{net}} ahead.",
+        "savings": "You saved {{pct}} of your income.",
+        "score_up": "Your health score rose {{change}} points.",
+        "spending_down": "Spending dropped {{pct}} from the month before.",
+        "budgets": "Every budgeted category stayed within its limit.",
+        "milestone": "{{name}} reached {{pct}} of its target.",
+        "income_up": "Income grew {{pct}}."
+      },
+      "focus": {
+        "net": "Spending exceeded income by {{net}}.",
+        "over": "{{name}} went {{over}} over budget.",
+        "spending_up": "Spending rose {{pct}} from the month before.",
+        "goal": "{{name}} is behind schedule.",
+        "low_savings": "You kept only {{pct}} of your income.",
+        "top_cat": "{{name}} was your biggest expense ({{pct}} of spending)."
+      },
+      "act": {
+        "over": "Plan {{name}} to stay under {{limit}} next month.",
+        "goal": "Set aside {{amount}} a month for {{name}}.",
+        "set_budget": "Set budgets for your top spending categories.",
+        "next_review": "Import next month's statements and review it when the month ends."
+      }
     }
   },
   "ai": {
@@ -910,9 +944,11 @@
     "agree": "Turn on",
     "consentedOn": "Turned on {{date}}",
     "usage": "Used today: {{categorize}} / {{cLimit}} categorization, {{review}} / {{rLimit}} reviews",
-    "writeReview": "Write commentary with AI",
+    "writeReview": "Interpret with AI",
+    "rewriteReview": "Interpret again with AI",
     "writing": "Writing…",
     "aiTag": "AI-written",
+    "interpretation": "AI interpretation",
     "disclaimer": "General information only, not financial advice.",
     "failed": "AI couldn't write commentary right now; the rule-based text is shown.",
     "enableHint": "Enable AI in Settings to get written commentary.",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { json, ownerSetup } from './helpers';
+import { DB, json, ownerSetup } from './helpers';
 import { CHAPTERS, type ReviewSnapshot } from '../../src/shared/domain/review';
 
 describe('monthly review (AC12.1–12.2)', () => {
@@ -33,5 +33,24 @@ describe('monthly review (AC12.1–12.2)', () => {
     expect(again.body.snapshot.spending.totalMinor).toBe(s.spending.totalMinor);
     expect((await json<{ reviews: unknown[] }>('GET', '/api/reviews', { cookie: o.cookie })).body.reviews).toHaveLength(2);
     expect((await json('GET', '/api/reviews/2026-13', { cookie: o.cookie })).status).toBe(400);
+  });
+
+  it('a review becomes due automatically once a month ends (computed on read); complete or dismiss clears it', async () => {
+    const o = await ownerSetup();
+    await json('POST', '/api/household/sample-data', { cookie: o.cookie });
+    type List = { defaultMonth: string; due: string | null; available: string[] };
+    const due = async () => (await json<List>('GET', '/api/reviews', { cookie: o.cookie })).body;
+    const badge = async () => (await json<{ badges: { reviewDue: string | null } }>('GET', '/api/me', { cookie: o.cookie })).body.badges.reviewDue;
+    const l = await due();
+    expect(l.available[0]).toBe(l.defaultMonth);
+    expect(l.available[0]! < new Date().toISOString().slice(0, 7)).toBe(true); // never the running month
+    expect(l.due).toBeNull(); // the demo's last month ships completed
+    await DB.prepare('DELETE FROM reviews WHERE month = ?1').bind(l.defaultMonth).run();
+    expect((await due()).due).toBe(l.defaultMonth);
+    expect(await badge()).toBe(l.defaultMonth);
+    expect((await json('POST', `/api/reviews/${l.defaultMonth}/dismiss`, { cookie: o.cookie })).status).toBe(200);
+    expect((await due()).due).toBeNull();
+    expect(await badge()).toBeNull();
+    expect((await json<{ status: string }>('GET', `/api/reviews/${l.defaultMonth}`, { cookie: o.cookie })).body.status).toBe('draft');
   });
 });

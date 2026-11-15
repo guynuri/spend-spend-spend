@@ -14,6 +14,20 @@ export function defaultReviewMonth(base: BaseFacts): MonthStr {
   return lastCompleteMonths(base.complete, 1)[0] ?? addMonths(monthOf(base.today), -1);
 }
 
+/**
+ * Months whose review is available, newest first: data-complete months (see completeMonths) whose calendar
+ * month has ended. Computed on read, so a review appears automatically once a month ends — no cron.
+ */
+export const availableReviewMonths = (base: BaseFacts): MonthStr[] => base.complete.filter((m) => m < monthOf(base.today)).reverse();
+
+/** The newest available month whose review is neither completed nor dismissed (nav badge, overview card, alerts); else null. */
+export async function reviewDue(q: TenantDb, base: BaseFacts): Promise<MonthStr | null> {
+  const m = availableReviewMonths(base)[0];
+  if (!m) return null;
+  const r = await q.first<{ status: string; dismissed_at: string | null }>('SELECT status, dismissed_at FROM reviews WHERE household_id = ?1 AND month = ?2', m);
+  return r && (r.status === 'completed' || r.dismissed_at) ? null : m;
+}
+
 /** Builds the language-neutral review snapshot for month M (PLAN §10.8). */
 export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: MonthStr, baseIn?: BaseFacts): Promise<ReviewSnapshot> {
   const base = baseIn ?? (await loadBase(q, hh));
