@@ -4,25 +4,44 @@ import { ensureAdmin, signIn } from './auth';
 test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ browser }) => ensureAdmin(browser));
 
-test('set a budget inline; the status colour follows', async ({ page }) => {
+test('add a budget from the sheet; the status colour follows; one-time limit applies to its month only', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/budget?month=2026-10');
-  const line = page.getByTestId('budget-line').filter({ hasText: 'Groceries' });
-  await expect(line).toHaveAttribute('data-status', 'none');
-  await line.getByTestId('limit-edit').click();
-  await line.getByTestId('limit-input').fill('10');
-  await line.getByTestId('limit-save').click();
-  await expect(page.getByTestId('budget-line').filter({ hasText: 'Groceries' })).toHaveAttribute('data-status', 'over');
-  await expect(page.getByTestId('budget-line').filter({ hasText: 'Groceries' }).getByRole('progressbar').locator('div').first()).toHaveClass(/bg-bad/);
-  const l2 = page.getByTestId('budget-line').filter({ hasText: 'Groceries' });
-  await l2.getByTestId('limit-edit').click();
-  await l2.getByTestId('limit-input').fill('100000');
-  await l2.getByTestId('limit-save').click();
-  await expect(page.getByTestId('budget-line').filter({ hasText: 'Groceries' })).toHaveAttribute('data-status', 'on_pace');
+  const groceries = () => page.getByTestId('budget-line').filter({ hasText: 'Groceries' });
+  await page.getByTestId('budget-add').click();
+  await page.getByTestId('budget-category').selectOption({ label: 'Groceries' });
+  await page.getByTestId('limit-input').fill('10');
+  await page.getByTestId('limit-save').click();
+  await expect(groceries()).toHaveAttribute('data-status', 'over');
+  await expect(groceries().getByRole('progressbar').locator('div').first()).toHaveClass(/bg-bad/);
+  await expect(groceries()).toContainText('Monthly');
+  await groceries().getByTestId('limit-edit').click();
+  await page.getByTestId('limit-input').fill('100000');
+  await page.getByTestId('limit-save').click();
+  await expect(groceries()).toHaveAttribute('data-status', 'on_pace');
   await expect(page.getByTestId('budget-summary')).toContainText(/1 on pace/);
+  // one-time override for October only
+  await groceries().getByTestId('limit-edit').click();
+  await page.getByTestId('limit-input').fill('10');
+  await page.getByTestId('budget-once').click();
+  await page.getByTestId('limit-save').click();
+  await expect(groceries()).toHaveAttribute('data-one-time', 'true');
+  await expect(groceries()).toHaveAttribute('data-status', 'over');
+  await page.getByTestId('month-next').click();
+  await expect(groceries()).toHaveAttribute('data-one-time', 'false');
+  await page.getByTestId('month-prev').click();
+  await groceries().getByTestId('limit-edit').click();
+  await page.getByTestId('limit-remove').click();
+  await expect(groceries()).toHaveAttribute('data-one-time', 'false');
+  await expect(groceries()).toHaveAttribute('data-status', 'on_pace');
   // the limit applies from October on; September stays unbudgeted
   await page.getByTestId('month-prev').click();
-  await expect(page.getByTestId('budget-line').filter({ hasText: 'Groceries' })).toHaveAttribute('data-status', 'none');
+  await page.getByTestId('budget-list-unbudgeted').getByTestId('see-all').click();
+  await expect(page).toHaveURL(/list=unbudgeted/);
+  await expect(page.getByTestId('budget-list-sheet').getByTestId('budget-line').filter({ hasText: 'Groceries' })).toHaveAttribute('data-status', 'none');
+  await page.goBack();
+  await expect(page.getByTestId('budget-list-sheet')).toBeHidden();
+  await expect(page.getByTestId('budget-month')).toContainText('September');
 });
 
 test('unsplit card banner links to the card charges', async ({ page }) => {

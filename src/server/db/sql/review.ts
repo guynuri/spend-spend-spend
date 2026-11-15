@@ -1,5 +1,4 @@
 import { addMonths, monthEnd, monthOf, monthStart, type MonthStr } from '../../../shared/dates';
-import { lastCompleteMonths } from '../../../shared/domain/common';
 import { buildReview, type ReviewSnapshot } from '../../../shared/domain/review';
 import type { TenantDb } from '../tenant';
 import type { HouseholdRow } from '../rows';
@@ -9,9 +8,23 @@ import { forecastFor } from './forecast';
 import { healthBundle } from './health';
 import { computeInsights } from './insights';
 
-/** Default review month: last complete month (else the previous calendar month). */
+/** Default review month: newest available month (ended + data-complete), else the previous calendar month. Never the running month. */
 export function defaultReviewMonth(base: BaseFacts): MonthStr {
-  return lastCompleteMonths(base.complete, 1)[0] ?? addMonths(monthOf(base.today), -1);
+  return availableReviewMonths(base)[0] ?? addMonths(monthOf(base.today), -1);
+}
+
+/**
+ * Months whose review is available, newest first: data-complete months (see completeMonths) whose calendar
+ * month has ended. Computed on read, so a review appears automatically once a month ends — no cron.
+ */
+export const availableReviewMonths = (base: BaseFacts): MonthStr[] => base.complete.filter((m) => m < monthOf(base.today)).reverse();
+
+/** The newest available month whose review is neither completed nor dismissed (nav badge, overview card, alerts); else null. */
+export async function reviewDue(q: TenantDb, base: BaseFacts): Promise<MonthStr | null> {
+  const m = availableReviewMonths(base)[0];
+  if (!m) return null;
+  const r = await q.first<{ status: string; dismissed_at: string | null }>('SELECT status, dismissed_at FROM reviews WHERE household_id = ?1 AND month = ?2', m);
+  return r && (r.status === 'completed' || r.dismissed_at) ? null : m;
 }
 
 /** Builds the language-neutral review snapshot for month M (PLAN §10.8). */

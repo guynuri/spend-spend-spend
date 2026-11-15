@@ -14,7 +14,8 @@ export interface MeResponse {
   active: { id: string; name: string; currency: string; timezone: string; hasSampleData: boolean; aiEnabled: boolean; today: string } | null;
   role: Role | null;
   features: { ai: boolean };
-  badges: { uncategorized: number; overBudget: boolean };
+  /** reviewDue: month (YYYY-MM) whose monthly review is ready and not yet completed/dismissed. */
+  badges: { uncategorized: number; overBudget: boolean; reviewDue: string | null };
 }
 
 export const patchMeSchema = z

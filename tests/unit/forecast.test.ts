@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baselineDaily, computeForecast, type ForecastInput } from '../../src/shared/domain/forecast';
+import { baselineDaily, computeForecast, recurringTwin, type ForecastInput } from '../../src/shared/domain/forecast';
 import type { RecItem } from '../../src/shared/domain/recurring';
 
 const item = (p: Partial<RecItem>): RecItem => ({
@@ -141,5 +141,20 @@ describe('forecast (§10.3, AC7.1–7.4)', () => {
     expect(computeForecast(base({ asOf: '2026-11-01' })).confidence).toBe('medium');
     expect(computeForecast(base({ completeMonths: 2 })).confidence).toBe('medium');
     expect(computeForecast(base({ completeMonths: 0 })).confidence).toBe('low');
+  });
+});
+
+describe('recurringTwin: a one-time planned item that duplicates a recurring payment', () => {
+  const items = [
+    { name: 'Netflix', kind: 'expense' as const, amountMinor: 5490, status: 'active' },
+    { name: 'Salary', kind: 'income' as const, amountMinor: 1500000, status: 'active' },
+    { name: 'Gym', kind: 'expense' as const, amountMinor: 20000, status: 'paused' },
+  ];
+  it('matches by name or amount within 5 %, same direction, active only', () => {
+    expect(recurringTwin({ name: 'netflix', amountMinor: 100, income: false }, items)?.name).toBe('Netflix');
+    expect(recurringTwin({ name: 'Bonus', amountMinor: 1520000, income: true }, items)?.name).toBe('Salary');
+    expect(recurringTwin({ name: 'Bonus', amountMinor: 1520000, income: false }, items)).toBeNull();
+    expect(recurringTwin({ name: 'Gym', amountMinor: 20000, income: false }, items)).toBeNull();
+    expect(recurringTwin({ name: 'Birthday gift', amountMinor: 123400, income: false }, items)).toBeNull();
   });
 });

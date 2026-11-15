@@ -14,6 +14,7 @@ import { LEDGER_DEPENDENT, useAccounts, useCategoryMap } from '../../lib/queries
 import { useCanWrite } from '../../lib/session';
 import type { Tx } from '../../../shared/schemas/ledger';
 import { SplitEditor } from './SplitEditor';
+import { TxTitle } from '../../components/TxTitle';
 
 export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void }) {
   const { t } = useTranslation();
@@ -52,7 +53,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="break-words text-lg font-semibold">
-                <bdi>{tx0.description}</bdi>
+                <TxTitle tx={tx0} />
               </p>
               <p className="text-sm text-muted">
                 <DateText date={tx0.date} format="long" /> · <span dir="auto">{account?.name}</span>

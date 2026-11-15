@@ -53,7 +53,7 @@ export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthS
       monthEnd(toMonth),
     ),
     liquidAtStmt(q, ends),
-    q.stmt('SELECT category_id, effective_from, limit_minor FROM budgets WHERE household_id = ?1'),
+    q.stmt('SELECT category_id, effective_from, limit_minor, one_time FROM budgets WHERE household_id = ?1'),
     spentByCategoryStmt(q, months[0]!, toMonth),
     q.stmt("SELECT * FROM goals WHERE household_id = ?1 AND status <> 'archived' ORDER BY priority, created_at"),
     q.stmt('SELECT goal_id, date, amount_minor FROM goal_contributions WHERE household_id = ?1'),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { asOfDate, completeMonths, displayMonth, elapsedFraction, isStale, lastCompleteMonths } from '../../src/shared/domain/common';
-import { budgetStatus, buildBudgetView, limitFor, utilization } from '../../src/shared/domain/budget';
+import { budgetFor, budgetStatus, buildBudgetView, limitFor, utilization } from '../../src/shared/domain/budget';
 
 describe('common definitions (§10.1)', () => {
   it('as-of date', () => {
@@ -43,6 +43,34 @@ describe('budget (§10.4, AC5.1–5.3)', () => {
     expect(limitFor(rows, 'g', '2027-01')).toBe(120000);
     expect(limitFor(rows, 'e', '2026-08')).toBe(50000);
     expect(limitFor(rows, 'e', '2026-09')).toBeNull();
+  });
+  it('a one-time limit applies to its month only and wins over the recurring one', () => {
+    const r = [...rows, { category_id: 'g', effective_from: '2026-07', limit_minor: 300000, one_time: 1 }, { category_id: 'x', effective_from: '2026-07', limit_minor: 5000, one_time: 1 }];
+    expect(budgetFor(r, 'g', '2026-07')).toEqual({ limit: 300000, oneTime: true });
+    expect(budgetFor(r, 'g', '2026-08')).toEqual({ limit: 120000, oneTime: false });
+    expect(limitFor(r, 'x', '2026-06')).toBeNull();
+    expect(limitFor(r, 'x', '2026-07')).toBe(5000);
+    expect(limitFor(r, 'x', '2026-08')).toBeNull();
+    const v = buildBudgetView({
+      month: '2026-07',
+      f: 0.5,
+      categories: [
+        { id: 'g', name: 'Groceries', grp: 'variable', archived: false },
+        { id: 'x', name: 'Gifts', grp: 'variable', archived: false },
+      ],
+      budgets: r,
+      spent: new Map([['x', 6000]]),
+      history: new Map(),
+      avgMonths: [],
+      expensesMinor: 6000,
+      avgIncomeMinor: 0,
+      incomeMonths: [],
+      unsplitCardMinor: 0,
+    });
+    expect(v.lines.find((l) => l.categoryId === 'x')).toMatchObject({ oneTime: true, limitMinor: 5000, status: 'over' });
+    expect(v.lines.find((l) => l.categoryId === 'g')!.oneTime).toBe(true);
+    expect(v.totals.budgetedMinor).toBe(305000);
+    expect(v.totals.unbudgetedSpentMinor).toBe(0);
   });
   it('status rules on both sides of every threshold', () => {
     expect(budgetStatus(1001, 1000, 'fixed', 0.5)).toBe('over');

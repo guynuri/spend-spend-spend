@@ -2,6 +2,7 @@
 import { addDays, addMonths, daysBetween, monthEnd, monthOf, type DateStr } from '../dates';
 import { isStale } from './common';
 import { occurrences, type Occurrence, type Override, type RecItem, type Settled } from './recurring';
+import { norm } from '../normalize';
 
 export interface PlannedIn {
   id: string;
@@ -219,4 +220,21 @@ export function computeForecast(inp: ForecastInput): ForecastView {
     confidence,
     monthEvents,
   };
+}
+
+/**
+ * The active recurring item a new one-time planned item most likely duplicates (it is already in the
+ * forecast): same direction, and the same name or an amount within 5 %. Used to warn before saving.
+ */
+export function recurringTwin<T extends { name: string; kind: RecItem['kind']; amountMinor: number; status: string }>(p: { name: string; amountMinor: number; income: boolean }, items: T[]): T | null {
+  const n = norm(p.name);
+  const a = Math.abs(p.amountMinor);
+  return (
+    items.find((r) => {
+      if (r.status !== 'active' || (r.kind === 'income') !== p.income) return false;
+      const rn = norm(r.name);
+      const ra = Math.abs(r.amountMinor);
+      return (n.length >= 3 && rn.length >= 3 && (rn.includes(n) || n.includes(rn))) || (a > 0 && Math.abs(ra - a) <= ra * 0.05);
+    }) ?? null
+  );
 }
