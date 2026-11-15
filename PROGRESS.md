@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T02:21Z — currently: M11 deploy scripts (starting)
+Last updated: 2026-11-15T02:23Z — currently: done (M11 complete; not deployed — no Cloudflare credentials / network)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -100,8 +100,28 @@ Last updated: 2026-11-15T02:21Z — currently: M11 deploy scripts (starting)
   and desktop (fixed: squeezed member names, unbounded sessions list, review "+0 %" text,
   past-month pace insight, e2e account race).
 
+- **M11** — `npm run deploy` (`scripts/deploy.sh`: tests, D1 create + id, remote migrations,
+  production build with the AI binding, deploy, secrets incl. generated `BOOTSTRAP_TOKEN`,
+  `APP_HOST` lock + redeploy, smoke test, setup link printed once), `scripts/smoke.mjs` (§15.5,
+  all 8 checks pass against the local server), README runbook. Verified locally: `bash -n`,
+  `DRY_RUN=1` run of every step, production build (AI binding present), production-env
+  migrations on a local D1. **Not deployed**: no `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`
+  and `api.cloudflare.com` is blocked from this session.
+
 ## In progress
-- M11 — deploy script, smoke test, runbook.
+- Nothing. See "Blocked / stubbed" and the owner checklist below.
+
+## Owner checklist (after the run)
+- `npm run deploy` with Cloudflare credentials; open the printed setup link in Safari on iPhone.
+- On a real iPhone: Home-Screen install, passkey save/sign-in in Safari and from the Home Screen,
+  choosing a real bank file from the Files app, Hebrew layout.
+- Import a real Otsar Ha-Hayal export and check the preview (rows, closing balance, no
+  `balance_mismatch` warning); then import an overlapping month and confirm no duplicates.
+- Put a real export in `fixtures/otsar-hahayal/private/` and run `npm run test:unit`, then remove
+  `TODO(otsar-real-file)` from `src/shared/import/otsar.ts` if it passes.
+- Replace `xlsx@0.18.5` with the CDN build (`TODO(sheetjs-cdn)`).
+- After deploying: `npx wrangler ai models --json`; pick `AI_MODEL` per PLAN §11.1.
+- Create your card-charge recurring item (charge day + typical amount).
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -109,7 +129,7 @@ Last updated: 2026-11-15T02:21Z — currently: M11 deploy scripts (starting)
 - **Otsar real file**: `fixtures/otsar-hahayal/private/` is empty in this session, so the
   parser is verified against synthetic fixtures only (`TODO(otsar-real-file)` in `otsar.ts`).
   To finish: drop a real export there and run `npm run test:unit` (prints nothing from it).
-- **Deploy**: no `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` in the environment, no
+- **Deploy** (not done): no `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` in the environment, no
   `.env.local`, and `api.cloudflare.com` is blocked by the network policy → M11 will not deploy;
   `npm run deploy` will be left ready.
 
@@ -140,7 +160,7 @@ Last updated: 2026-11-15T02:21Z — currently: M11 deploy scripts (starting)
 - [x] Tokens: 256-bit, SHA-256 at rest, single use (claimed with `used_at IS NULL`), expiring,
       constant-time bootstrap compare, 5 failures / 15 min / IP → 429.
 - [x] Authorization: every tenant route behind session + household + role middleware; payload
-      ids checked with `assertOwned`; isolation suite green over all 113 routes (route table
+      ids checked with `assertOwned`; isolation suite green over all 98 routes, 76 of them tenant routes (route table
       must classify every route).
 - [x] Input: zod on bodies/queries (hand-written loop for import rows), body ≤ 1.5 MB,
       ≤ 250 rows/request, ≤ 5,000 rows/import, string caps, file ≤ 5 MB + magic-byte sniffing,
