@@ -43,6 +43,18 @@ export function learnedRuleFor(tx: { description: string; amountMinor: number })
   return { field: 'description' as const, match: 'equals' as const, pattern_norm: normKey(tx.description), sign: tx.amountMinor >= 0 ? ('in' as const) : ('out' as const) };
 }
 
+const L = 'a-zא-ת';
+// Whole words, or Hebrew stems (העברה/העברת, משיכה/משיכת, המחאה) at a word start.
+const GENERIC_PAYEE = new RegExp(
+  `(^|[^${L}])((bit|ביט|paybox|pay box|פייבוקס|פיי בוקס|venmo|paypal|פייפאל|zelle|transfer|wire|check|cheque|צ'ק|שיק|atm|כספומט|cash withdrawal)(?![${L}])|העבר|המחא|משיכ)`,
+);
+
+/**
+ * Payment apps, transfers, checks and ATM: the counterparty differs each time, so one choice must
+ * never be offered for similar transactions or turned into a rule.
+ */
+export const isGenericPayee = (description: string) => GENERIC_PAYEE.test(normKey(description));
+
 /**
  * Scales a previous split to a new total (AC3.6): proportional, rounding remainder to the
  * largest line so the lines sum exactly to `total`.

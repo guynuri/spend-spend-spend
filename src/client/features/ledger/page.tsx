@@ -17,8 +17,7 @@ import type { Tx, TxList } from '../../../shared/schemas/ledger';
 import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
-import { UnsplitCardBanner } from './UnsplitCardBanner';
-import { AiSuggestButton } from '../ai/AiSuggest';
+import { TodoCard } from './TodoCard';
 
 function CategoryLabel({ tx }: { tx: Tx }) {
   const { t } = useTranslation();
@@ -124,7 +123,8 @@ export function Component() {
   const noAccounts = accounts.data && accounts.data.accounts.length === 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    // While selecting, room at the bottom so the last rows can scroll above the fixed bulk bar.
+    <div className={cx('flex flex-col gap-3', selecting && 'pb-24')}>
       <PageHeader
         title={t('ledger.title')}
         actions={
@@ -157,6 +157,7 @@ export function Component() {
           <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
       </div>
+      <TodoCard />
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
@@ -175,8 +176,6 @@ export function Component() {
           </button>
         </div>
       )}
-      <UnsplitCardBanner month={f.from.slice(0, 7)} />
-      {f.uncategorized && <AiSuggestButton />}
       {summary && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted" data-testid="ledger-summary">
           <span data-count={summary.count}>{t('ledger.summary', { count: summary.count })}</span>

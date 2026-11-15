@@ -58,6 +58,7 @@ export const ROUTES: Record<string, Cls> = {
   'PATCH /api/rules/:id': 'tenant',
   'DELETE /api/rules/:id': 'tenant',
   'POST /api/rules/apply': 'tenant',
+  'POST /api/rules/match': 'tenant',
   'GET /api/transactions': 'tenant',
   'GET /api/transactions/export.csv': 'tenant',
   'POST /api/transactions': 'tenant',

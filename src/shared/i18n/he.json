@@ -245,7 +245,6 @@
     "learned_one": "סווגה עוד תנועה אחת",
     "learned_two": "סווגו עוד {{count}} תנועות",
     "learned_other": "סווגו עוד {{count}} תנועות",
-    "learnedNone": "הקטגוריה נשמרה. תנועות דומות יסווגו אוטומטית.",
     "split": "פיצול",
     "splitBadge": "מפוצל",
     "manual": "ידני",
@@ -272,7 +271,21 @@
     "goAccounts": "מעבר לחשבונות",
     "byRule": "לפי כלל",
     "byAi": "לפי הצעת AI",
-    "byYou": "ידנית"
+    "byYou": "ידנית",
+    "similarPrompt_one": "יש עוד תנועה אחת בלי קטגוריה עם אותו תיאור. לסווג גם אותה?",
+    "similarPrompt_two": "יש עוד {{count}} תנועות בלי קטגוריה עם אותו תיאור. לסווג גם אותן?",
+    "similarPrompt_other": "יש עוד {{count}} תנועות בלי קטגוריה עם אותו תיאור. לסווג גם אותן?",
+    "similarApply_one": "לסווג גם אותה",
+    "similarApply_two": "לסווג את כל {{count}}",
+    "similarApply_other": "לסווג את כל {{count}}",
+    "similarAlways": "תמיד לבית העסק הזה",
+    "similarNo": "רק את זו",
+    "todoTitle": "דורש טיפול",
+    "todoUncategorized_one": "תנועה אחת בלי קטגוריה",
+    "todoUncategorized_two": "{{count}} תנועות בלי קטגוריה",
+    "todoUncategorized_other": "{{count}} תנועות בלי קטגוריה",
+    "todoShow": "הצגה",
+    "todoDismiss": "להסתיר עד שיהיה משהו חדש"
   },
   "split": {
     "title": "פיצול תנועה",
@@ -285,7 +298,15 @@
     "mustMatch": "סכום השורות חייב להיות שווה בדיוק לסכום התנועה.",
     "line": "שורה",
     "fromLast": "הועתק מהפיצול של",
-    "noPrevious": "אין פיצול קודם להעתקה."
+    "noPrevious": "אין פיצול קודם להעתקה.",
+    "upload": "העלאת פירוט כרטיס",
+    "uploadHint": "קובץ Excel או CSV מחברת האשראי. החיובים בו יהפכו לשורות הפיצול.",
+    "statementLoaded_one": "נטען חיוב אחד מהפירוט.",
+    "statementLoaded_two": "נטענו {{count}} חיובים מהפירוט.",
+    "statementLoaded_other": "נטענו {{count}} חיובים מהפירוט.",
+    "unassigned": "לא משויך",
+    "keepRemainder": "להשאיר את ההפרש כלא משויך",
+    "otherRows": "עוד {{count}} חיובים"
   },
   "accounts": {
     "title": "חשבונות",

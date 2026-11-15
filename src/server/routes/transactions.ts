@@ -2,10 +2,10 @@ import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { HttpError, body, notFound, query } from '../http';
 import { bulkCategorize, splitsPut, txCreate, txPatch, txQuery, undoLearn, type SplitLine, type TxList } from '../../shared/schemas/ledger';
-import { csvCell, isCardLump, learnedRuleFor, scaleSplit, splitSumOk } from '../../shared/domain/ledger';
+import { csvCell, isCardLump, isGenericPayee, learnedRuleFor, scaleSplit, splitSumOk } from '../../shared/domain/ledger';
 import { norm, normKey } from '../../shared/normalize';
 import { monthEnd, monthOf, monthStart } from '../../shared/dates';
-import { CARD_ISSUER_PATTERNS } from '../seed/defaults';
+import { CARD_ISSUER_PATTERNS, DEFAULT_CATEGORIES } from '../seed/defaults';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
 import { applyRulesStmt } from '../db/sql/rules';
@@ -55,10 +55,16 @@ function filterSql(c: Ctx) {
   if (qn) {
     const esc = (x: string) => `%${x.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     const n = params.length;
+    // Category names match too (the transaction's or any split line's); a default category also
+    // matches by its name in the other language ("groceries" finds "מזון וצריכה").
+    const defaults = DEFAULT_CATEGORIES.filter((d) => norm(d.he).includes(qn) || norm(d.en).includes(qn)).flatMap((d) => [d.he, d.en]);
     where.push(
-      `(t.description_norm LIKE ?${n + 2} ESCAPE '\\' OR lower(t.description) LIKE ?${n + 3} ESCAPE '\\' OR lower(COALESCE(t.notes, '')) LIKE ?${n + 3} ESCAPE '\\' OR COALESCE(t.reference, '') LIKE ?${n + 3} ESCAPE '\\')`,
+      `(t.description_norm LIKE ?${n + 2} ESCAPE '\\' OR lower(t.description) LIKE ?${n + 3} ESCAPE '\\' OR lower(COALESCE(t.notes, '')) LIKE ?${n + 3} ESCAPE '\\' OR COALESCE(t.reference, '') LIKE ?${n + 3} ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM categories c WHERE c.household_id = ?1
+          AND (c.id = t.category_id OR c.id IN (SELECT s.category_id FROM transaction_splits s WHERE s.household_id = ?1 AND s.transaction_id = t.id))
+          AND (lower(c.name) LIKE ?${n + 3} ESCAPE '\\' OR c.name IN (SELECT value FROM json_each(?${n + 4})))))`,
     );
-    params.push(esc(normKey(f.q!) || qn), esc(qn));
+    params.push(esc(normKey(f.q!) || qn), esc(qn), JSON.stringify(defaults));
   }
   return { where: where.join(' AND '), params, from, to, cursor: f.cursor };
 }
@@ -218,11 +224,23 @@ transactionRoutes.patch('/:id', async (c) => {
     now,
   );
 
-  // Learn from a manual categorization and apply to the other uncategorized matches (AC3.5).
+  // A categorization changes only this transaction. Similar uncategorized ones are offered (`similar`);
+  // learning a rule and applying it to them is opt-in (`learn: true`, "always for this merchant").
+  // Payment apps / transfers / checks / ATM are never offered: the counterparty differs each time.
   let learned: { ruleId: string; count: number; txIds: string[]; previous: { categoryId: string; source: 'user' | 'learned' | 'ai' | 'seed' } | null } | null = null;
-  if (setCat && b.categoryId && b.learn !== false && !tx.has_splits) {
-    const key = learnedRuleFor({ description, amountMinor: amount });
-    if (key.pattern_norm) {
+  let similar: { count: number; txIds: string[] } | null = null;
+  const key = learnedRuleFor({ description, amountMinor: amount });
+  if (setCat && b.categoryId && !tx.has_splits && key.pattern_norm && !isGenericPayee(description)) {
+    if (!b.learn) {
+      const rows = await db.all<{ id: string }>(
+        `SELECT id FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?2 AND id <> ?3
+           AND ((?4 = 'in' AND amount_minor > 0) OR (?4 = 'out' AND amount_minor < 0)) LIMIT 500`,
+        key.pattern_norm,
+        id,
+        key.sign,
+      );
+      if (rows.length) similar = { count: rows.length, txIds: rows.map((r) => r.id) };
+    } else {
       const prev = await db.first<{ category_id: string; source: 'user' | 'learned' | 'ai' | 'seed' }>(
         'SELECT category_id, source FROM category_rules WHERE household_id = ?1 AND field = ?2 AND match = ?3 AND pattern_norm = ?4 AND sign = ?5',
         key.field,
@@ -261,7 +279,7 @@ transactionRoutes.patch('/:id', async (c) => {
   if (editingCore) await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));
   const row = await db.first(`SELECT ${TX_COLS} FROM transactions t WHERE t.household_id = ?1 AND t.id = ?2`, id);
   const splits = await loadSplits(db, [id]);
-  return c.json({ tx: mapTx(row!, splits.get(id) ?? []), learned });
+  return c.json({ tx: mapTx(row!, splits.get(id) ?? []), learned, similar });
 });
 
 transactionRoutes.post('/undo-learn', async (c) => {

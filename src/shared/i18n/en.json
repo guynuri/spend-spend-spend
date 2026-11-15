@@ -239,7 +239,6 @@
     "bulkDone_other": "{{count}} transactions updated",
     "learned_one": "{{count}} more categorized",
     "learned_other": "{{count}} more categorized",
-    "learnedNone": "Category saved. Similar transactions will be categorized automatically.",
     "split": "Split",
     "splitBadge": "Split",
     "manual": "Manual",
@@ -266,7 +265,18 @@
     "goAccounts": "Go to accounts",
     "byRule": "by a rule",
     "byAi": "by AI suggestion",
-    "byYou": "by you"
+    "byYou": "by you",
+    "similarPrompt_one": "{{count}} more uncategorized transaction has the same description. Categorize it too?",
+    "similarPrompt_other": "{{count}} more uncategorized transactions have the same description. Categorize them too?",
+    "similarApply_one": "Apply to {{count}}",
+    "similarApply_other": "Apply to all {{count}}",
+    "similarAlways": "Always for this merchant",
+    "similarNo": "Only this one",
+    "todoTitle": "Needs attention",
+    "todoUncategorized_one": "{{count}} transaction without a category",
+    "todoUncategorized_other": "{{count}} transactions without a category",
+    "todoShow": "Show",
+    "todoDismiss": "Hide until something new comes up"
   },
   "split": {
     "title": "Split transaction",
@@ -279,7 +289,14 @@
     "mustMatch": "Lines must add up exactly to the transaction amount.",
     "line": "Line",
     "fromLast": "Copied from the split of",
-    "noPrevious": "No earlier split to copy."
+    "noPrevious": "No earlier split to copy.",
+    "upload": "Upload card statement",
+    "uploadHint": "Excel or CSV from the card company. Its charges become the split lines.",
+    "statementLoaded_one": "{{count}} charge loaded from the statement.",
+    "statementLoaded_other": "{{count}} charges loaded from the statement.",
+    "unassigned": "Unassigned",
+    "keepRemainder": "Keep the difference as unassigned",
+    "otherRows": "{{count}} more charges"
   },
   "accounts": {
     "title": "Accounts",

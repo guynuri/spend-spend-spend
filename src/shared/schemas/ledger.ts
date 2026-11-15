@@ -24,6 +24,8 @@ export const categoryPatch = z.object({ name: text(40).min(1).optional(), grp: z
 export const ruleField = z.enum(['description', 'operation_type']);
 export const ruleMatch = z.enum(['contains', 'equals', 'starts_with']);
 export const ruleSign = z.enum(['any', 'in', 'out']);
+/** Rows (e.g. a card statement) to look up the winning rule's category for. */
+export const ruleLookup = z.object({ items: z.array(z.object({ description: text(300), amountMinor: minor }).strict()).max(5000) }).strict();
 export const ruleCreate = z.object({ field: ruleField, match: ruleMatch, pattern: text(100).min(1), sign: ruleSign, categoryId: id }).strict();
 export const rulePatch = z.object({ match: ruleMatch.optional(), pattern: text(100).min(1).optional(), sign: ruleSign.optional(), categoryId: id.optional() }).strict();
 

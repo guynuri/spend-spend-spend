@@ -29,15 +29,27 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
     setCurrent(tx);
     setNotes(tx?.notes ?? '');
     setSplitting(false);
+    setSimilar(null);
   }, [tx]);
+  const [similar, setSimilar] = useState<{ count: number; txIds: string[]; categoryId: string } | null>(null);
   const undo = useApiMutation((v: { ruleId: string; txIds: string[] }) => post('/api/transactions/undo-learn', v), { invalidate: [...LEDGER_DEPENDENT] });
-  const setCat = useApiMutation((categoryId: string | null) => patch<{ tx: Tx; learned: { ruleId: string; count: number; txIds: string[] } | null }>(`/api/transactions/${current!.id}`, { categoryId }), {
+  type PatchRes = { tx: Tx; learned: { ruleId: string; count: number; txIds: string[] } | null; similar: { count: number; txIds: string[] } | null };
+  // Changes only this transaction; similar uncategorized ones are offered below, never changed silently.
+  const setCat = useApiMutation((v: { categoryId: string | null; learn?: boolean }) => patch<PatchRes>(`/api/transactions/${current!.id}`, v), {
     invalidate: [...LEDGER_DEPENDENT],
     onSuccess: (r) => {
       setCurrent(r.tx);
+      setSimilar(r.similar && r.tx.categoryId ? { ...r.similar, categoryId: r.tx.categoryId } : null);
       const l = r.learned;
-      if (l && l.count > 0) toast({ title: t('ledger.learned', { count: l.count }), action: { label: t('common.undo'), onClick: () => undo.mutate({ ruleId: l.ruleId, txIds: l.txIds }) }, duration: 10000 });
-      else if (r.tx.categoryId) toast({ title: t('ledger.learnedNone') });
+      if (l) toast({ title: t('ledger.learned', { count: l.count }), action: { label: t('common.undo'), onClick: () => undo.mutate({ ruleId: l.ruleId, txIds: l.txIds }) }, duration: 10000 });
+      else toast({ title: t('ledger.saved') });
+    },
+  });
+  const applySimilar = useApiMutation((v: { ids: string[]; categoryId: string }) => post<{ updated: number }>('/api/transactions/bulk', v), {
+    invalidate: [...LEDGER_DEPENDENT],
+    onSuccess: (r) => {
+      setSimilar(null);
+      toast({ title: t('ledger.bulkDone', { count: r.updated }), tone: 'good' });
     },
   });
   const saveNotes = useApiMutation((n: string) => patch<{ tx: Tx }>(`/api/transactions/${current!.id}`, { notes: n || null }), { invalidate: [['transactions']], successKey: 'ledger.saved', onSuccess: (r) => setCurrent(r.tx) });
@@ -67,14 +79,33 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
           </div>
           {!tx0.hasSplits && (
             <Field label={t('ledger.category')} htmlFor="tx-cat" hint={sourceKey ? t(sourceKey) : undefined}>
-              <CategorySelect id="tx-cat" data-testid="tx-category" value={tx0.categoryId} disabled={!canWrite || setCat.isPending} onChange={(v) => setCat.mutate(v)} />
+              <CategorySelect id="tx-cat" data-testid="tx-category" value={tx0.categoryId} disabled={!canWrite || setCat.isPending} onChange={(v) => setCat.mutate({ categoryId: v })} />
             </Field>
+          )}
+          {similar && !tx0.hasSplits && (
+            <div className="flex flex-col gap-2 rounded-xl bg-accent/5 p-3 text-sm" data-testid="tx-similar">
+              <p>{t('ledger.similarPrompt', { count: similar.count })}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" busy={applySimilar.isPending} onClick={() => applySimilar.mutate({ ids: similar.txIds, categoryId: similar.categoryId })} data-testid="tx-similar-apply">
+                  {t('ledger.similarApply', { count: similar.count })}
+                </Button>
+                <Button size="sm" variant="secondary" busy={setCat.isPending} onClick={() => setCat.mutate({ categoryId: similar.categoryId, learn: true })} data-testid="tx-similar-always">
+                  {t('ledger.similarAlways')}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSimilar(null)}>
+                  {t('ledger.similarNo')}
+                </Button>
+              </div>
+            </div>
           )}
           {tx0.hasSplits && (
             <ul className="divide-y divide-border rounded-xl border border-border" data-testid="tx-split-lines">
               {tx0.splits.map((s, i) => (
                 <li key={s.id ?? i} className="flex justify-between gap-2 px-3 py-2 text-sm">
-                  <span>{s.categoryId ? cats.get(s.categoryId)?.name : t('ledger.uncategorized')}</span>
+                  <span className="min-w-0 truncate">
+                    {s.categoryId ? cats.get(s.categoryId)?.name : t('ledger.uncategorized')}
+                    {s.note && <bdi className="text-muted"> · {s.note}</bdi>}
+                  </span>
                   <Money minor={s.amountMinor} />
                 </li>
               ))}

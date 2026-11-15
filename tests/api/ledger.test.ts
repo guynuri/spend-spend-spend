@@ -69,13 +69,38 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
     expect((await s.add('2026-02-04', -5000, 'שופרסל אונליין')).categoryId).toBe(s.cat('Groceries'));
   });
 
-  it('manual categorization learns a rule, applies it to matches, and can be undone', async () => {
+  it('manual categorization changes only that transaction and offers similar ones (Task 10)', async () => {
+    const s = await setup();
+    const a = await s.add('2026-02-05', -3000, 'Pizza Napoli 5555');
+    const b = await s.add('2026-02-12', -4000, 'Pizza  Napoli 6666');
+    await s.add('2026-02-13', 4000, 'Pizza Napoli'); // different sign: not similar
+    const r = await json<{ tx: Tx; learned: unknown; similar: { count: number; txIds: string[] } }>('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Eating out') } });
+    expect(r.body.tx.categorySource).toBe('user');
+    expect(r.body.learned).toBeNull();
+    expect(r.body.similar).toEqual({ count: 1, txIds: [b.id] });
+    expect((await DB.prepare('SELECT category_id FROM transactions WHERE id = ?1').bind(b.id).first<{ category_id: string | null }>())!.category_id).toBeNull();
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM category_rules WHERE household_id = (SELECT household_id FROM transactions WHERE id = ?1) AND source = 'learned'").bind(a.id).first<{ n: number }>())!.n).toBe(0);
+    expect((await s.add('2026-02-20', -3500, 'PIZZA NAPOLI')).categoryId).toBeNull();
+  });
+
+  it('payment apps, transfers and checks are never offered as similar nor learned', async () => {
+    const s = await setup();
+    const a = await s.add('2026-02-05', -3000, 'העברה בביט');
+    await s.add('2026-02-06', -2000, 'העברה בביט');
+    for (const learn of [false, true]) {
+      const r = await json<{ learned: unknown; similar: unknown }>('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Eating out'), learn } });
+      expect(r.body).toMatchObject({ learned: null, similar: null });
+    }
+    expect((await json<TxList>('GET', '/api/transactions?from=2026-02-01&to=2026-02-28&uncategorized=1', { cookie: s.cookie })).body.summary.count).toBe(1);
+  });
+
+  it('"always for this merchant" (learn: true) learns a rule, applies it to matches, and can be undone', async () => {
     const s = await setup();
     const a = await s.add('2026-02-05', -3000, 'Pizza Napoli 5555');
     const b = await s.add('2026-02-12', -4000, 'Pizza  Napoli 6666');
     const c = await s.add('2026-02-13', 4000, 'Pizza Napoli');
     expect(a.categoryId).toBeNull();
-    const r = await json<{ tx: Tx; learned: { ruleId: string; count: number; txIds: string[] } }>('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Eating out') } });
+    const r = await json<{ tx: Tx; learned: { ruleId: string; count: number; txIds: string[] } }>('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Eating out'), learn: true } });
     expect(r.body.tx.categorySource).toBe('user');
     expect(r.body.learned.count).toBe(1);
     expect(r.body.learned.txIds).toEqual([b.id]);
@@ -87,6 +112,12 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
     const bRow = await DB.prepare('SELECT category_id FROM transactions WHERE id = ?1').bind(b.id).first<{ category_id: string | null }>();
     expect(bRow!.category_id).toBeNull();
     expect((await DB.prepare('SELECT COUNT(*) AS n FROM category_rules WHERE id = ?1').bind(r.body.learned.ruleId).first<{ n: number }>())!.n).toBe(0);
+  });
+
+  it('rule lookup for statement rows returns the winning category or null', async () => {
+    const s = await setup();
+    const r = await json<{ categoryIds: (string | null)[] }>('POST', '/api/rules/match', { cookie: s.cookie, body: { items: [{ description: 'שופרסל דיל 1234', amountMinor: -500 }, { description: 'Unknown Shop', amountMinor: -100 }] } });
+    expect(r.body.categoryIds).toEqual([s.cat('Groceries'), null]);
   });
 
   it('rules never overwrite a user category', async () => {
@@ -135,6 +166,12 @@ describe('ledger list (AC3.4)', () => {
     }
     const unc = await json<TxList>('GET', '/api/transactions?from=2026-03-01&to=2026-03-31&uncategorized=1', { cookie: s.cookie });
     expect(unc.body.summary.count).toBe(61);
+    // Search matches category names, including a default category's name in the other language.
+    const g = await s.add('2026-03-06', -500, 'Corner 77', { categoryId: s.cat('Groceries') });
+    for (const q of ['grocer', 'מכולת']) {
+      const r = await json<TxList>('GET', `/api/transactions?from=2026-03-01&to=2026-03-31&q=${encodeURIComponent(q)}`, { cookie: s.cookie });
+      expect(r.body.items.map((t) => t.id), q).toEqual([g.id]);
+    }
     const none = await json<TxList>('GET', `/api/transactions?from=2026-03-01&to=2026-03-31&account=nope`, { cookie: s.cookie });
     expect(none.body.summary.count).toBe(0);
   });
