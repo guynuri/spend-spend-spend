@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Segmented } from '../../components/ui';
-import { setLocale } from '../../i18n';
+import { markLocalePicked, setLocale } from '../../i18n';
 import type { Locale } from '../../../shared/money';
 
 export function AuthLayout({ children }: { children: ReactNode }) {
@@ -18,7 +18,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             <Segmented<Locale>
               label={t('locale.label')}
               value={i18n.language as Locale}
-              onChange={(l) => void setLocale(l)}
+              onChange={(l) => {
+                markLocalePicked();
+                void setLocale(l);
+              }}
               options={[
                 { value: 'en', label: <span lang="en">EN</span> },
                 { value: 'he', label: <span lang="he">עב</span> },

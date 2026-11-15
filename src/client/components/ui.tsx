@@ -71,7 +71,7 @@ export function PageHeader({ title, actions, subtitle }: { title: ReactNode; act
         <div className="flex items-center gap-1">
           <h1 className="truncate text-2xl font-bold text-text">{title}</h1>
           {openTour && TOUR_PATHS.has(pathname) && (
-            <IconButton label={t('tour.pageInfo')} className="size-9 shrink-0" data-testid="page-tour" onClick={() => openTour(pathname)}>
+            <IconButton label={t('tour.pageInfo')} className="shrink-0" data-testid="page-tour" onClick={() => openTour(pathname)}>
               <Info className="size-5" aria-hidden />
             </IconButton>
           )}

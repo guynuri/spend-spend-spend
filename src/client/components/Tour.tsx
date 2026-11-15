@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ADMIN_ITEM, SIDEBAR_ITEMS } from '../lib/nav';
-import { useMe } from '../lib/session';
+import { useCanWrite, useMe } from '../lib/session';
 import { TourCtx, tourSlug } from '../lib/tour';
 import { Sheet } from './Sheet';
 import { Button } from './ui';
@@ -38,11 +38,13 @@ function Points({ k }: { k: string }) {
 
 function PageText({ path }: { path: string }) {
   const { t } = useTranslation();
+  const canWrite = useCanWrite();
   const s = tourSlug(path);
   return (
     <div data-testid={`tour-page-${s}`}>
       <p className="text-sm">{t(`tour.pages.${s}.body`)}</p>
       <Points k={`tour.pages.${s}.points`} />
+      {!canWrite && path !== '/admin' && <p className="mt-3 rounded-xl bg-surface-2 p-3 text-sm text-muted">{t('tour.viewerNote')}</p>}
     </div>
   );
 }
@@ -54,9 +56,12 @@ function PageText({ path }: { path: string }) {
 export function TourProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const nav = useNavigate();
+  const { pathname } = useLocation();
   const me = useMe();
-  const steps = me?.user.isSuperAdmin ? [...SIDEBAR_ITEMS, ADMIN_ITEM] : SIDEBAR_ITEMS;
+  // Without an active household only the admin page works (SessionGate lets /admin through).
+  const steps = !me?.active ? [ADMIN_ITEM] : me.user.isSuperAdmin ? [...SIDEBAR_ITEMS, ADMIN_ITEM] : SIDEBAR_ITEMS;
   const [state, setState] = useState<State>(() => (seen() ? null : { mode: 'full', i: -1 }));
+  const tourPath = useRef(pathname);
 
   const close = () => {
     markSeen();
@@ -64,9 +69,22 @@ export function TourProvider({ children }: { children: ReactNode }) {
   };
   const go = (i: number) => {
     if (i >= steps.length) return close();
-    if (i >= 0) nav(steps[i]!.to);
+    if (i >= 0) {
+      tourPath.current = steps[i]!.to;
+      nav(steps[i]!.to, { replace: true });
+    }
     setState({ mode: 'full', i });
   };
+  // Leaving the page the tour put you on (Back, a link) ends the tour.
+  useEffect(() => {
+    if (pathname === tourPath.current) return;
+    tourPath.current = pathname;
+    setState((s) => {
+      if (s?.mode !== 'full') return s;
+      markSeen();
+      return null;
+    });
+  }, [pathname]);
 
   let title: ReactNode = null;
   let body: ReactNode = null;

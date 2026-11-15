@@ -1021,6 +1021,7 @@
         "body": "Site administration, visible only to administrators.",
         "points": "Create households and send owner invite links.\nEnable or disable households and create owner recovery links.\nYou see household metadata only — never their transactions or amounts."
       }
-    }
+    },
+    "viewerNote": "You have view-only access, so changes on this page can only be made by owners and members."
   }
 }

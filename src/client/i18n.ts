@@ -35,6 +35,13 @@ export function applyDocumentLocale(l: Locale) {
   document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
 }
 
+/** Set when the user taps the language switch on a sign-in screen; that choice is then saved to the profile. */
+let pickedOnAuth = false;
+export const markLocalePicked = () => {
+  pickedOnAuth = true;
+};
+export const localePickedOnAuth = () => pickedOnAuth;
+
 export async function setLocale(l: Locale) {
   try {
     localStorage.setItem(LS_KEY, l);
