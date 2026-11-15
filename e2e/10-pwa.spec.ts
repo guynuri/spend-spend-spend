@@ -7,7 +7,7 @@ test('manifest has required fields', async ({ request }) => {
   const res = await request.get('/manifest.webmanifest');
   expect(res.status()).toBe(200);
   const m = await res.json();
-  expect(m).toMatchObject({ name: 'Maazan', display: 'standalone', start_url: '/', scope: '/' });
+  expect(m).toMatchObject({ name: 'spend-spend-spend', display: 'standalone', start_url: '/', scope: '/' });
   const sizes = m.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes}:${i.purpose}`);
   expect(sizes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']));
   for (const i of m.icons) expect((await request.get(i.src)).status()).toBe(200);
