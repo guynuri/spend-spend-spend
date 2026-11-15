@@ -105,6 +105,7 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/reviews': 'tenant',
   'GET /api/reviews/:month': 'tenant',
   'POST /api/reviews/:month/complete': 'tenant',
+  'POST /api/reviews/:month/dismiss': 'tenant',
   'GET /api/ai/status': 'tenant',
   'POST /api/ai/consent': 'tenant',
   'POST /api/ai/categorize': 'tenant',

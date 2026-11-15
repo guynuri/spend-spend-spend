@@ -17,7 +17,7 @@ export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
   const { t } = useTranslation();
   const [tabs] = useNavTabs();
   // A badged page moved off the bar marks More instead.
-  if (item.to === '/more' && ((!tabs.includes('/transactions') && me?.badges.uncategorized) || (!tabs.includes('/budget') && me?.badges.overBudget)))
+  if (item.to === '/more' && ((!tabs.includes('/transactions') && me?.badges.uncategorized) || (!tabs.includes('/budget') && me?.badges.overBudget) || (!tabs.includes('/review') && me?.badges.reviewDue)))
     return <span className="absolute top-1 end-3 size-2 rounded-full bg-warn" data-testid="badge-more" role="img" aria-label={t('nav.moreBadge')} />;
   if (item.to === '/transactions' && me?.badges.uncategorized)
     return (
@@ -27,6 +27,8 @@ export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
     );
   if (item.to === '/budget' && me?.badges.overBudget)
     return <span className="absolute top-1 end-3 size-2 rounded-full bg-bad lg:static lg:ms-auto" style={inline ? { position: 'static' } : undefined} data-testid="badge-over-budget" role="img" aria-label={t('nav.overBudgetBadge')} />;
+  if (item.to === '/review' && me?.badges.reviewDue)
+    return <span className="absolute top-1 end-3 size-2 rounded-full bg-accent lg:static lg:ms-auto" style={inline ? { position: 'static' } : undefined} data-testid="badge-review" role="img" aria-label={t('nav.reviewBadge')} />;
   return null;
 }
 
