@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import * as Tabs from '@radix-ui/react-tabs';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { get } from '../../api';
 import { Card, CardTitle, cx, EmptyState, ErrorState, Field, IconButton, Input, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
 import { Money } from '../../components/Money';
@@ -13,8 +13,8 @@ import { CategorySelect } from '../../components/CategorySelect';
 import { C, ChartBox, tooltipStyle, useCompactMoney, useMoneyFmt } from '../../components/charts';
 import { useCategoryMap } from '../../lib/queries';
 import { useMe } from '../../lib/session';
-import { dayOf, isValidMonth, monthEnd, monthOf, monthStart } from '../../../shared/dates';
-import { parseStored, presetOf, presetRange, PRESETS, shiftRange, type Preset, type Range } from './range';
+import { addDays, dayOf, isValidDate, isValidMonth, MAX_RANGE_DAYS, monthEnd, monthOf, monthStart } from '../../../shared/dates';
+import { clampRange, parseStored, presetOf, presetRange, PRESETS, shiftRange, validRange, type Preset, type Range } from './range';
 import { formatPercent, type Locale } from '../../../shared/money';
 
 const LS_KEY = 'mz_trends_range';
@@ -47,7 +47,7 @@ function RangeControl({ range, today, onChange }: { range: Range; today: string;
   const { t } = useTranslation();
   const [custom, setCustom] = useState(false);
   const sel = custom ? 'custom' : (presetOf(range, today) ?? 'custom');
-  const set = (r: Range) => onChange(r.from <= r.to ? r : { from: r.from, to: r.from });
+  const max = MAX_RANGE_DAYS - 1;
   return (
     <div className="flex flex-col gap-2" data-testid="trend-range">
       <Select
@@ -69,10 +69,10 @@ function RangeControl({ range, today, onChange }: { range: Range; today: string;
       {sel === 'custom' && (
         <div className="grid grid-cols-2 gap-2">
           <Field label={t('trends.from')} htmlFor="trend-from">
-            <Input id="trend-from" type="date" value={range.from} onChange={(e) => e.target.value && set({ from: e.target.value, to: range.to })} data-testid="trend-from" />
+            <Input id="trend-from" type="date" value={range.from} min={addDays(range.to, -max)} max={range.to} onChange={(e) => isValidDate(e.target.value) && onChange(clampRange({ from: e.target.value, to: range.to }, 'from'))} data-testid="trend-from" />
           </Field>
           <Field label={t('trends.to')} htmlFor="trend-to">
-            <Input id="trend-to" type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && set({ from: range.from, to: e.target.value })} data-testid="trend-to" />
+            <Input id="trend-to" type="date" value={range.to} min={range.from} max={addDays(range.from, max)} onChange={(e) => isValidDate(e.target.value) && onChange(clampRange({ from: range.from, to: e.target.value }, 'to'))} data-testid="trend-to" />
           </Field>
         </div>
       )}
@@ -126,7 +126,7 @@ function ByCategory({ range: { from, to } }: { range: Range }) {
   );
 }
 
-type DayPoint = { start: string; spentMinor: number; cumulativeMinor: number | null; prevCumulativeMinor: number };
+type DayPoint = { start: string; partial: boolean; spentMinor: number; cumulativeMinor: number | null; prevCumulativeMinor: number };
 
 function ByDay({ range: { from, to } }: { range: Range }) {
   const { t, i18n } = useTranslation();
@@ -143,7 +143,7 @@ function ByDay({ range: { from, to } }: { range: Range }) {
   const title = t(g === 'day' ? 'trends.perDay' : g === 'week' ? 'trends.perWeek' : 'trends.perMonth');
   const tip = {
     formatter: (v: unknown) => money(Number(v)),
-    labelFormatter: (_: unknown, p: readonly { payload?: DayPoint }[]) => (p[0]?.payload ? fmt(p[0].payload.start, g === 'month' ? 'month' : 'long') : ''),
+    labelFormatter: (_: unknown, p: readonly { payload?: DayPoint }[]) => (p[0]?.payload ? `${fmt(p[0].payload.start, g === 'month' ? 'month' : 'long')}${p[0].payload.partial ? ` ${t('trends.partial')}` : ''}` : ''),
     ...tooltipStyle(i18n.dir() === 'rtl'),
   };
   const axes = [
@@ -160,7 +160,11 @@ function ByDay({ range: { from, to } }: { range: Range }) {
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
               {axes}
               <Tooltip {...tip} cursor={{ fill: C.grid, opacity: 0.4 }} />
-              <Bar dataKey="spentMinor" name={title} fill={C.bad} radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar dataKey="spentMinor" name={title} fill={C.bad} radius={[4, 4, 0, 0]} maxBarSize={24}>
+                {data.map((p) => (
+                  <Cell key={p.start} fillOpacity={p.partial ? 0.45 : 1} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartBox>
@@ -191,9 +195,10 @@ function OverMonths({ range: { from, to } }: { range: Range }) {
   const [cat, setCat] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ['trends', 'monthly', from, to, cat],
-    queryFn: () => get<{ points: { month: string; incomeMinor?: number; expensesMinor?: number; netMinor?: number; spentMinor?: number }[] }>(`/api/trends/monthly?from=${from}&to=${to}${cat ? `&category=${cat}` : ''}`),
+    queryFn: () => get<{ points: { month: string; partial: boolean; incomeMinor?: number; expensesMinor?: number; netMinor?: number; spentMinor?: number }[] }>(`/api/trends/monthly?from=${from}&to=${to}${cat ? `&category=${cat}` : ''}`),
   });
   const data = (q.data?.points ?? []).map((p) => ({ ...p, label: fmt(p.month, 'monthShortYear') }));
+  const partialLabel = (l: unknown, p: readonly { payload?: { partial?: boolean } }[]) => `${String(l)}${p[0]?.payload?.partial ? ` ${t('trends.partial')}` : ''}`;
   return (
     <Card>
       <div className="mb-3">
@@ -211,7 +216,7 @@ function OverMonths({ range: { from, to } }: { range: Range }) {
                 <CartesianGrid stroke={C.grid} vertical={false} />
                 <XAxis dataKey="label" tick={{ fill: C.text }} tickLine={false} axisLine={false} minTickGap={8} />
                 <YAxis tickFormatter={compact} tick={{ fill: C.text }} width={56} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => money(Number(v))} {...tooltipStyle(i18n.dir() === 'rtl')} />
+                <Tooltip formatter={(v) => money(Number(v))} labelFormatter={partialLabel} {...tooltipStyle(i18n.dir() === 'rtl')} />
                 <Bar dataKey="spentMinor" name={t('budget.spent')} fill={C.bad} radius={[4, 4, 0, 0]} maxBarSize={32} />
               </BarChart>
             ) : (
@@ -219,7 +224,7 @@ function OverMonths({ range: { from, to } }: { range: Range }) {
                 <CartesianGrid stroke={C.grid} vertical={false} />
                 <XAxis dataKey="label" tick={{ fill: C.text }} tickLine={false} axisLine={false} minTickGap={8} />
                 <YAxis tickFormatter={compact} tick={{ fill: C.text }} width={56} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => money(Number(v))} {...tooltipStyle(i18n.dir() === 'rtl')} />
+                <Tooltip formatter={(v) => money(Number(v))} labelFormatter={partialLabel} {...tooltipStyle(i18n.dir() === 'rtl')} />
                 <Legend wrapperStyle={{ direction: i18n.dir() }} />
                 <Bar dataKey="incomeMinor" name={t('trends.income')} fill={C.good} radius={[4, 4, 0, 0]} maxBarSize={24} />
                 <Bar dataKey="expensesMinor" name={t('trends.expenses')} fill={C.bad} radius={[4, 4, 0, 0]} maxBarSize={24} />
@@ -247,6 +252,7 @@ export function Component() {
     parseStored(load(), today) ??
     presetRange('month', today);
   const setRange = (r: Range) => {
+    if (!validRange(r)) return;
     setSp({ tab, from: r.from, to: r.to }, { replace: true });
     store(presetOf(r, today) ?? `${r.from}..${r.to}`);
   };

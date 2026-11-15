@@ -1,4 +1,4 @@
-import { addDays, addMonths, daysBetween, isValidDate, monthDiff, monthEnd, monthOf, monthStart } from '../../../shared/dates';
+import { addDays, addMonths, daysBetween, isValidDate, MAX_RANGE_DAYS, maxDate, minDate, monthDiff, monthEnd, monthOf, monthStart } from '../../../shared/dates';
 
 export type Range = { from: string; to: string };
 export const PRESETS = ['month', 'lastMonth', '3m', '6m', 'year', '12m'] as const;
@@ -43,5 +43,16 @@ export function parseStored(s: string | null, today: string): Range | null {
   if (!s) return null;
   if ((PRESETS as readonly string[]).includes(s)) return presetRange(s as Preset, today);
   const [from, to] = s.split('..');
-  return isValidDate(from) && isValidDate(to) && from <= to ? { from, to } : null;
+  const r = { from: from!, to: to! };
+  return validRange(r) ? r : null;
+}
+
+/** What the API accepts: real dates, from ≤ to, at most MAX_RANGE_DAYS long. */
+export const validRange = (r: Range) => isValidDate(r.from) && isValidDate(r.to) && r.from <= r.to && daysBetween(r.from, r.to) < MAX_RANGE_DAYS;
+
+/** Makes an edited range valid by moving the end that was not just edited. */
+export function clampRange(r: Range, edited: 'from' | 'to'): Range {
+  const max = MAX_RANGE_DAYS - 1;
+  if (edited === 'from') return { from: r.from, to: r.to < r.from ? r.from : minDate(r.to, addDays(r.from, max)) };
+  return { from: r.from > r.to ? r.to : maxDate(r.from, addDays(r.to, -max)), to: r.to };
 }

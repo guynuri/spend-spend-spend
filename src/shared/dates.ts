@@ -26,6 +26,10 @@ export const addDays = (d: DateStr, n: number): DateStr => fromUtcMs(toUtcMs(d) 
 export const daysBetween = (a: DateStr, b: DateStr): number => Math.round((toUtcMs(b) - toUtcMs(a)) / DAY);
 export const monthOf = (d: DateStr): MonthStr => d.slice(0, 7);
 export const dayOf = (d: DateStr): number => Number(d.slice(8, 10));
+/** 0 = Sunday. */
+export const dayOfWeek = (d: DateStr): number => new Date(toUtcMs(d)).getUTCDay();
+/** Longest date range (in days, inclusive) the trends views accept. */
+export const MAX_RANGE_DAYS = 1100;
 
 export function daysInMonth(m: MonthStr): number {
   const y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));

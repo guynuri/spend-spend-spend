@@ -197,11 +197,11 @@ export function Component() {
         <div className="grid grid-cols-2 gap-3" data-testid="recurring-totals">
           <div>
             <div className="text-xs text-muted">{t('recurring.monthly')}</div>
-            <Money minor={q.data.totals.monthlyMinor} decimals={0} className="text-xl font-bold" tone />
+            <Money minor={q.data.totals.monthlyMinor} decimals={0} className="text-xl font-bold" tone="out" />
           </div>
           <div>
             <div className="text-xs text-muted">{t('recurring.yearly')}</div>
-            <Money minor={q.data.totals.yearlyMinor} decimals={0} className="text-xl font-bold" tone />
+            <Money minor={q.data.totals.yearlyMinor} decimals={0} className="text-xl font-bold" tone="out" />
           </div>
         </div>
       </Card>

@@ -537,6 +537,7 @@
     "perWeek": "Spending per week",
     "perMonth": "Spending per month",
     "cumulativeTitle": "Cumulative spending",
+    "partial": "(partial)",
     "uncategorized": "Uncategorized"
   },
   "forecast": {

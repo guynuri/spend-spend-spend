@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { json, ownerSetup } from './helpers';
-import { addMonths, monthEnd, monthOf, monthStart, todayInTz } from '../../src/shared/dates';
+import { addDays, addMonths, MAX_RANGE_DAYS, monthEnd, monthOf, monthStart, todayInTz } from '../../src/shared/dates';
 import type { BudgetView } from '../../src/shared/domain/budget';
 
 describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
@@ -62,20 +62,38 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     await json('POST', '/api/household/sample-data', { cookie: o.cookie });
     const cur = monthOf(todayInTz('Asia/Jerusalem'));
     const [m1, m3] = [addMonths(cur, -1), addMonths(cur, -3)];
-    type Daily = { granularity: string; points: { start: string; spentMinor: number; cumulativeMinor: number | null; prevCumulativeMinor: number }[] };
+    type Daily = { granularity: string; prevFrom: string; prevTo: string; points: { start: string; partial: boolean; spentMinor: number; cumulativeMinor: number | null; prevCumulativeMinor: number }[] };
     // one month = the same as ?month=, day buckets
     const byMonth = await json<Daily>('GET', `/api/trends/daily?month=${m1}`, { cookie: o.cookie });
     const byRange = await json<Daily>('GET', `/api/trends/daily?from=${monthStart(m1)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
     expect(byRange.body).toEqual(byMonth.body);
     expect(byRange.body.granularity).toBe('day');
+    expect([byRange.body.prevFrom, byRange.body.prevTo]).toEqual([monthStart(addMonths(m1, -1)), monthEnd(addMonths(m1, -1))]);
     // three whole months: weekly buckets, cumulative ends at the period total
     const q = await json<Daily>('GET', `/api/trends/daily?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
     expect(q.body.granularity).toBe('week');
     expect(q.body.points[0]!.start).toBe(monthStart(m3));
+    // Sunday-start weeks; only the clipped edge weeks are partial
+    const dow = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay();
+    expect(q.body.points.slice(1).every((p) => dow(p.start) === 0)).toBe(true);
+    expect(q.body.points[0]!.partial).toBe(dow(monthStart(m3)) !== 0);
+    expect(q.body.points.at(-1)!.partial).toBe(dow(monthEnd(m1)) !== 6);
+    expect(q.body.points.slice(1, -1).some((p) => p.partial)).toBe(false);
+    // whole months compare with the same months just before
+    expect([q.body.prevFrom, q.body.prevTo]).toEqual([monthStart(addMonths(m3, -3)), monthEnd(addMonths(m1, -3))]);
     const sum = q.body.points.reduce((a, p) => a + p.spentMinor, 0);
     expect(q.body.points.at(-1)!.cumulativeMinor).toBe(sum);
     const cats = await json<{ totalMinor: number }>('GET', `/api/trends/categories?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
     expect(cats.body.totalMinor).toBe(sum);
+    // year to date compares with the same months a year earlier
+    const ytd = await json<Daily>('GET', `/api/trends/daily?from=${cur.slice(0, 4)}-01-01&to=${monthEnd(cur)}`, { cookie: o.cookie });
+    expect([ytd.body.prevFrom, ytd.body.prevTo]).toEqual([monthStart(addMonths(`${cur.slice(0, 4)}-01`, -12)), monthEnd(addMonths(cur, -12))]);
+    // over-months uses the exact dates: partial edge months, same total as the categories tab
+    const [pf, pt] = [`${m3}-10`, `${m1}-20`];
+    const pm = await json<{ points: { month: string; partial: boolean; expensesMinor: number }[] }>('GET', `/api/trends/monthly?from=${pf}&to=${pt}`, { cookie: o.cookie });
+    expect(pm.body.points.map((p) => p.partial)).toEqual([true, false, true]);
+    const pc = await json<{ totalMinor: number }>('GET', `/api/trends/categories?from=${pf}&to=${pt}`, { cookie: o.cookie });
+    expect(pm.body.points.reduce((a, p) => a + p.expensesMinor, 0)).toBe(pc.body.totalMinor);
     // a year: monthly buckets; over-months covers the months spanned
     expect((await json<Daily>('GET', `/api/trends/daily?from=${monthStart(addMonths(cur, -11))}&to=${monthEnd(cur)}`, { cookie: o.cookie })).body.granularity).toBe('month');
     const m = await json<{ points: { month: string }[] }>('GET', `/api/trends/monthly?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
@@ -83,6 +101,13 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     // validation
     for (const qs of [`from=${monthStart(m1)}`, `from=${monthEnd(m1)}&to=${monthStart(m1)}`, 'from=2020-01-01&to=2026-01-01', 'from=2026-02-30&to=2026-03-01'])
       expect((await json('GET', `/api/trends/daily?${qs}`, { cookie: o.cookie })).status).toBe(400);
+    // both endpoints share one cap
+    const longest = `from=2024-01-01&to=${addDays('2024-01-01', MAX_RANGE_DAYS - 1)}`;
+    const tooLong = `from=2024-01-01&to=${addDays('2024-01-01', MAX_RANGE_DAYS)}`;
+    for (const ep of ['daily', 'monthly', 'categories']) {
+      expect((await json('GET', `/api/trends/${ep}?${longest}`, { cookie: o.cookie })).status).toBe(200);
+      expect((await json('GET', `/api/trends/${ep}?${tooLong}`, { cookie: o.cookie })).status).toBe(400);
+    }
     expect((await json('GET', `/api/trends/monthly?from=${monthEnd(m1)}&to=${monthStart(m1)}`, { cookie: o.cookie })).status).toBe(400);
   });
 });

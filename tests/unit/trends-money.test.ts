@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toneSign } from '../../src/shared/money';
-import { parseStored, presetOf, presetRange, shiftRange } from '../../src/client/features/trends/range';
+import { clampRange, parseStored, presetOf, presetRange, shiftRange, validRange } from '../../src/client/features/trends/range';
+import { addDays, dayOfWeek, MAX_RANGE_DAYS } from '../../src/shared/dates';
 
 describe('Money tone: in green, out red, neutral default, net by sign', () => {
   it.each([
@@ -40,5 +41,16 @@ describe('trends date range', () => {
     expect(parseStored('2026-02-01..2026-01-05', today)).toBeNull();
     expect(parseStored('null..null', today)).toBeNull();
     expect(parseStored(null, today)).toBeNull();
+  });
+  it('caps ranges like the API and never yields an invalid one', () => {
+    const longest = { from: '2024-01-01', to: addDays('2024-01-01', MAX_RANGE_DAYS - 1) };
+    expect(validRange(longest)).toBe(true);
+    expect(validRange({ ...longest, to: addDays(longest.to, 1) })).toBe(false);
+    expect(parseStored(`2020-01-01..2026-01-01`, today)).toBeNull();
+    expect(clampRange({ from: '2020-01-01', to: '2026-01-01' }, 'from')).toEqual({ from: '2020-01-01', to: addDays('2020-01-01', MAX_RANGE_DAYS - 1) });
+    expect(clampRange({ from: '2020-01-01', to: '2026-01-01' }, 'to')).toEqual({ from: addDays('2026-01-01', -(MAX_RANGE_DAYS - 1)), to: '2026-01-01' });
+    expect(clampRange({ from: '2026-05-10', to: '2026-05-01' }, 'from')).toEqual({ from: '2026-05-10', to: '2026-05-10' });
+    expect(clampRange({ from: '2026-05-10', to: '2026-05-01' }, 'to')).toEqual({ from: '2026-05-01', to: '2026-05-01' });
+    expect(dayOfWeek('2026-11-15')).toBe(0);
   });
 });
