@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { app } from '../../src/server/app';
 import { TENANT_TABLES } from '../../src/server/db/tables';
 import { tenantDb, UnscopedSqlError } from '../../src/server/db/tenant';
-import { DB, json, makeUser, sessionFor } from './helpers';
+import { DB, call, json, makeUser, sessionFor } from './helpers';
 import { buildIsolationFixture, type IsoFixture } from './isolationFixture';
 
 type Cls = 'public' | 'auth' | 'admin' | 'tenant';
@@ -42,6 +42,30 @@ export const ROUTES: Record<string, Cls> = {
   'POST /api/household/invites': 'tenant',
   'DELETE /api/household/invites/:id': 'tenant',
   'POST /api/household/members/:userId/recovery': 'tenant',
+  'POST /api/household/sample-data': 'tenant',
+  'GET /api/accounts': 'tenant',
+  'POST /api/accounts': 'tenant',
+  'PATCH /api/accounts/:id': 'tenant',
+  'DELETE /api/accounts/:id': 'tenant',
+  'POST /api/accounts/:id/balance': 'tenant',
+  'GET /api/categories': 'tenant',
+  'POST /api/categories': 'tenant',
+  'PATCH /api/categories/:id': 'tenant',
+  'DELETE /api/categories/:id': 'tenant',
+  'GET /api/rules': 'tenant',
+  'POST /api/rules': 'tenant',
+  'PATCH /api/rules/:id': 'tenant',
+  'DELETE /api/rules/:id': 'tenant',
+  'POST /api/rules/apply': 'tenant',
+  'GET /api/transactions': 'tenant',
+  'GET /api/transactions/export.csv': 'tenant',
+  'POST /api/transactions': 'tenant',
+  'PATCH /api/transactions/:id': 'tenant',
+  'POST /api/transactions/undo-learn': 'tenant',
+  'DELETE /api/transactions/:id': 'tenant',
+  'PUT /api/transactions/:id/splits': 'tenant',
+  'GET /api/transactions/:id/split-suggestion': 'tenant',
+  'POST /api/transactions/bulk': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';
@@ -114,6 +138,26 @@ describe('tenant routes with B ids → 404 (or 400), B unchanged', () => {
   });
 });
 
+describe('A path ids with B ids in the body → 404, B unchanged', () => {
+  it('foreign ids in payloads are rejected (assertOwned)', async () => {
+    const before = await snapshotB();
+    const failures: string[] = [];
+    for (const [key, cls] of Object.entries(ROUTES)) {
+      if (cls !== 'tenant') continue;
+      const [method, pattern] = key.split(' ') as [string, string];
+      if (method === 'GET' || !pattern.includes(':')) continue;
+      const bBody = fx.bodyFor(key, 'B');
+      const aBody = fx.bodyFor(key, 'A');
+      if (bBody === undefined || JSON.stringify(bBody) === JSON.stringify(aBody)) continue;
+      const path = pattern.replace(/:(\w+)/g, (_, p: string) => fx.idForA(pattern, p));
+      const r = await json(method, path, { cookie: fx.a.ownerCookie, body: bBody });
+      if (![400, 404].includes(r.status)) failures.push(`${key} → ${r.status}`);
+    }
+    expect(failures).toEqual([]);
+    expect(await snapshotB()).toEqual(before);
+  });
+});
+
 describe('no leakage in GET responses', () => {
   it('as A, every GET route (A ids and no ids) never contains the canary', async () => {
     const leaks: string[] = [];
@@ -122,8 +166,9 @@ describe('no leakage in GET responses', () => {
       if (method !== 'GET' || cls === 'admin') continue;
       const path = pattern.replace(/:(\w+)/g, (_, p: string) => fx.idForA(pattern, p));
       for (const q of fx.queriesFor(pattern)) {
-        const r = await json(method, path + q, { cookie: fx.a.ownerCookie });
-        if (JSON.stringify(r.body ?? '').includes(CANARY) || JSON.stringify(r.body ?? '').includes('ZZ-B-META')) leaks.push(`${key}${q}`);
+        const res = await call(method, path + q, { cookie: fx.a.ownerCookie });
+        const text = await res.text();
+        if (text.includes(CANARY) || text.includes('ZZ-B-META')) leaks.push(`${key}${q}`);
       }
     }
     expect(leaks).toEqual([]);

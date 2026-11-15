@@ -8,6 +8,8 @@ import { randomToken, sha256Hex } from '../lib/crypto';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
 import { sendInviteEmail } from '../lib/email';
 import { roleSchema } from '../../shared/schemas/me';
+import { buildDemoFor, demoInsertStatements } from '../seed/insert';
+import { householdToday } from '../lib/today';
 
 export const householdRoutes = tenantGroup();
 
@@ -109,4 +111,15 @@ householdRoutes.post('/members/:userId/recovery', requireOwner, async (c) => {
   await m.createInvite({ tokenHash: await sha256Hex(token), kind: 'recovery', role: null, targetUserId: uid, createdBy: userId, ttlMs: RECOVERY_TTL_MS });
   await db.audit(userId, 'member.recovery', 'user', uid).run();
   return c.json({ link: `${originOf(c)}/recover#${token}` }, 201);
+});
+
+/** Loads the sample household (empty households only, AC14.1). */
+householdRoutes.post('/sample-data', requireOwner, async (c) => {
+  const { db, hh, userId } = tctx(c);
+  const used = await db.first<{ n: number }>('SELECT (SELECT COUNT(*) FROM accounts WHERE household_id = ?1) + (SELECT COUNT(*) FROM transactions WHERE household_id = ?1) AS n');
+  if (used!.n > 0) throw new HttpError(409, 'not_empty', 'Household already has data');
+  const loc = (c.req.header('x-mz-locale') === 'he' ? 'he' : c.req.header('x-mz-locale') === 'en' ? 'en' : hh.locale === 'he' ? 'he' : 'en') as 'en' | 'he';
+  const data = await buildDemoFor(db, householdToday(hh), loc);
+  await db.batch([...demoInsertStatements(db, data), db.members.setSampleDataStmt(true), db.audit(userId, 'household.sample_data', 'household', hh.id)]);
+  return c.json({ ok: true, transactions: data.transactions.length }, 201);
 });

@@ -8,11 +8,19 @@ import { errorBody } from './http';
 import { authRoutes } from './routes/auth';
 import { adminRoutes } from './routes/admin';
 import { householdRoutes } from './routes/household';
+import { accountRoutes } from './routes/accounts';
+import { categoryRoutes } from './routes/categories';
+import { ruleRoutes } from './routes/rules';
+import { transactionRoutes } from './routes/transactions';
 import './ai/register';
 
 /** Mounted tenant route groups: prefix → router. Each is behind household + role middleware. */
 export const TENANT_GROUPS = {
   '/api/household': householdRoutes,
+  '/api/accounts': accountRoutes,
+  '/api/categories': categoryRoutes,
+  '/api/rules': ruleRoutes,
+  '/api/transactions': transactionRoutes,
 } as const;
 
 export function createApp() {

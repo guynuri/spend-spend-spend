@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarClock, ChartLine, ClipboardCheck, Home, Landmark, LayoutGrid, PiggyBank, Repeat, Settings, Shield, Target, TrendingUp, Upload, Users, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Tags, CalendarClock, ChartLine, ClipboardCheck, Home, Landmark, LayoutGrid, PiggyBank, Repeat, Settings, Shield, Target, TrendingUp, Upload, Users, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   to: string;
@@ -20,6 +20,7 @@ export const MORE_ITEMS: NavItem[] = [
   { to: '/forecast', key: 'nav.forecast', icon: ChartLine, testId: 'nav-forecast' },
   { to: '/recurring', key: 'nav.recurring', icon: Repeat, testId: 'nav-recurring' },
   { to: '/accounts', key: 'nav.accounts', icon: Landmark, testId: 'nav-accounts' },
+  { to: '/categories', key: 'nav.categories', icon: Tags, testId: 'nav-categories' },
   { to: '/goals', key: 'nav.goals', icon: Target, testId: 'nav-goals' },
   { to: '/trends', key: 'nav.trends', icon: TrendingUp, testId: 'nav-trends' },
   { to: '/review', key: 'nav.review', icon: ClipboardCheck, testId: 'nav-review' },

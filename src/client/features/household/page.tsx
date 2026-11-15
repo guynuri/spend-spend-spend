@@ -105,8 +105,8 @@ function Members() {
           <li key={m.userId} className="flex flex-col gap-2 py-3" data-testid="member-row">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium" dir="auto">
-                  {m.displayName} {m.userId === me.user.id && <span className="text-sm text-muted">({t('household.you')})</span>}
+                <div className="truncate font-medium">
+                  <bdi>{m.displayName}</bdi> {m.userId === me.user.id && <span className="text-sm text-muted">({t('household.you')})</span>}
                 </div>
                 <div className="text-xs text-muted">{t('household.passkeysCount', { count: m.passkeys })}</div>
               </div>

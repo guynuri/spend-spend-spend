@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T00:55Z — currently: M3 accounts, categories, ledger (starting)
+Last updated: 2026-11-15T01:12Z — currently: M4 import pipeline (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -25,8 +25,18 @@ Last updated: 2026-11-15T00:55Z — currently: M3 accounts, categories, ledger (
   suite (route classification + cross-household + canary + registry), e2e `01-setup`,
   `02-auth`, `08-household` (Chromium CDP virtual authenticator).
 
+- **M3** — accounts (CRUD, archive-if-used, manual balance snapshot, variance), categories
+  (defaults per locale, add/rename/regroup, archive-if-used), rules (seed/user/learned, SQL rule
+  pass, precedence), ledger (URL filters, normalized search, 50-row cursor paging, phone card
+  list / table ≥ 768 px, transaction sheet, learned rules with "N more categorized" + Undo, split
+  editor with exact-sum check and "same as last time", bulk categorize, CSV export with BOM and
+  formula-injection guard, manual entry), demo generator + `POST /api/household/sample-data` +
+  `npm run seed:local`. AC3.1–3.7: `tests/api/ledger.test.ts`, `tests/unit/ledger.test.ts`,
+  e2e `04-ledger.spec.ts`; isolation suite now runs over demo data with the canary in every B
+  text field.
+
 ## In progress
-- M3 — accounts, categories, rules, ledger.
+- M4 — import pipeline.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -43,7 +53,7 @@ Last updated: 2026-11-15T00:55Z — currently: M3 accounts, categories, ledger (
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M2: `npm run verify` green — unit 19, api 22, e2e 16.
+- M3: `npm run verify` green — unit 25, api 35, e2e 20.
 
 ## Security checklist
 - (ticked in M10)

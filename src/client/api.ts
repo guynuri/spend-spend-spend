@@ -18,7 +18,7 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
     res = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: method === 'GET' ? { Accept: 'application/json' } : { 'Content-Type': 'application/json', 'X-MZ': '1', Accept: 'application/json' },
+      headers: method === 'GET' ? { Accept: 'application/json' } : { 'Content-Type': 'application/json', 'X-MZ': '1', 'X-MZ-Locale': document.documentElement.lang || 'en', Accept: 'application/json' },
       body: method === 'GET' || body === undefined ? (method === 'GET' ? undefined : '{}') : JSON.stringify(body),
     });
   } catch {

@@ -64,3 +64,27 @@ Format: date · milestone · what · why · alternatives rejected.
 - API tests exercise real WebAuthn registration and login with a small software authenticator
   (`tests/api/softauthn.ts`, ES256, attestation "none"); e2e uses Chromium's CDP virtual
   authenticator and replays saved credentials (with their sign counter) into new contexts.
+
+## D-R8 · 2026-11-15 · M3 · Ledger details
+- `transactions.description_norm` stores `normKey(description)` (the rules/dedupe form).
+  Search matches `description_norm` (niqqud/quotes/spaces-insensitive) **or** the raw lowercased
+  description, notes and reference (so digit runs such as references are still findable).
+- `operation_type` is stored as `norm(...)` so `operation_type` rules can match in SQL.
+- The rule pass runs entirely in SQL (`UPDATE … FROM` with a correlated "winning rule" subquery
+  ordered user > learned > ai > seed, longer pattern first). A pure TS twin
+  (`shared/domain/ledger.ts`) is unit-tested for the same precedence.
+- Learning from a manual categorization upserts an `equals` rule on `normKey(description)` with
+  the transaction's sign and applies it to the other uncategorized matches; the response returns
+  the affected ids so "Undo" reverts exactly those and deletes the learned rule.
+- Card-issuer patterns that are Latin words (`cal`, `max it`, `visa` …) match on word
+  boundaries only, so "local cafe" is not a card charge.
+- Imported fields (date, amount, description, account) are read-only; category, notes, splits
+  and recurring link are editable. Manual transactions are fully editable.
+- Categories and rules have their own page (`/categories`, reached from More) rather than living
+  inside Settings.
+- Bulk inserts (demo data now, imports in M4) use one `INSERT … SELECT … FROM json_each(?2)`
+  statement per ≤ 400 rows (`tenantDb.bulkInsertStmts`) to stay within D1's per-invocation
+  query limit.
+- The demo generator is complete from M3 (accounts, ~7 months of transactions with split card
+  lumps, recurring items, budgets, goals, planned expenses). `npm run seed:local` bundles it
+  with esbuild and loads it through `wrangler d1 execute --local`.

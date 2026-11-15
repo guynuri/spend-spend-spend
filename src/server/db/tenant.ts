@@ -33,8 +33,26 @@ export function tenantDb(db: D1Database, householdId: string) {
     return db.prepare(sql).bind(householdId, ...vals);
   };
 
+  /**
+   * One set-based INSERT for many rows: INSERT … SELECT ?1, json_extract(value, '$.col') … FROM json_each(?2).
+   * Keeps D1 queries per request low (PLAN §4.2). Caller chunks to ≤ 500 rows.
+   */
+  const bulkInsertStmt = (table: string, cols: string[], rows: Record<string, Param | boolean | undefined>[]) => {
+    if (!isTenantTable(table)) throw new Error(`not a tenant table: ${table}`);
+    for (const c of cols) if (!IDENT.test(c) || c === 'household_id') throw new Error(`bad column ${c}`);
+    const data = rows.map((r) => cols.map((c) => (typeof r[c] === 'boolean' ? (r[c] ? 1 : 0) : (r[c] ?? null))));
+    const sql = `INSERT INTO ${table} (household_id, ${cols.join(', ')}) SELECT ?1, ${cols.map((_, i) => `json_extract(value, '$[${i}]')`).join(', ')} FROM json_each(?2)`;
+    return db.prepare(sql).bind(householdId, JSON.stringify(data));
+  };
+
   const q = {
     householdId,
+    bulkInsertStmt,
+    bulkInsertStmts: (table: string, cols: string[], rows: Record<string, Param | boolean | undefined>[], chunk = 400) => {
+      const out: D1PreparedStatement[] = [];
+      for (let i = 0; i < rows.length; i += chunk) out.push(bulkInsertStmt(table, cols, rows.slice(i, i + chunk)));
+      return out;
+    },
     /** Membership/invite operations for THIS household only. */
     members: householdMembers(db, householdId),
     all: async <T = Record<string, unknown>>(sql: string, ...params: Param[]): Promise<T[]> => (await prep(sql, params).all<T>()).results,

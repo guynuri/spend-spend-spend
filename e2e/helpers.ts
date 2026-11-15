@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-export const MAIN_ROUTES = ['/', '/transactions', '/budget', '/upcoming', '/more', '/forecast', '/recurring', '/accounts', '/goals', '/trends', '/review', '/import', '/household', '/settings', '/admin'];
+export const MAIN_ROUTES = ['/', '/transactions', '/budget', '/upcoming', '/more', '/forecast', '/recurring', '/accounts', '/goals', '/trends', '/review', '/import', '/household', '/settings', '/admin', '/categories'];
 
 export async function setLocale(page: Page, locale: 'en' | 'he') {
   await page.addInitScript((l) => {

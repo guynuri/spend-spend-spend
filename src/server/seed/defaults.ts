@@ -92,17 +92,14 @@ export const SEED_RULES: SeedRule[] = [
   c('גן ילדים', 'education', 'out'),
 ];
 
-/** Card-issuer patterns: negative rows matching these are card lumps (PLAN §5.3). */
-export const CARD_ISSUER_PATTERNS = [
-  'ישראכרט', 'isracard', 'כאל', 'cal', 'מקס', 'max it', 'לאומי קארד', 'ויזה', 'visa', 'מסטרקארד', 'mastercard', 'אמריקן אקספרס', 'amex', 'דיינרס', 'diners', 'כרטיסי אשראי',
-].map((p) => norm(p));
+export { CARD_ISSUER_PATTERNS } from '../../shared/domain/constants';
 
-type Stmt = (table: string, row: Record<string, string | number | null>) => D1PreparedStatement;
+type Stmt<S> = (table: string, row: Record<string, string | number | null>) => S;
 
 /** Statements that create the default categories and seed rules for a household. */
-export function defaultCategoryStatements(insert: Stmt, locale: Locale) {
+export function defaultCategoryStatements<S>(insert: Stmt<S>, locale: Locale) {
   const ids = new Map<string, string>();
-  const stmts: D1PreparedStatement[] = [];
+  const stmts: S[] = [];
   DEFAULT_CATEGORIES.forEach((d, i) => {
     const id = newId();
     ids.set(d.key, id);
