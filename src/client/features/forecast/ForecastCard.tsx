@@ -24,12 +24,12 @@ export function ForecastExplain({ f }: { f: ForecastView }) {
       testId="explain-forecast"
       rows={[
         { label: <>{t('forecast.rows.start')} (<DateText date={f.asOf} />)</>, value: <Money minor={f.startBalance} />, testId: 'row-start' },
-        { label: t('forecast.rows.income'), value: <Money minor={b.income} signed />, testId: 'row-income' },
-        { label: t('forecast.rows.recurring'), value: <Money minor={b.recurring} signed />, testId: 'row-recurring' },
-        { label: t('forecast.rows.card'), value: <Money minor={b.card} signed />, testId: 'row-card' },
-        { label: t('forecast.rows.planned'), value: <Money minor={b.planned} signed />, testId: 'row-planned' },
-        { label: t('forecast.rows.actuals'), value: <Money minor={b.actuals} signed />, testId: 'row-actuals' },
-        { label: t('forecast.rows.variable'), value: <Money minor={b.variable} signed />, testId: 'row-variable' },
+        { label: t('forecast.rows.income'), value: <Money minor={b.income} signed tone />, testId: 'row-income' },
+        { label: t('forecast.rows.recurring'), value: <Money minor={b.recurring} signed tone />, testId: 'row-recurring' },
+        { label: t('forecast.rows.card'), value: <Money minor={b.card} signed tone />, testId: 'row-card' },
+        { label: t('forecast.rows.planned'), value: <Money minor={b.planned} signed tone />, testId: 'row-planned' },
+        { label: t('forecast.rows.actuals'), value: <Money minor={b.actuals} signed tone />, testId: 'row-actuals' },
+        { label: t('forecast.rows.variable'), value: <Money minor={b.variable} signed tone />, testId: 'row-variable' },
       ]}
       total={{ label: t('forecast.rows.eom'), value: <Money minor={f.eom?.balance ?? 0} />, testId: 'row-eom' }}
     >

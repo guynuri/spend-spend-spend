@@ -4,7 +4,7 @@ import { Badge, ProgressBar } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
 import { useParamFormatter } from '../../lib/format';
-import { formatPercent, type Locale } from '../../../shared/money';
+import { formatPercent, type Locale, type MoneyTone } from '../../../shared/money';
 import type { CatAmount, Chapter, Commentary, ReviewSnapshot } from '../../../shared/domain/review';
 import { InsightList } from '../overview/Insights';
 
@@ -20,13 +20,13 @@ export function CommentaryText({ c, ai }: { c: Commentary; ai?: string | null })
   );
 }
 
-function Stat({ label, value, prev }: { label: ReactNode; value: number; prev?: number }) {
+function Stat({ label, value, prev, tone }: { label: ReactNode; value: number; prev?: number; tone?: MoneyTone }) {
   const { t, i18n } = useTranslation();
   const ch = prev ? (value - prev) / Math.abs(prev) : null;
   return (
     <div>
       <div className="text-xs text-muted">{label}</div>
-      <Money minor={value} decimals={0} className="text-xl font-bold" />
+      <Money minor={value} decimals={0} className="text-xl font-bold" tone={tone} />
       {ch !== null && (
         <div className="text-xs text-muted">
           <bdi>{`${ch >= 0 ? '+' : ''}${formatPercent(ch, i18n.language as Locale)}`}</bdi> {t('review.vsPrev')}
@@ -70,9 +70,9 @@ export function ChapterView({ ch, s, ai }: { ch: Chapter; s: ReviewSnapshot; ai:
             {s.summary.change !== null && <span className="text-sm text-muted">{t('health.change', { change: `${s.summary.change >= 0 ? '+' : ''}${s.summary.change}` })}</span>}
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <Stat label={t('dashboard.income')} value={s.summary.incomeMinor} />
-            <Stat label={t('dashboard.expenses')} value={s.summary.expensesMinor} />
-            <Stat label={t('dashboard.net')} value={s.summary.netMinor} />
+            <Stat label={t('dashboard.income')} value={s.summary.incomeMinor} tone="in" />
+            <Stat label={t('dashboard.expenses')} value={s.summary.expensesMinor} tone="out" />
+            <Stat label={t('dashboard.net')} value={s.summary.netMinor} tone />
           </div>
           {s.summary.chips.length > 0 && (
             <div className="flex flex-wrap gap-2" data-testid="review-chips">
@@ -90,7 +90,7 @@ export function ChapterView({ ch, s, ai }: { ch: Chapter; s: ReviewSnapshot; ai:
     case 'income':
       return (
         <div className="flex flex-col gap-4">
-          <Stat label={t('dashboard.income')} value={s.income.totalMinor} prev={s.income.prevMinor} />
+          <Stat label={t('dashboard.income')} value={s.income.totalMinor} prev={s.income.prevMinor} tone="in" />
           <CommentaryText c={s.income.commentary} ai={a} />
           <Cats items={s.income.byCategory} />
         </div>
@@ -98,7 +98,7 @@ export function ChapterView({ ch, s, ai }: { ch: Chapter; s: ReviewSnapshot; ai:
     case 'spending':
       return (
         <div className="flex flex-col gap-4">
-          <Stat label={t('dashboard.expenses')} value={s.spending.totalMinor} prev={s.spending.prevMinor} />
+          <Stat label={t('dashboard.expenses')} value={s.spending.totalMinor} prev={s.spending.prevMinor} tone="out" />
           <CommentaryText c={s.spending.commentary} ai={a} />
           <Cats items={s.spending.byCategory} />
           {s.spending.notable.length > 0 && (
@@ -199,7 +199,7 @@ export function ChapterView({ ch, s, ai }: { ch: Chapter; s: ReviewSnapshot; ai:
                 <span>
                   <DateText date={u.date} format="dayMonth" className="text-muted" /> · <bdi>{u.label}</bdi>
                 </span>
-                <Money minor={u.amountMinor} decimals={0} />
+                <Money minor={u.amountMinor} decimals={0} tone />
               </li>
             ))}
           </ul>

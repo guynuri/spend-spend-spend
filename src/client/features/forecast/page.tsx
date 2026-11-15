@@ -22,7 +22,7 @@ export function Component() {
                 <span>
                   <bdi>{m.label}</bdi> · <DateText date={m.due} format="dayMonth" />
                 </span>
-                <Money minor={m.amountMinor} />
+                <Money minor={m.amountMinor} tone />
               </li>
             ))}
           </ul>
@@ -37,7 +37,7 @@ export function Component() {
                 <span>
                   <bdi>{m.label}</bdi> · <DateText date={m.date} format="dayMonth" />
                 </span>
-                <Money minor={m.amountMinor} />
+                <Money minor={m.amountMinor} tone />
               </li>
             ))}
           </ul>

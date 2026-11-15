@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { json, ownerSetup } from './helpers';
-import { addMonths, monthOf, todayInTz } from '../../src/shared/dates';
+import { addMonths, monthEnd, monthOf, monthStart, todayInTz } from '../../src/shared/dates';
 import type { BudgetView } from '../../src/shared/domain/budget';
 
 describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
@@ -43,9 +43,9 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     const c = await json<{ totalMinor: number; items: { share: number; spentMinor: number; categoryId: string | null }[] }>('GET', `/api/trends/categories?month=${prev}`, { cookie: o.cookie });
     expect(c.body.items.reduce((a, i) => a + i.share, 0)).toBeCloseTo(1);
     expect(c.body.items.reduce((a, i) => a + i.spentMinor, 0)).toBe(c.body.totalMinor);
-    const d = await json<{ days: { cumulativeMinor: number | null; prevCumulativeMinor: number }[] }>('GET', `/api/trends/daily?month=${prev}`, { cookie: o.cookie });
-    expect(d.body.days.length).toBeGreaterThanOrEqual(28);
-    expect(d.body.days.at(-1)!.prevCumulativeMinor).toBeGreaterThan(0);
+    const d = await json<{ points: { cumulativeMinor: number | null; prevCumulativeMinor: number }[] }>('GET', `/api/trends/daily?month=${prev}`, { cookie: o.cookie });
+    expect(d.body.points.length).toBeGreaterThanOrEqual(28);
+    expect(d.body.points.at(-1)!.prevCumulativeMinor).toBeGreaterThan(0);
     const m = await json<{ points: { incomeMinor: number; expensesMinor: number; netMinor: number }[] }>('GET', '/api/trends/monthly?months=12', { cookie: o.cookie });
     expect(m.body.points).toHaveLength(12);
     expect(m.body.points.every((p) => p.netMinor === p.incomeMinor - p.expensesMinor)).toBe(true);
@@ -55,5 +55,34 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     // budget "expenses" equals the trends total for the same month (one definition)
     const b = await json<BudgetView>('GET', `/api/budgets?month=${prev}`, { cookie: o.cookie });
     expect(b.body.totals.expensesMinor).toBe(c.body.totalMinor);
+  });
+
+  it('trends: from/to range drives categories, buckets and months; bad ranges are rejected', async () => {
+    const o = await ownerSetup();
+    await json('POST', '/api/household/sample-data', { cookie: o.cookie });
+    const cur = monthOf(todayInTz('Asia/Jerusalem'));
+    const [m1, m3] = [addMonths(cur, -1), addMonths(cur, -3)];
+    type Daily = { granularity: string; points: { start: string; spentMinor: number; cumulativeMinor: number | null; prevCumulativeMinor: number }[] };
+    // one month = the same as ?month=, day buckets
+    const byMonth = await json<Daily>('GET', `/api/trends/daily?month=${m1}`, { cookie: o.cookie });
+    const byRange = await json<Daily>('GET', `/api/trends/daily?from=${monthStart(m1)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
+    expect(byRange.body).toEqual(byMonth.body);
+    expect(byRange.body.granularity).toBe('day');
+    // three whole months: weekly buckets, cumulative ends at the period total
+    const q = await json<Daily>('GET', `/api/trends/daily?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
+    expect(q.body.granularity).toBe('week');
+    expect(q.body.points[0]!.start).toBe(monthStart(m3));
+    const sum = q.body.points.reduce((a, p) => a + p.spentMinor, 0);
+    expect(q.body.points.at(-1)!.cumulativeMinor).toBe(sum);
+    const cats = await json<{ totalMinor: number }>('GET', `/api/trends/categories?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
+    expect(cats.body.totalMinor).toBe(sum);
+    // a year: monthly buckets; over-months covers the months spanned
+    expect((await json<Daily>('GET', `/api/trends/daily?from=${monthStart(addMonths(cur, -11))}&to=${monthEnd(cur)}`, { cookie: o.cookie })).body.granularity).toBe('month');
+    const m = await json<{ points: { month: string }[] }>('GET', `/api/trends/monthly?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
+    expect(m.body.points.map((p) => p.month)).toEqual([m3, addMonths(m3, 1), m1]);
+    // validation
+    for (const qs of [`from=${monthStart(m1)}`, `from=${monthEnd(m1)}&to=${monthStart(m1)}`, 'from=2020-01-01&to=2026-01-01', 'from=2026-02-30&to=2026-03-01'])
+      expect((await json('GET', `/api/trends/daily?${qs}`, { cookie: o.cookie })).status).toBe(400);
+    expect((await json('GET', `/api/trends/monthly?from=${monthEnd(m1)}&to=${monthStart(m1)}`, { cookie: o.cookie })).status).toBe(400);
   });
 });

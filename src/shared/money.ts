@@ -61,3 +61,14 @@ export function roundToStep(minor: Minor, stepMinor: Minor): Minor {
 }
 
 export const sum = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
+
+/**
+ * Amount colour rule: money in is green (1), money out is red (-1), everything else (balances,
+ * budgets, targets) stays default (0). `true` follows the sign (signed amounts, net values);
+ * 'in' / 'out' mark summary figures shown as positive numbers. Zero is never coloured.
+ */
+export type MoneyTone = boolean | 'in' | 'out';
+export function toneSign(minor: number, tone: MoneyTone | undefined): -1 | 0 | 1 {
+  if (!minor || !tone) return 0;
+  return tone === 'in' ? 1 : tone === 'out' ? -1 : minor > 0 ? 1 : -1;
+}
