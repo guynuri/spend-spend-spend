@@ -50,22 +50,24 @@ const s=fs.readFileSync(p,"utf8").replace(/"database_id": "[0-9a-f-]+"/g, `"data
 fs.writeFileSync(p,s);' "$DB_ID"
 echo "  database_id = $DB_ID"
 
-# 4) migrations
-echo "→ migrations"
-run npx wrangler d1 migrations apply "$DB_NAME" --remote --env "$ENVNAME"
-
-deploy_once() {
-  run env CLOUDFLARE_ENV="$ENVNAME" npm run build
+build() { run env CLOUDFLARE_ENV="$ENVNAME" npm run build; }
+publish() {
   if [[ "$DRY_RUN" == "1" ]]; then URL="https://$WORKER.example.workers.dev"; return; fi
   local out
   out="$(npx wrangler deploy 2>&1 | tee /dev/stderr)"
   URL="$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' <<<"$out" | head -1)"
   if [[ -z "$URL" ]]; then echo "✗ could not find the workers.dev URL in the deploy output" >&2; exit 1; fi
 }
+deploy_once() { build; publish; }
 
-# 5) build + deploy
-echo "→ build and deploy"
-deploy_once
+# 4-5) build first (the step that can fail), then migrations, then deploy right away, so the live
+#    worker runs against a migrated schema only for the few seconds between the two.
+echo "→ build"
+build
+echo "→ migrations"
+run npx wrangler d1 migrations apply "$DB_NAME" --remote --env "$ENVNAME"
+echo "→ deploy"
+publish
 HOST="${URL#https://}"
 
 # 6) secrets (only those not set yet)

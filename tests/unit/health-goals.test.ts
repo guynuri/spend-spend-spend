@@ -99,7 +99,7 @@ describe('action items (§10.7, AC11.2)', () => {
     unsplitCardMinor: 0, lines: [], pace: null, suggestedCount: 0, bigPayments: [], goals: [], lastComplete: null, ...p,
   });
   it('each rule fires and the order is alert, warn, info, good', () => {
-    const line = (id: string, status: 'over' | null, spent: number, avg: number, rem: number | null) => ({ categoryId: id, name: id, grp: 'variable' as const, limitMinor: rem === null ? null : spent + rem, spentMinor: spent, remainingMinor: rem, utilization: null, status, avg3Minor: avg });
+    const line = (id: string, status: 'over' | null, spent: number, avg: number, rem: number | null) => ({ categoryId: id, name: id, grp: 'variable' as const, limitMinor: rem === null ? null : spent + rem, oneTime: false, spentMinor: spent, remainingMinor: rem, utilization: null, status, avg3Minor: avg });
     const r = buildInsights(
       inp({
         stale: true,
@@ -118,7 +118,7 @@ describe('action items (§10.7, AC11.2)', () => {
     expect(r.find((x) => x.key === 'budget_over')!.params.category).toBe('d');
   });
   it('spike only compares pro-rated spend when f ≥ 0.5; pace needs ≥ 10 %', () => {
-    const l = { categoryId: 'e', name: 'e', grp: 'variable' as const, limitMinor: null, spentMinor: 20000, remainingMinor: null, utilization: null, status: null, avg3Minor: 20000 };
+    const l = { categoryId: 'e', name: 'e', grp: 'variable' as const, limitMinor: null, oneTime: false, spentMinor: 20000, remainingMinor: null, utilization: null, status: null, avg3Minor: 20000 };
     expect(buildInsights(inp({ f: 0.4, lines: [{ ...l, spentMinor: 40000 }] })).some((x) => x.key === 'category_spike')).toBe(false);
     expect(buildInsights(inp({ f: 0.5, lines: [l] })).some((x) => x.key === 'category_spike')).toBe(true);
     expect(buildInsights(inp({ pace: { thisMinor: 109, prevMinor: 100, day: 3 } })).some((x) => x.key.startsWith('pace'))).toBe(false);
@@ -126,7 +126,7 @@ describe('action items (§10.7, AC11.2)', () => {
   });
 });
 
-import { buildReview, notableTransactions, trend } from '../../src/shared/domain/review';
+import { buildReview, finalSummary, notableTransactions, trend } from '../../src/shared/domain/review';
 describe('review builder (§10.8)', () => {
   it('trend, notable transactions, commentary keys, chips', () => {
     expect([trend(106, 100), trend(94, 100), trend(103, 100), trend(5, 0), trend(0, 0)]).toEqual(['up', 'down', 'flat', 'flat', 'flat']);
@@ -150,5 +150,23 @@ describe('review builder (§10.8)', () => {
     expect(r.cashflow.commentary.key).toBe('review.c.cashflow.negative');
     expect(r.wrapup.headline.key).toBe('review.h.good_up');
     expect(r.goals.items[0]!.milestones).toEqual([50]);
+    // final summary: deterministic wins / focus / numbered actions from the snapshot alone
+    const f = finalSummary(r);
+    expect(f.savingsRate).toBeCloseTo(-0.2);
+    expect(f.wins.map((w) => w.key)).toEqual(['review.fin.win.score_up', 'review.fin.win.budgets', 'review.fin.win.milestone']);
+    expect(f.wins[2]!.params).toEqual({ name: 'g', pct: 0.5 });
+    expect(f.focus.map((w) => w.key)).toEqual(['review.fin.focus.net', 'review.fin.focus.spending_up']);
+    expect(f.focus[0]!.params.netMinor).toBe(200);
+    expect(f.actions.map((a) => a.key)).toEqual(['review.fin.act.next_review']);
+    const over = finalSummary({ ...r, budget: { ...r.budget, total: 1, ok: 0, lines: [{ name: 'x', spentMinor: 150, limitMinor: 100, overMinor: 50 }] }, wrapup: { ...r.wrapup, nextSteps: [{ key: 'savings', gain: 2, amountMinor: 10 } as never] } });
+    expect(over.focus[1]).toEqual({ key: 'review.fin.focus.over', params: { name: 'x', overMinor: 50 } });
+    expect(over.actions.map((a) => a.key)).toEqual(['health.recs.savings', 'review.fin.act.over', 'review.fin.act.next_review']);
+    expect(over.actions[0]!.gain).toBe(2);
+    // thresholds use the rate as displayed (whole percents)
+    const at = (savingsRate: number) => finalSummary({ ...r, cashflow: { ...r.cashflow, savingsRate } });
+    expect(at(0.0996).focus.map((x) => x.key)).not.toContain('review.fin.focus.low_savings');
+    expect(at(0.094).focus.map((x) => x.key)).toContain('review.fin.focus.low_savings');
+    expect(at(0.1996).wins.map((x) => x.key)).toContain('review.fin.win.savings');
+    expect(at(0.194).wins.map((x) => x.key)).not.toContain('review.fin.win.savings');
   });
 });

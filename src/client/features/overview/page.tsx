@@ -19,6 +19,7 @@ import { ForecastChart, ForecastExplain } from '../forecast/ForecastCard';
 import { HealthCard, type HealthData } from '../health/HealthCard';
 import { InsightList } from './Insights';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
+import { ReviewDueCard } from '../review/DueCard';
 
 interface Dashboard {
   month: string;
@@ -114,6 +115,7 @@ export function Component() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('dashboard.title')} subtitle={<DateText date={d.month} format="month" />} />
+      <ReviewDueCard />
       {d.isLatestData && (
         <p className="rounded-xl bg-warn/10 p-3 text-sm text-warn" data-testid="latest-data-banner">
           {t('dashboard.latestData', pf({ month: d.month }))}

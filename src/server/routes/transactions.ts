@@ -17,13 +17,13 @@ import type { Ctx } from '../types';
 export const transactionRoutes = tenantGroup();
 const PAGE = 50;
 
-function encodeCursor(date: string, id: string) {
-  return btoa(JSON.stringify([date, id])).replace(/=+$/, '');
+function encodeCursor(date: string, rowid: number) {
+  return btoa(JSON.stringify([date, rowid])).replace(/=+$/, '');
 }
-function decodeCursor(s: string): [string, string] | null {
+function decodeCursor(s: string): [string, number] | null {
   try {
     const v = JSON.parse(atob(s));
-    return Array.isArray(v) && typeof v[0] === 'string' && typeof v[1] === 'string' ? [v[0], v[1]] : null;
+    return Array.isArray(v) && typeof v[0] === 'string' && Number.isInteger(v[1]) ? [v[0], v[1]] : null;
   } catch {
     return null;
   }
@@ -92,11 +92,13 @@ transactionRoutes.get('/', async (c) => {
   if (f.cursor) {
     const cur = decodeCursor(f.cursor);
     if (!cur) throw new HttpError(400, 'validation', 'Bad cursor');
-    where += ` AND (t.date < ?${params.length + 2} OR (t.date = ?${params.length + 2} AND t.id < ?${params.length + 3}))`;
+    where += ` AND (t.date < ?${params.length + 2} OR (t.date = ?${params.length + 2} AND t.rowid < ?${params.length + 3}))`;
     params.push(cur[0], cur[1]);
   }
   const [rows, sum] = await Promise.all([
-    db.all(`SELECT ${TX_COLS} FROM transactions t WHERE ${where} ORDER BY t.date DESC, t.id DESC LIMIT ${PAGE + 1}`, ...params),
+    // Newest-entered first within a day (rowid = insertion order). Ids are random, so ordering by id
+    // dropped a just-added row at a random spot among that day's rows, often off-screen.
+    db.all(`SELECT ${TX_COLS}, t.rowid AS _rowid FROM transactions t WHERE ${where} ORDER BY t.date DESC, t.rowid DESC LIMIT ${PAGE + 1}`, ...params),
     db.first<{ n: number; i: number; o: number }>(
       `SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN t.amount_minor > 0 THEN t.amount_minor END), 0) AS i, COALESCE(SUM(CASE WHEN t.amount_minor < 0 THEN -t.amount_minor END), 0) AS o FROM transactions t WHERE ${f.where}`,
       ...f.params,
@@ -107,7 +109,7 @@ transactionRoutes.get('/', async (c) => {
   const last = page[page.length - 1];
   const res: TxList = {
     items: page.map((r) => mapTx(r, splits.get(r.id as string) ?? [])),
-    nextCursor: rows.length > PAGE && last ? encodeCursor(last.date as string, last.id as string) : null,
+    nextCursor: rows.length > PAGE && last ? encodeCursor(last.date as string, last._rowid as number) : null,
     summary: { count: sum?.n ?? 0, inMinor: sum?.i ?? 0, outMinor: sum?.o ?? 0 },
     range: { from: f.from, to: f.to },
   };
@@ -347,6 +349,8 @@ transactionRoutes.get('/:id/split-suggestion', async (c) => {
     id,
   );
   if (!tx) throw notFound();
+  // No payee to match on: an empty description would match every other description-less split.
+  if (tx.kind !== 'card_lump' && !tx.description_norm) return c.json({ suggestion: null });
   const prev = await db.first<{ id: string; date: string; amount_minor: number }>(
     `SELECT id, date, amount_minor FROM transactions WHERE household_id = ?1 AND has_splits = 1 AND id <> ?2
        AND (CASE WHEN ?3 = 'card_lump' THEN kind = 'card_lump' ELSE description_norm = ?4 END)

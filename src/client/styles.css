@@ -75,6 +75,18 @@ select,
 textarea {
   font-size: 16px;
 }
+/* iOS gives native date inputs an intrinsic min-width that overflows narrow grids. */
+input[type='date'] {
+  min-width: 0;
+}
+@supports (-webkit-touch-callout: none) {
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+  }
+}
 @keyframes fade-in {
   from {
     opacity: 0;
