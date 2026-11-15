@@ -127,3 +127,23 @@ Format: date · milestone · what · why · alternatives rejected.
 - ESLint i18n rule runs in `jsx-text-only` mode (array literals inside JSX expressions are
   not user-visible); user-visible attributes (`aria-label`, `title`, `placeholder`, `alt`)
   with letters are blocked by a separate `no-restricted-syntax` selector.
+
+## D-R11 · 2026-11-15 · M6 · Recurring, planned, forecast
+- Settlement linking and detection run the pure TS functions (`shared/domain/recurring.ts`) over
+  a bounded candidate set (the import's rows, or unlinked rows of the last 120 days after a
+  registry change; detection reads one row per transaction of the last 6 months). The writes are
+  single set-based `UPDATE … FROM json_each` / bulk inserts. Occurrence generation is not
+  expressible in SQL, so this is the one place rows are looped in the Worker; it is linear in
+  rows × active items and far below the CPU budget for a household.
+- Planned expenses paid from an account are matched to a new transaction on the same account
+  with the same sign, amount within 10 % and date within ±7 days (nearest first), then marked
+  done and linked both ways. Card-paid planned items are marked done once the first charge of
+  that card due after their date has settled. Users can link/unlink by hand (`matchedTxId`).
+- "Missed" occurrences are listed when unsettled and due between A − 35 days and A − 5 days.
+- `GET /api/upcoming` runs the same forecast engine with the horizon extended to today + 45
+  days, so the upcoming list and the forecast always agree; each item carries the projected
+  balance at the end of its day.
+- Detection compares candidate patterns with existing items by (account, sign, match text), or
+  (account, card lump) for card charges, in any status — so dismissed suggestions never return.
+- Recurring amounts are entered as positive numbers; the sign follows the kind (income +,
+  payment and card charge −).

@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T01:35Z — currently: M6 recurring, planned, forecast (starting)
+Last updated: 2026-11-15T01:46Z — currently: M7 goals, health, dashboard (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -57,8 +57,18 @@ Last updated: 2026-11-15T01:35Z — currently: M6 recurring, planned, forecast (
   month), over 12 months (income/spending/net, or one category). AC5.1–5.5, AC10.1:
   `tests/unit/budget.test.ts`, `tests/api/budgets.test.ts`, e2e `06-budget-goals.spec.ts`.
 
+- **M6** — recurring registry (CRUD, pause, fixed/estimated, all cadences, per-occurrence
+  override/skip), detection after import (suggested → confirm/dismiss), settlement linking after
+  import/manual writes, card estimate = mean of last ≤ 3 charges, monthly/yearly totals; planned
+  expenses (account or card, auto-done on match); forecast engine per §10.3 (start at A, late/
+  missed/overdue, variable baseline, card + planned-by-card, series to end of next month, low
+  point, after-next-card, confidence, exact breakdown) with card/page/chart/explain sheet;
+  upcoming 45-day list with running balance. AC6.1–6.6, AC7.1–7.4: `tests/unit/recurring.test.ts`
+  (13), `tests/unit/forecast.test.ts` (15, every §10.3 edge case + exact-sum invariant + AC7.2),
+  `tests/api/forecast.test.ts` (6), e2e `05-forecast.spec.ts`.
+
 ## In progress
-- M6 — recurring, planned, forecast.
+- M7 — goals, health score, dashboard, action items, onboarding.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -78,7 +88,7 @@ Last updated: 2026-11-15T01:35Z — currently: M6 recurring, planned, forecast (
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M5: `npm run verify` green — unit 51, api 42, e2e 32.
+- M6: `npm run verify` green — unit 79, api 48, e2e 34.
 
 ## Security checklist
 - (ticked in M10)

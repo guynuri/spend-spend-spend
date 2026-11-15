@@ -79,6 +79,18 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/trends/categories': 'tenant',
   'GET /api/trends/daily': 'tenant',
   'GET /api/trends/monthly': 'tenant',
+  'GET /api/recurring': 'tenant',
+  'POST /api/recurring': 'tenant',
+  'PATCH /api/recurring/:id': 'tenant',
+  'DELETE /api/recurring/:id': 'tenant',
+  'POST /api/recurring/detect': 'tenant',
+  'PUT /api/recurring/:id/overrides/:dueDate': 'tenant',
+  'GET /api/planned': 'tenant',
+  'POST /api/planned': 'tenant',
+  'PATCH /api/planned/:id': 'tenant',
+  'DELETE /api/planned/:id': 'tenant',
+  'GET /api/forecast': 'tenant',
+  'GET /api/upcoming': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';

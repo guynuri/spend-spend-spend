@@ -58,6 +58,8 @@ async function side(label: 'A' | 'B'): Promise<Side> {
   ids.tx = (await post('/api/transactions', { date: today, amountMinor: 12345, direction: 'out', description: `Shop${tag}`, accountId: ids.account, categoryId: ids.category, notes: `note${tag}` })).id as string;
   ids.lump = (await post('/api/transactions', { date: today, amountMinor: 50000, direction: 'out', description: `ישראכרט${tag}`, accountId: ids.account })).id as string;
   const cats = (await json<{ categories: { id: string; kind: string }[] }>('GET', '/api/categories', { cookie })).body.categories.filter((c) => c.kind === 'expense');
+  ids.recurring = (await post('/api/recurring', { name: `Rec${tag}`, kind: 'expense', amountMinor: 100, cadence: 'monthly', dayOfMonth: 5, anchorDate: today, accountId: ids.account, categoryId: ids.category, matchText: `rec${tag}` })).id as string;
+  ids.planned = (await post('/api/planned', { name: `Plan${tag}`, amountMinor: 100, date: today, accountId: ids.account, notes: `n${tag}` })).id as string;
   const wire = { row: 1, date: today, valueDate: null, amountMinor: -777, description: `Imported${tag}`, reference: `R${tag}`.slice(0, 40), operationType: null, balanceMinor: 5000, occ: 1 };
   ids.import = (await post('/api/imports', { accountId: ids.account, parserId: 'generic', fileName: `f${tag}.csv`, fileHash: 'b'.repeat(64), period: null, rowsTotal: 1, rowsError: 0, closingBalance: { date: today, minor: 5000 } })).importId as string;
   await post(`/api/imports/${ids.import}/rows`, { rows: [wire] });
@@ -80,6 +82,8 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
     if (pattern.startsWith('/api/transactions/')) return s.ids.tx!;
     if (pattern === '/api/imports/:id/rows' || pattern === '/api/imports/:id/commit') return s.ids.openImport!;
     if (pattern.startsWith('/api/imports/')) return s.ids.import!;
+    if (pattern.startsWith('/api/recurring/')) return param === 'dueDate' ? new Date().toISOString().slice(0, 10) : s.ids.recurring!;
+    if (pattern.startsWith('/api/planned/')) return s.ids.planned!;
     throw new Error(`no id mapping for ${pattern} :${param}`);
   };
   const bodyFor = (key: string, sideL: 'A' | 'B'): unknown => {
@@ -114,6 +118,16 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         return { accountId: s.ids.account, parserId: 'generic', fileName: 'x', fileHash: 'd'.repeat(64), period: null, rowsTotal: 0, rowsError: 0, closingBalance: null };
       case 'POST /api/imports/:id/rows':
         return { rows: [{ row: 1, date: today, valueDate: null, amountMinor: -1, description: 'x', reference: null, operationType: null, balanceMinor: null, occ: 1 }] };
+      case 'POST /api/recurring':
+        return { name: 'x', kind: 'expense', amountMinor: 1, cadence: 'monthly', anchorDate: today, accountId: s.ids.account, categoryId: s.ids.category };
+      case 'PATCH /api/recurring/:id':
+        return { name: 'y', accountId: s.ids.account };
+      case 'PUT /api/recurring/:id/overrides/:dueDate':
+        return { amountMinor: -5 };
+      case 'POST /api/planned':
+        return { name: 'x', amountMinor: 1, date: today, accountId: s.ids.account };
+      case 'PATCH /api/planned/:id':
+        return { name: 'y', matchedTxId: s.ids.tx };
       case 'PUT /api/budgets':
         return { month: today.slice(0, 7), items: [{ categoryId: s.ids.category, limitMinor: 100 }] };
       case 'PUT /api/import-profiles':

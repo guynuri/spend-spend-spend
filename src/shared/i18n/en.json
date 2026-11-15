@@ -510,5 +510,132 @@
     "allCategories": "Income, spending and left over",
     "empty": "No spending in this period.",
     "uncategorized": "Uncategorized"
+  },
+  "forecast": {
+    "title": "Forecast",
+    "eom": "Expected at month end",
+    "low": "Lowest point this month",
+    "afterCard": "After the next card charge",
+    "asOf": "Data as of ",
+    "stale": "Your data is more than a month old — import a recent statement.",
+    "confidence": {
+      "high": "High confidence",
+      "medium": "Medium confidence",
+      "low": "Low confidence"
+    },
+    "belowZero": "Your balance is expected to go below zero.",
+    "belowBuffer": "Your balance is expected to drop below your safety buffer.",
+    "noAccount": "Mark an account as “Include in the forecast” to see a forecast.",
+    "chart": "Projected balance to the end of next month",
+    "today": "Today",
+    "explainTitle": "How the month-end figure is calculated",
+    "explainFormula": "Start balance (as of the data date) + expected income + recurring payments + card charges + planned items + known transactions since then − estimated day-to-day spending = expected balance at month end.",
+    "rows": {
+      "start": "Start balance",
+      "income": "Expected income",
+      "recurring": "Recurring payments",
+      "card": "Credit card charges",
+      "planned": "Planned items",
+      "actuals": "Transactions after the data date",
+      "variable": "Day-to-day spending estimate",
+      "eom": "Expected at month end"
+    },
+    "dailyEstimate": "Day-to-day estimate: {{amount}} per day",
+    "lowBaseline": "Not enough history to estimate day-to-day spending yet; it's counted as zero.",
+    "missed": "Expected but not seen",
+    "overdue": "Planned items in the past",
+    "events": "Coming up this month",
+    "noEvents": "Nothing scheduled."
+  },
+  "upcoming": {
+    "title": "Upcoming",
+    "subtitle": "Next 45 days of expected payments, income and planned items, with the projected balance.",
+    "balanceAfter": "Balance after",
+    "skip": "Skip this time",
+    "unskip": "Restore",
+    "editAmount": "Amount this time",
+    "save": "Save",
+    "overridden": "Your amount",
+    "late": "Expected, not yet seen",
+    "empty": "Nothing expected in the next 45 days.",
+    "addPlanned": "Plan an expense",
+    "types": {
+      "income": "Income",
+      "recurring": "Recurring",
+      "card": "Card charge",
+      "planned": "Planned"
+    },
+    "occurrenceTitle": "This occurrence",
+    "resetAmount": "Back to the estimate"
+  },
+  "recurring": {
+    "title": "Recurring",
+    "add": "Add recurring item",
+    "monthly": "Monthly cost",
+    "yearly": "Yearly cost",
+    "suggested": "Suggestions",
+    "suggestedBody": "These look recurring. Confirm to track them, or dismiss.",
+    "confirm": "Confirm",
+    "dismiss": "Dismiss",
+    "active": "Active",
+    "paused": "Paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "next": "Next",
+    "none": "No recurring items yet.",
+    "detect": "Look for recurring payments",
+    "detected_one": "{{count}} suggestion found",
+    "detected_other": "{{count}} suggestions found",
+    "name": "Name",
+    "kind": "Kind",
+    "kinds": {
+      "expense": "Payment",
+      "income": "Income",
+      "card_charge": "Credit card charge"
+    },
+    "amount": "Amount",
+    "amountMode": "Amount is",
+    "modes": {
+      "fixed": "Fixed",
+      "estimated": "Estimated (average of recent)"
+    },
+    "cadence": "Repeats",
+    "cadences": {
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "bimonthly": "Every 2 months",
+      "quarterly": "Every 3 months",
+      "yearly": "Yearly"
+    },
+    "day": "Day of month",
+    "anchor": "First / reference date",
+    "start": "Starts",
+    "end": "Ends (optional)",
+    "account": "Account",
+    "anyAccount": "Any account",
+    "category": "Category",
+    "match": "Bank text contains",
+    "matchHint": "Used to recognise the payment in imported statements. Card charges with no text match any card charge on the account.",
+    "lastCharges": "Last charges",
+    "estimateHelp": "Estimate = average of the last 3 matched charges.",
+    "deleteConfirm": "Delete this recurring item? Linked transactions stay."
+  },
+  "planned": {
+    "title": "Planned expenses",
+    "add": "Plan an expense",
+    "name": "What",
+    "amount": "Amount",
+    "date": "Date",
+    "payFrom": "Paid from",
+    "card": "Card",
+    "status": {
+      "planned": "Planned",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "markDone": "Mark done",
+    "cancel": "Cancel it",
+    "empty": "No planned expenses.",
+    "cardHint": "Paid by card: added to that card's next charge."
   }
 }

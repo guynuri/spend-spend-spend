@@ -15,6 +15,7 @@ import { transactionRoutes } from './routes/transactions';
 import { importProfileRoutes, importRoutes } from './routes/imports';
 import { budgetRoutes } from './routes/budgets';
 import { trendRoutes } from './routes/trends';
+import { forecastRoutes, plannedRoutes, recurringRoutes, upcomingRoutes } from './routes/recurring';
 import './ai/register';
 
 /** Mounted tenant route groups: prefix → router. Each is behind household + role middleware. */
@@ -28,6 +29,10 @@ export const TENANT_GROUPS = {
   '/api/import-profiles': importProfileRoutes,
   '/api/budgets': budgetRoutes,
   '/api/trends': trendRoutes,
+  '/api/recurring': recurringRoutes,
+  '/api/planned': plannedRoutes,
+  '/api/forecast': forecastRoutes,
+  '/api/upcoming': upcomingRoutes,
 } as const;
 
 export function createApp() {
