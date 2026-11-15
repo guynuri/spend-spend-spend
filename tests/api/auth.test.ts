@@ -237,3 +237,18 @@ describe('passkeys and sessions (M10)', () => {
     expect(JSON.stringify(s.body)).not.toMatch(/[0-9a-f]{64}/);
   });
 });
+
+describe('failed registration gives the invite back (review fix)', () => {
+  it('a rolled-back registration leaves the link usable', async () => {
+    const hid = await makeHousehold('Retry home');
+    const first = await makeInvite({ kind: 'member', householdId: hid, role: 'member' });
+    const r1 = await register(first.token);
+    expect(r1.status).toBe(200);
+    // same authenticator → same credential id → the account batch fails on the UNIQUE credential
+    const second = await makeInvite({ kind: 'member', householdId: hid, role: 'member' });
+    const r2 = await register(second.token, {}, r1.auth);
+    expect(r2.status).toBe(409);
+    expect((await DB.prepare('SELECT used_at FROM invites WHERE id = ?1').bind(second.id).first<{ used_at: string | null }>())!.used_at).toBeNull();
+    expect((await register(second.token)).status).toBe(200);
+  });
+});

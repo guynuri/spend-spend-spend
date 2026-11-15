@@ -13,7 +13,6 @@ import { id } from '../../shared/schemas/common';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
 import { applyRulesStmt, winningRuleSql } from '../db/sql/rules';
-import { cardLumpPredicate } from '../db/sql/cardLump';
 import { afterTransactionsWritten } from '../db/sql/linking';
 import { afterImportCommitted } from '../db/sql/detection';
 import type { TenantDb } from '../db/tenant';
@@ -22,7 +21,7 @@ export const importRoutes = tenantGroup();
 export const importProfileRoutes = tenantGroup();
 
 /** Server-side enrichment: dedupe key and normalized texts are always computed here. */
-const enrich = (r: WireRow) => ({ ...r, k: dedupeKey(r), dn: normKey(r.description), op: r.operationType ? norm(r.operationType) : null });
+const enrich = (r: WireRow) => ({ ...r, k: dedupeKey(r), dn: normKey(r.description), op: r.operationType ? norm(r.operationType) : null, lump: isCardLump(norm(r.description), r.amountMinor, CARD_ISSUER_PATTERNS) ? 1 : 0 });
 type Enriched = ReturnType<typeof enrich>;
 
 async function rowsBody(c: Ctx) {
@@ -81,7 +80,8 @@ importRoutes.post('/preview', async (c) => {
     const r = rows[x.i]!;
     const status: RowStatus = x.dup ? 'duplicate' : x.man ? 'matches_manual' : 'new';
     counts[status]++;
-    const lump = isCardLump(norm(r.description), r.amountMinor, CARD_ISSUER_PATTERNS);
+    // Same flag the commit stores (computed once in enrich), so preview and import always agree.
+    const lump = r.lump === 1;
     return { row: r.row, status, kind: lump ? 'card_lump' : 'normal', categoryId: lump ? (lumpCat?.id ?? null) : x.cat };
   });
   return c.json({ rows: out, counts } satisfies PreviewResponse);
@@ -158,7 +158,6 @@ importRoutes.post('/:id/commit', async (c) => {
     imp.id,
     imp.account_id,
   );
-  const lump = cardLumpPredicate('description_norm', 4);
   const stmts: D1PreparedStatement[] = [];
   if (pairs.length)
     stmts.push(
@@ -183,7 +182,8 @@ importRoutes.post('/:id/commit', async (c) => {
                                  kind, import_id, dedupe_key, balance_after_minor, source, created_by, created_at, updated_at)
        SELECT substr(lower(hex(randomblob(11))), 1, 21), ?1, ?3, json_extract(j.value, '$.date'), json_extract(j.value, '$.valueDate'),
               json_extract(j.value, '$.amountMinor'), json_extract(j.value, '$.description'), json_extract(j.value, '$.dn'),
-              json_extract(j.value, '$.reference'), json_extract(j.value, '$.op'), 'normal', ?2, json_extract(j.value, '$.k'),
+              json_extract(j.value, '$.reference'), json_extract(j.value, '$.op'),
+              CASE WHEN json_extract(j.value, '$.lump') = 1 THEN 'card_lump' ELSE 'normal' END, ?2, json_extract(j.value, '$.k'),
               json_extract(j.value, '$.balanceMinor'), 'import', ?4, ?5, ?5
          FROM import_rows ir, json_each(ir.rows_json) j
         WHERE ir.household_id = ?1 AND ir.import_id = ?2 AND EXISTS (SELECT 1 FROM accounts a WHERE a.household_id = ?1 AND a.id = ?3)
@@ -198,13 +198,10 @@ importRoutes.post('/:id/commit', async (c) => {
   // 3) flag card lumps, 4) rules
   stmts.push(
     db.stmt(
-      `UPDATE transactions SET kind = 'card_lump',
-         category_id = COALESCE(category_id, (SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit')),
-         category_source = COALESCE(category_source, 'rule')
-       WHERE household_id = ?1 AND import_id = ?2 AND amount_minor < 0 AND has_splits = 0 AND ${lump.sql} AND ?3 IS NOT NULL`,
+      `UPDATE transactions SET category_id = (SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'), category_source = 'rule', updated_at = ?3
+       WHERE household_id = ?1 AND import_id = ?2 AND kind = 'card_lump' AND category_id IS NULL AND has_splits = 0`,
       imp.id,
       now,
-      ...lump.params,
     ),
   );
   stmts.push(await applyRulesStmt(db, { kind: 'import', importId: imp.id }, now));
@@ -214,7 +211,8 @@ importRoutes.post('/:id/commit', async (c) => {
       db.stmt(
         `INSERT INTO account_balances (id, household_id, account_id, date, balance_minor, source, import_id)
          SELECT ?2, ?1, ?3, ?4, ?5, 'import', ?6 WHERE EXISTS (SELECT 1 FROM accounts WHERE household_id = ?1 AND id = ?3)
-         ON CONFLICT(account_id, date) DO UPDATE SET balance_minor = excluded.balance_minor, source = 'import', import_id = excluded.import_id`,
+         ON CONFLICT(account_id, date) DO UPDATE SET balance_minor = excluded.balance_minor, source = 'import', import_id = excluded.import_id
+           WHERE account_balances.source = 'import'`,
         newId(),
         imp.account_id,
         imp.closing_date,
@@ -254,6 +252,13 @@ importRoutes.delete('/:id', async (c) => {
   const { db, userId, hh } = tctx(c);
   const imp = await openImport(db, c.req.param('id'));
   if (imp.status === 'undone') throw new HttpError(409, 'import_closed', 'Already undone');
+  // `?onlyOpen=1` (client cleanup after a failed upload) must never undo a committed import.
+  if (c.req.query('onlyOpen') === '1' && imp.status !== 'open') throw new HttpError(409, 'import_closed', 'Import already committed');
+  if (imp.status === 'open') {
+    // An unfinished upload (e.g. a failed commit the client is retrying): drop it entirely.
+    await db.batch([db.stmt('DELETE FROM import_rows WHERE household_id = ?1 AND import_id = ?2', imp.id), db.stmt('DELETE FROM imports WHERE household_id = ?1 AND id = ?2', imp.id)]);
+    return c.json({ ok: true, discarded: true });
+  }
   const now = nowIso();
   await db.batch([
     db.stmt(

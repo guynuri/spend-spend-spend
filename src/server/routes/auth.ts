@@ -130,7 +130,15 @@ authRoutes.post('/auth/register/verify', async (c) => {
   const s = await newSession(c, ch.user_id, householdId);
   stmts.push(s.stmt, g.touchLogin(ch.user_id));
   if (householdId) stmts.push(tenantDb(c.env.DB, householdId).audit(ch.user_id, `auth.${t.kind}`, 'user', ch.user_id));
-  await c.env.DB.batch(stmts);
+  try {
+    await c.env.DB.batch(stmts); // one transaction: all or nothing
+  } catch {
+    // Give the link back so the person can retry (the batch rolled back entirely).
+    if (t.invite) await g.unclaimInvite(t.invite.id, ch.user_id);
+    // A concurrent bootstrap loses on the one-super-admin index: same answer as a used link.
+    if (t.kind === 'bootstrap') throw new HttpError(410, 'invite_invalid', 'Already set up');
+    throw new HttpError(409, 'registration_failed', 'Could not create the account; try again');
+  }
   s.set();
   return c.json({ ok: true, kind: t.kind });
 });
@@ -289,7 +297,7 @@ authRoutes.post('/invites/accept', requireSession, async (c) => {
   if (!claimed.meta.changes) throw new HttpError(410, 'invite_invalid', 'Link already used');
   const hid = t.invite.household_id!;
   await c.env.DB.batch([
-    g.addMembershipStmt(hid, s.userId, t.kind === 'owner' ? 'owner' : (t.invite.role ?? 'member')),
+    g.upsertMembershipStmt(hid, s.userId, t.kind === 'owner' ? 'owner' : (t.invite.role ?? 'member')),
     g.raw.prepare('UPDATE sessions SET active_household_id = ?2 WHERE token_hash = ?1').bind(s.tokenHash, hid),
     tenantDb(c.env.DB, hid).audit(s.userId, 'invite.accept', 'user', s.userId),
   ]);

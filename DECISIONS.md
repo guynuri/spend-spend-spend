@@ -196,3 +196,21 @@ Format: date · milestone · what · why · alternatives rejected.
   (counted) before it is made, so failed calls also count toward the daily limits.
 - The global daily cap reads the per-day counters of all households through an explicit
   `tenantDb.aiCallsToday()` method (counters only, no tenant content).
+
+## D-R15 · 2026-11-15 · Review fixes (PR #1 review)
+- Recovery links issued by an owner are limited to members who are not super-admin and belong to
+  no other household (`recovery_needs_admin` otherwise); everyone else is recovered by the
+  super-admin, because a recovery passkey grants the whole account.
+- One super-admin is enforced by a partial unique index (migration 0005), closing the bootstrap
+  race; a losing concurrent setup gets the same 410 as a used link.
+- A failed account-creation batch gives the invite back (`used_at` cleared) so the link can be
+  retried; an existing member accepting an invite has their role raised (never lowered).
+- Card-issuer names match as whole words in Hebrew and Latin; the flag is computed once per row
+  on the server and used by both preview and commit.
+- Imports never overwrite a manual balance snapshot; undoing an *unfinished* import deletes it
+  outright, and the client's cleanup call (`?onlyOpen=1`) can never undo a committed import.
+- Undo of a learned categorization restores the rule's previous category/source when the rule
+  already existed, instead of deleting it.
+- Client: typed confirmations reset on every opening; confirmation errors are shown; the invite
+  page waits for the profile before offering registration; ledger filters patch the current URL
+  (no stale debounced writes) and empty/invalid periods fall back to the current month.

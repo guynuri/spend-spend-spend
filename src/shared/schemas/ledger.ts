@@ -55,7 +55,9 @@ export const txPatch = z
   .strict();
 export const splitsPut = z.object({ lines: z.array(z.object({ categoryId: id.nullable(), amountMinor: minor, note: text(120).optional() }).strict()).max(30) }).strict();
 export const bulkCategorize = z.object({ ids: z.array(id).min(1).max(500), categoryId: id.nullable() }).strict();
-export const undoLearn = z.object({ ruleId: id, txIds: z.array(id).max(5000).optional() }).strict();
+export const undoLearn = z
+  .object({ ruleId: id, txIds: z.array(id).max(5000).optional(), previous: z.object({ categoryId: id, source: z.enum(['user', 'learned', 'ai', 'seed']) }).strict().nullable().optional() })
+  .strict();
 
 export const txQuery = z.object({
   from: dateStr.optional(),

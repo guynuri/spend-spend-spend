@@ -42,6 +42,8 @@ describe('csv & card lumps', () => {
     expect(csvCell(-12.5)).toBe('-12.5');
     expect(csvCell('a,"b"')).toBe('"a,""b"""');
     expect(csvCell(null)).toBe('');
+    expect(csvCell('-12.50')).toBe('-12.50');
+    expect(csvCell('-1e3')).toBe("'-1e3");
   });
   it('card lump only for negative amounts; latin patterns need word boundaries', () => {
     expect(isCardLump(norm('ישראכרט חיוב'), -100, CARD_ISSUER_PATTERNS)).toBe(true);
@@ -49,5 +51,9 @@ describe('csv & card lumps', () => {
     expect(isCardLump(norm('CAL - כאל'), -1, CARD_ISSUER_PATTERNS)).toBe(true);
     expect(isCardLump(norm('Local cafe'), -1, CARD_ISSUER_PATTERNS)).toBe(false);
     expect(isCardLump(norm('MAX IT FINANCE'), -1, CARD_ISSUER_PATTERNS)).toBe(true);
+    expect(isCardLump(norm('העברה למיכאל'), -1, CARD_ISSUER_PATTERNS)).toBe(false);
+    expect(isCardLump(norm('מקסים ובניו'), -1, CARD_ISSUER_PATTERNS)).toBe(false);
+    expect(isCardLump(norm('כאל-חיוב'), -1, CARD_ISSUER_PATTERNS)).toBe(true);
+    expect(isCardLump(norm('cal-online'), -1, CARD_ISSUER_PATTERNS)).toBe(true);
   });
 });

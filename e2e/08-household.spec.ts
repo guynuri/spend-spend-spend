@@ -71,3 +71,17 @@ test('super-admin creates a second household; its owner sees an empty, separate 
   await expect(p.getByTestId('onboarding')).toBeVisible();
   await ctx.close();
 });
+
+test('typed confirmation never carries over between reset and delete (review fix)', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/household');
+  const name = (await page.getByTestId('household-name').textContent())!;
+  await page.getByTestId('data-reset').click();
+  await page.getByTestId('data-confirm-input').fill(name);
+  await expect(page.getByTestId('data-confirm-ok')).toBeEnabled();
+  await page.getByTestId('data-confirm').getByRole('button', { name: /cancel|ביטול/i }).click();
+  await page.getByTestId('data-delete').click();
+  await expect(page.getByTestId('data-confirm-input')).toHaveValue('');
+  await expect(page.getByTestId('data-confirm-ok')).toBeDisabled();
+  await page.getByTestId('data-confirm').getByRole('button', { name: /cancel|ביטול/i }).click();
+});

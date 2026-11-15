@@ -29,6 +29,11 @@ export async function json<T = Record<string, unknown>>(method: string, path: st
 }
 
 export async function makeUser(name = 'User', superAdmin = false) {
+  // Only one super-admin can exist (migration 0005): reuse it.
+  if (superAdmin) {
+    const sa = await DB.prepare('SELECT id FROM users WHERE is_super_admin = 1').first<{ id: string }>();
+    if (sa) return sa.id;
+  }
   const id = newId();
   await DB.prepare('INSERT INTO users (id, display_name, is_super_admin, created_at) VALUES (?1, ?2, ?3, ?4)').bind(id, name, superAdmin ? 1 : 0, new Date().toISOString()).run();
   return id;

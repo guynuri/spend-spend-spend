@@ -67,12 +67,16 @@ export const splitSumOk = (lines: { amountMinor: number }[], total: number) => l
 export function csvCell(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return '';
   let s = String(v);
-  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  // Plain numbers (e.g. "-12.50") are data, not formulas; anything else starting with = + - @ is neutralised.
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /** Card-issuer lump detection on normalized description. */
+const LETTER = 'a-z\\u05D0-\\u05EA';
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Issuer names must stand as whole words (Hebrew or Latin), so "מיכאל" is not "כאל". */
 export function isCardLump(descriptionNorm: string, amountMinor: number, patterns: string[]): boolean {
   if (amountMinor >= 0) return false;
-  return patterns.some((p) => (/^[a-z ]+$/.test(p) ? new RegExp(`(^|[^a-z])${p}([^a-z]|$)`).test(descriptionNorm) : descriptionNorm.includes(p)));
+  return patterns.some((p) => new RegExp(`(^|[^${LETTER}])${escapeRe(p)}([^${LETTER}]|$)`).test(descriptionNorm));
 }

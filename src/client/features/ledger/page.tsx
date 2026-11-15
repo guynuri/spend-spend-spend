@@ -80,11 +80,16 @@ export function Component() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCat, setBulkCat] = useState<string | null>(null);
+  // Debounced: only the q param is patched, on top of whatever the URL holds by then.
   useEffect(() => {
-    const h = setTimeout(() => search !== f.q && set({ q: search.trim() }), 350);
+    const h = setTimeout(() => search.trim() !== f.q && set({ q: search.trim() }), 350);
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+  // Keep the box in step with the URL when q changes elsewhere (Clear filters, back button).
+  useEffect(() => {
+    setSearch((cur) => (cur.trim() === f.q ? cur : f.q));
+  }, [f.q]);
 
   const qs = apiQuery();
   const q = useInfiniteQuery({

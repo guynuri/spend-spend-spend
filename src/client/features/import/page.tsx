@@ -168,15 +168,19 @@ export function Component() {
       if (p.result) return void (await runPreview(p.result, account));
       // generic: reuse a saved profile with the same header signature
       let m = p.guess!;
+      let sig = p.signature;
       let used = false;
       try {
         const prof = await get<{ profiles: { headerSignature: string; mapping: Mapping }[] }>(`/api/import-profiles?accountId=${account}`);
         const sigs = new Map(prof.profiles.map((x) => [x.headerSignature, x.mapping]));
         const { headerSignature } = await import('../../../shared/import/generic');
         for (let i = 0; i < Math.min(40, p.grid.length); i++) {
-          const saved = sigs.get(headerSignature(p.grid, i));
+          const s = headerSignature(p.grid, i);
+          const saved = sigs.get(s);
           if (saved) {
-            m = saved;
+            // The profile applies at the row where its header was found; keep its own signature.
+            m = { ...saved, headerRow: i };
+            sig = s;
             used = true;
             break;
           }
@@ -186,7 +190,7 @@ export function Component() {
       }
       setMapping(m);
       setProfileUsed(used);
-      setSignature(p.signature);
+      setSignature(sig);
       setStep('map');
     } catch (e) {
       setFileError(e instanceof FileError ? e.code : 'unsupported_file');
@@ -198,10 +202,11 @@ export function Component() {
     if (!result || !parsed) return;
     setStep('committing');
     setProgress(0);
+    let importId: string | null = null;
     try {
       const wire = result.rows.map(toWire);
       if (parsed.parserId === 'generic' && mapping && signature) await put('/api/import-profiles', { accountId: acc, headerSignature: signature, mapping });
-      const { importId } = await post<{ importId: string }>('/api/imports', {
+      ({ importId } = await post<{ importId: string }>('/api/imports', {
         accountId: acc,
         parserId: parsed.parserId,
         fileName: parsed.fileName.slice(0, 120),
@@ -210,7 +215,7 @@ export function Component() {
         rowsTotal: wire.length,
         rowsError: result.errors.length,
         closingBalance: result.closingBalance ?? null,
-      });
+      }));
       const chunks = Math.max(1, Math.ceil(wire.length / IMPORT_CHUNK));
       for (let i = 0, n = 0; i < wire.length; i += IMPORT_CHUNK, n++) {
         await post(`/api/imports/${importId}/rows`, { rows: wire.slice(i, i + IMPORT_CHUNK) });
@@ -222,6 +227,8 @@ export function Component() {
       setStep('done');
       await Promise.all(LEDGER_DEPENDENT.map((k) => qc.invalidateQueries({ queryKey: k })));
     } catch (e) {
+      // Discard the unfinished upload so a retry starts clean (no orphaned half-import).
+      if (importId) await del(`/api/imports/${importId}?onlyOpen=1`).catch(() => {});
       setApiError(e);
       setStep('preview');
     }
@@ -433,7 +440,7 @@ export function Component() {
                   </Button>
                 )}
                 <div className="mt-2 flex flex-wrap justify-center gap-2">
-                  <Link to={`/transactions?from=${summary.periodStart ?? ''}&to=${summary.periodEnd ?? ''}`} className="inline-flex min-h-11 items-center rounded-xl bg-accent px-4 font-medium text-accent-fg" data-testid="import-view-ledger">
+                  <Link to={summary.periodStart && summary.periodEnd ? `/transactions?from=${summary.periodStart}&to=${summary.periodEnd}` : '/transactions'} className="inline-flex min-h-11 items-center rounded-xl bg-accent px-4 font-medium text-accent-fg" data-testid="import-view-ledger">
                     {t('import.viewLedger')}
                   </Link>
                   <Button variant="secondary" onClick={reset} data-testid="import-another">

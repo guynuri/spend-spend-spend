@@ -110,6 +110,9 @@ householdRoutes.post('/members/:userId/recovery', requireOwner, async (c) => {
   const uid = c.req.param('userId');
   const m = members(c);
   if (!(await m.roleOf(uid))) throw notFound();
+  // A recovery link adds a passkey to the user's whole account. An owner may only issue one for
+  // a person whose account is limited to this household; anyone else is recovered by the super-admin.
+  if (!(await m.isRecoverableByOwner(uid))) throw new HttpError(403, 'recovery_needs_admin', 'Ask the administrator for a recovery link');
   const { userId, db } = tctx(c);
   const token = randomToken();
   await m.createInvite({ tokenHash: await sha256Hex(token), kind: 'recovery', role: null, targetUserId: uid, createdBy: userId, ttlMs: RECOVERY_TTL_MS });

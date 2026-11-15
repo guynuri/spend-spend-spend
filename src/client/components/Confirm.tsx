@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sheet } from './Sheet';
 import { Button, Input } from './ui';
+import { useToast } from './Toast';
+import { errorKey } from '../api';
 
 /** Explicit confirmation for destructive actions; optional typed confirmation. */
 export function ConfirmSheet({
@@ -26,21 +28,27 @@ export function ConfirmSheet({
   testId?: string;
 }) {
   const { t } = useTranslation();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState('');
+  // Typed confirmations never carry over from a previous opening (Cancel, ✕, swipe or reuse for another action).
+  useEffect(() => {
+    if (open) setText('');
+  }, [open, typed]);
+  const close = () => {
+    setText('');
+    onOpenChange(false);
+  };
   const ok = !typed || text.trim() === typed;
   return (
     <Sheet
       open={open}
-      onOpenChange={(v) => {
-        if (!v) setText('');
-        onOpenChange(v);
-      }}
+      onOpenChange={(v) => (v ? onOpenChange(true) : close())}
       title={title}
       testId={testId}
       footer={
         <>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={close}>
             {t('common.cancel')}
           </Button>
           <Button
@@ -52,7 +60,9 @@ export function ConfirmSheet({
               setBusy(true);
               try {
                 await onConfirm();
-                onOpenChange(false);
+                close();
+              } catch (e) {
+                toast({ title: t(errorKey(e), { defaultValue: t('errors.unknown') }), tone: 'bad' });
               } finally {
                 setBusy(false);
               }

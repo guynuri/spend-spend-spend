@@ -11,6 +11,14 @@ export function householdMembers(db: D1Database, householdId: string) {
     list: () => g.members(householdId),
     countOwners: () => g.countOwners(householdId),
     roleOf: async (userId: string) => (await g.membership(householdId, userId))?.role ?? null,
+    /** True when the user is not super-admin and belongs to no other household. */
+    isRecoverableByOwner: async (userId: string) => {
+      const r = await db
+        .prepare('SELECT u.is_super_admin AS sa, (SELECT COUNT(*) FROM memberships m WHERE m.user_id = u.id AND m.household_id <> ?2) AS other FROM users u WHERE u.id = ?1')
+        .bind(userId, householdId)
+        .first<{ sa: number; other: number }>();
+      return !!r && r.sa === 0 && r.other === 0;
+    },
     setRole: (userId: string, role: Role) => g.setRole(householdId, userId, role).run(),
     /** Removes a member and clears the household from their sessions. */
     remove: (userId: string) => db.batch([g.removeMember(householdId, userId), g.clearActiveForMember(userId, householdId)]),

@@ -46,6 +46,15 @@ test('add manual transactions; categorizing one learns and categorizes the rest,
   await expect(page.getByTestId('ledger-search')).toHaveValue('cafe roma e2e');
   await expect(page).toHaveURL(/uncategorized=1/);
   await expect(page.getByTestId('tx-row')).toHaveCount(0);
+  // Clear filters also clears the search box (review fix)
+  await page.getByTestId('ledger-filters').click();
+  await page.getByTestId('filters-sheet').getByRole('button', { name: /clear filters/i }).click();
+  await closeSheet(page, 'filters-sheet');
+  await expect(page.getByTestId('ledger-search')).toHaveValue('');
+  // An empty period in the URL falls back to the current month
+  await page.goto('/transactions?from=&to=');
+  await expect(page.getByTestId('ledger-range')).not.toBeEmpty();
+  await expect(page.getByTestId('ledger-summary')).toBeVisible();
 });
 
 test('undo of a learned categorization reverts the others', async ({ page }) => {

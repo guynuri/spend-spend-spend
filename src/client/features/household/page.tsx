@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LogOut, UserPlus } from 'lucide-react';
-import { del, get, patch, post } from '../../api';
+import { del, errorKey, get, patch, post } from '../../api';
+import { useToast } from '../../components/Toast';
 import { Badge, Button, Card, CardTitle, ErrorState, Field, Input, PageHeader, Select, Spinner } from '../../components/ui';
 import { CopyLink } from '../../components/CopyLink';
 import { ConfirmSheet } from '../../components/Confirm';
@@ -33,6 +34,7 @@ interface Invite {
 
 function SwitchHousehold() {
   const { t } = useTranslation();
+  const toast = useToast();
   const me = useMe()!;
   const qc = useQueryClient();
   if (me.households.length < 2) return null;
@@ -44,8 +46,14 @@ function SwitchHousehold() {
         data-testid="household-switch"
         value={me.active?.id}
         onChange={async (e) => {
-          await post('/api/session/household', { id: e.target.value });
-          await qc.invalidateQueries();
+          try {
+            await post('/api/session/household', { id: e.target.value });
+            // Drop every cached page of the previous household before showing the new one.
+            qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+            await qc.invalidateQueries({ queryKey: ['me'] });
+          } catch (err) {
+            toast({ title: t(errorKey(err), { defaultValue: t('errors.unknown') }), tone: 'bad' });
+          }
         }}
       >
         {me.households.map((h) => (
@@ -237,11 +245,12 @@ export function SessionCard() {
 export function Component() {
   const { t } = useTranslation();
   const owner = useIsOwner();
+  const me = useMe();
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('household.title')} />
       <SwitchHousehold />
-      {owner && <HouseholdName />}
+      {owner && <HouseholdName key={me?.active?.id} />}
       <Members />
       {owner && <Invites />}
       <SessionCard />

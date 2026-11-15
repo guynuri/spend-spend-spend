@@ -153,7 +153,7 @@ function TokenPage({ titleKey, expect }: { titleKey: string; expect: ('bootstrap
   }, [t, titleKey]);
   let content;
   if (!token) content = <p className="text-sm text-muted">{t('auth.noLink')}</p>;
-  else if (q.isPending) content = <Spinner />;
+  else if (q.isPending || (expect.includes('member') && me.isPending)) content = <Spinner />;
   else if (q.error || !q.data || !expect.includes(q.data.kind))
     content = (
       <p className="text-sm text-bad" data-testid="link-invalid">

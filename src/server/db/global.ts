@@ -133,6 +133,15 @@ export function globalDb(db: D1Database) {
       db.prepare('SELECT role FROM memberships WHERE household_id = ?1 AND user_id = ?2').bind(householdId, userId).first<{ role: Role }>(),
     addMembershipStmt: (householdId: string, userId: string, role: Role) =>
       db.prepare('INSERT INTO memberships (household_id, user_id, role, created_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(household_id, user_id) DO NOTHING').bind(householdId, userId, role, nowIso()),
+    /** Adds a membership, or raises the role of an existing one (never lowers it). */
+    upsertMembershipStmt: (householdId: string, userId: string, role: Role) =>
+      db
+        .prepare(
+          `INSERT INTO memberships (household_id, user_id, role, created_at) VALUES (?1, ?2, ?3, ?4)
+           ON CONFLICT(household_id, user_id) DO UPDATE SET role = excluded.role
+            WHERE (CASE excluded.role WHEN 'owner' THEN 3 WHEN 'member' THEN 2 ELSE 1 END) > (CASE memberships.role WHEN 'owner' THEN 3 WHEN 'member' THEN 2 ELSE 1 END)`,
+        )
+        .bind(householdId, userId, role, nowIso()),
     touchMembership: (householdId: string, userId: string) => db.prepare('UPDATE memberships SET last_used_at = ?3 WHERE household_id = ?1 AND user_id = ?2').bind(householdId, userId, nowIso()),
     members: async (householdId: string) =>
       (
@@ -180,6 +189,7 @@ export function globalDb(db: D1Database) {
     inviteById: (id: string) => db.prepare('SELECT * FROM invites WHERE id = ?1').bind(id).first<InviteRow>(),
     /** Marks used only if still unused — the WHERE makes concurrent use impossible. */
     useInviteStmt: (id: string, userId: string) => db.prepare('UPDATE invites SET used_at = ?2, used_by = ?3 WHERE id = ?1 AND used_at IS NULL AND revoked_at IS NULL').bind(id, nowIso(), userId),
+    unclaimInvite: (id: string, userId: string) => db.prepare('UPDATE invites SET used_at = NULL, used_by = NULL WHERE id = ?1 AND used_by = ?2').bind(id, userId).run(),
     pendingInvites: async (householdId: string) =>
       (
         await db

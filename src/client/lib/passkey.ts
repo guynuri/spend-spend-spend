@@ -31,4 +31,11 @@ export async function addPasskey(deviceLabel?: string) {
 }
 
 /** Token from the URL fragment (never sent to the server in the URL). */
-export const fragmentToken = () => decodeURIComponent(window.location.hash.replace(/^#/, '')).trim();
+export const fragmentToken = () => {
+  const raw = window.location.hash.replace(/^#/, '');
+  try {
+    return decodeURIComponent(raw).trim();
+  } catch {
+    return raw.trim(); // a mangled link is then simply rejected as invalid by the server
+  }
+};

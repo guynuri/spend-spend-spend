@@ -219,10 +219,17 @@ transactionRoutes.patch('/:id', async (c) => {
   );
 
   // Learn from a manual categorization and apply to the other uncategorized matches (AC3.5).
-  let learned: { ruleId: string; count: number; txIds: string[] } | null = null;
+  let learned: { ruleId: string; count: number; txIds: string[]; previous: { categoryId: string; source: 'user' | 'learned' | 'ai' | 'seed' } | null } | null = null;
   if (setCat && b.categoryId && b.learn !== false && !tx.has_splits) {
     const key = learnedRuleFor({ description, amountMinor: amount });
     if (key.pattern_norm) {
+      const prev = await db.first<{ category_id: string; source: 'user' | 'learned' | 'ai' | 'seed' }>(
+        'SELECT category_id, source FROM category_rules WHERE household_id = ?1 AND field = ?2 AND match = ?3 AND pattern_norm = ?4 AND sign = ?5',
+        key.field,
+        key.match,
+        key.pattern_norm,
+        key.sign,
+      );
       const rule = await db.first<{ id: string }>(
         `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
          SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, 'learned', ?8 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
@@ -248,7 +255,7 @@ transactionRoutes.patch('/:id', async (c) => {
         id,
         key.sign,
       );
-      learned = { ruleId: rule!.id, count: applied.length, txIds: applied.map((r) => r.id) };
+      learned = { ruleId: rule!.id, count: applied.length, txIds: applied.map((r) => r.id), previous: prev ? { categoryId: prev.category_id, source: prev.source } : null };
     }
   }
   if (editingCore) await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));
@@ -263,6 +270,7 @@ transactionRoutes.post('/undo-learn', async (c) => {
   const rule = await db.first<{ id: string; category_id: string; source: string }>('SELECT id, category_id, source FROM category_rules WHERE household_id = ?1 AND id = ?2', b.ruleId);
   if (!rule) throw notFound();
   if (b.txIds?.length) await db.assertOwned({ transactions: b.txIds });
+  if (b.previous) await db.assertOwned({ categories: [b.previous.categoryId] });
   await db.batch([
     db.stmt(
       `UPDATE transactions SET category_id = NULL, category_source = NULL, updated_at = ?4
@@ -271,7 +279,12 @@ transactionRoutes.post('/undo-learn', async (c) => {
       rule.category_id,
       nowIso(),
     ),
-    ...(rule.source === 'learned' ? [db.stmt('DELETE FROM category_rules WHERE household_id = ?1 AND id = ?2', rule.id)] : []),
+    // Restore the rule as it was before the categorization, or delete it if the categorization created it.
+    ...(b.previous
+      ? [db.stmt('UPDATE category_rules SET category_id = ?3, source = ?4 WHERE household_id = ?1 AND id = ?2', rule.id, b.previous.categoryId, b.previous.source)]
+      : rule.source === 'learned'
+        ? [db.stmt('DELETE FROM category_rules WHERE household_id = ?1 AND id = ?2', rule.id)]
+        : []),
   ]);
   return c.json({ ok: true });
 });
@@ -279,8 +292,12 @@ transactionRoutes.post('/undo-learn', async (c) => {
 transactionRoutes.delete('/:id', async (c) => {
   const { db, userId } = tctx(c);
   const id = c.req.param('id');
-  const r = await db.run('DELETE FROM transactions WHERE household_id = ?1 AND id = ?2', id);
-  if (!r.meta.changes) throw notFound();
+  if (!(await db.owns('transactions', id))) throw notFound();
+  // A planned expense matched to this transaction becomes planned again (it has no FK).
+  await db.batch([
+    db.stmt("UPDATE planned_expenses SET status = 'planned', matched_tx_id = NULL WHERE household_id = ?1 AND matched_tx_id = ?2 AND status = 'done'", id),
+    db.stmt('DELETE FROM transactions WHERE household_id = ?1 AND id = ?2', id),
+  ]);
   await db.audit(userId, 'transaction.delete', 'transaction', id).run();
   return c.json({ ok: true });
 });

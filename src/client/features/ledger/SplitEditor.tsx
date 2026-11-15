@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Plus, Trash2 } from 'lucide-react';
-import { get, put } from '../../api';
+import { errorKey, get, put } from '../../api';
+import { useToast } from '../../components/Toast';
 import { Button, cx, IconButton } from '../../components/ui';
 import { AmountInput } from '../../components/AmountInput';
 import { CategorySelect } from '../../components/CategorySelect';
@@ -22,6 +23,7 @@ const toLines = (ls: SplitLine[]): Line[] => ls.map((l) => ({ categoryId: l.cate
 
 export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const { t } = useTranslation();
+  const toast = useToast();
   const sign = tx.amountMinor < 0 ? -1 : 1;
   const [lines, setLines] = useState<Line[]>(() => (tx.splits.length ? toLines(tx.splits) : [{ categoryId: null, amount: '', note: '' }, { categoryId: null, amount: '', note: '' }]));
   const [from, setFrom] = useState<string | null>(null);
@@ -35,11 +37,17 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
     { invalidate: [...LEDGER_DEPENDENT], onSuccess: onDone, successKey: 'ledger.saved' },
   );
   const same = async () => {
-    const r = await get<{ suggestion: { fromDate: string; lines: SplitLine[] } | null }>(`/api/transactions/${tx.id}/split-suggestion`);
-    if (!r.suggestion) return setNoPrev(true);
-    setLines(toLines(r.suggestion.lines));
-    setFrom(r.suggestion.fromDate);
+    try {
+      const r = await get<{ suggestion: { fromDate: string; lines: SplitLine[] } | null }>(`/api/transactions/${tx.id}/split-suggestion`);
+      if (!r.suggestion) return setNoPrev(true);
+      setLines(toLines(r.suggestion.lines));
+      setFrom(r.suggestion.fromDate);
+    } catch (e) {
+      toast({ title: t(errorKey(e), { defaultValue: t('errors.unknown') }), tone: 'bad' });
+    }
   };
+  // Pre-fill a new line only with what is still left to assign (never when already over).
+  const leftToAssign = remaining * sign > 0 ? minorToInput(Math.abs(remaining)) : '';
   const upd = (i: number, p: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
   return (
     <div className="flex flex-col gap-3" data-testid="split-editor">
@@ -67,7 +75,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
           </li>
         ))}
       </ul>
-      <Button size="sm" variant="ghost" className="self-start" onClick={() => setLines((ls) => [...ls, { categoryId: null, amount: remaining ? minorToInput(Math.abs(remaining)) : '', note: '' }])}>
+      <Button size="sm" variant="ghost" className="self-start" onClick={() => setLines((ls) => [...ls, { categoryId: null, amount: leftToAssign, note: '' }])}>
         <Plus className="size-4" aria-hidden />
         {t('split.add')}
       </Button>
