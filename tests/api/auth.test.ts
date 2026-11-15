@@ -219,3 +219,21 @@ describe('members & roles (AC1.4, AC1.5)', () => {
     expect((await json<{ error: { code: string } }>('GET', '/api/household', { cookie })).body.error.code).toBe('no_household');
   });
 });
+
+describe('passkeys and sessions (M10)', () => {
+  it('lists passkeys and sessions; the last passkey cannot be removed', async () => {
+    const r = await (async () => {
+      const owner = await makeUser('PK');
+      const hid = await makeHousehold('PK home', owner);
+      const { token } = await makeInvite({ kind: 'recovery', targetUserId: owner, householdId: hid });
+      return { ...(await register(token, { displayName: undefined })), owner };
+    })();
+    const list = await json<{ passkeys: { id: string }[] }>('GET', '/api/auth/passkeys', { cookie: r.cookie });
+    expect(list.body.passkeys).toHaveLength(1);
+    const del = await json<{ error: { code: string } }>('DELETE', `/api/auth/passkeys/${list.body.passkeys[0]!.id}`, { cookie: r.cookie });
+    expect(del.body.error.code).toBe('last_passkey');
+    const s = await json<{ sessions: { current: boolean; id: string }[] }>('GET', '/api/auth/sessions', { cookie: r.cookie });
+    expect(s.body.sessions.filter((x) => x.current)).toHaveLength(1);
+    expect(JSON.stringify(s.body)).not.toMatch(/[0-9a-f]{64}/);
+  });
+});

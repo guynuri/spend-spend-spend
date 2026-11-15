@@ -7,6 +7,7 @@ import type { Locale } from '../../../shared/money';
 import { useSavePrefs } from '../../lib/prefs';
 import { useMe } from '../../lib/session';
 import { AiSettings } from '../ai/AiSettings';
+import { SecurityCard } from './Security';
 
 export function AppearanceCard() {
   const { t, i18n } = useTranslation();
@@ -65,6 +66,7 @@ export function Component() {
       <PageHeader title={t('settings.title')} />
       <AppearanceCard />
       {me?.active && <AiSettings />}
+      <SecurityCard />
     </div>
   );
 }

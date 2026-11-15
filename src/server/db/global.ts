@@ -107,6 +107,8 @@ export function globalDb(db: D1Database) {
     refreshSession: (tokenHash: string) =>
       db.prepare('UPDATE sessions SET last_seen_at = ?2, expires_at = MIN(?3, absolute_expires_at) WHERE token_hash = ?1').bind(tokenHash, nowIso(), isoIn(SESSION_ROLLING_MS)).run(),
     deleteSession: (tokenHash: string) => db.prepare('DELETE FROM sessions WHERE token_hash = ?1').bind(tokenHash).run(),
+    sessionsOfUser: async (userId: string) =>
+      (await db.prepare('SELECT token_hash, created_at, last_seen_at, user_agent FROM sessions WHERE user_id = ?1 AND expires_at > ?2 ORDER BY last_seen_at DESC').bind(userId, nowIso()).all<{ token_hash: string; created_at: string; last_seen_at: string; user_agent: string | null }>()).results,
     deleteUserSessions: (userId: string) => db.prepare('DELETE FROM sessions WHERE user_id = ?1').bind(userId).run(),
     setActiveHousehold: (tokenHash: string, householdId: string | null) => db.prepare('UPDATE sessions SET active_household_id = ?2 WHERE token_hash = ?1').bind(tokenHash, householdId).run(),
     /** Clears the active household of every session of a user in a household (membership removed). */

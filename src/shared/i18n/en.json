@@ -923,5 +923,22 @@
     "applied_one": "{{count}} transaction categorized",
     "applied_other": "{{count}} transactions categorized",
     "times": "×{{count}}"
+  },
+  "security": {
+    "title": "Sign-in & devices",
+    "passkeys": "Passkeys",
+    "addPasskey": "Add a passkey on this device",
+    "passkeyAdded": "Passkey added",
+    "remove": "Remove",
+    "lastUsed": "Last used {{date}}",
+    "neverUsed": "Not used yet",
+    "created": "Added {{date}}",
+    "sessions": "Signed-in devices",
+    "current": "This device",
+    "lastSeen": "Last active {{date}}",
+    "onlyPasskey": "This is your only passkey; add another before removing it.",
+    "unnamed": "Passkey",
+    "more_one": "and {{count}} more device",
+    "more_other": "and {{count}} more devices"
   }
 }

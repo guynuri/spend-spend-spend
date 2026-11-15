@@ -112,13 +112,15 @@ function Members() {
                 <div className="text-xs text-muted">{t('household.passkeysCount', { count: m.passkeys })}</div>
               </div>
               {owner ? (
-                <Select aria-label={t('household.changeRole')} className="w-32 shrink-0" value={m.role} data-testid="member-role" onChange={(e) => setRole.mutate({ userId: m.userId, role: e.target.value as Role })}>
+                <div className="w-32 shrink-0">
+                <Select aria-label={t('household.changeRole')} value={m.role} data-testid="member-role" onChange={(e) => setRole.mutate({ userId: m.userId, role: e.target.value as Role })}>
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
                       {t(`roles.${r}`)}
                     </option>
                   ))}
                 </Select>
+                </div>
               ) : (
                 <Badge>{t(`roles.${m.role}`)}</Badge>
               )}

@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T02:15Z — currently: M10 hardening & polish (starting)
+Last updated: 2026-11-15T02:21Z — currently: M11 deploy scripts (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -93,8 +93,15 @@ Last updated: 2026-11-15T02:15Z — currently: M10 hardening & polish (starting)
   owner hint or nothing. AC12.3, AC13.1–13.4: `tests/unit/ai-payloads.test.ts` (PII canary +
   snapshots), `tests/api/ai.test.ts` (5), e2e `07-review-ai.spec.ts`.
 
+- **M10** — hardening: passkey management (list / add / remove, last one protected) and
+  signed-in devices list; bundle budget enforced in `npm run build` (`scripts/check-bundle.mjs`:
+  initial JS 183 kB gzip incl. preloads, SheetJS + Recharts lazy); WCAG contrast test on colour
+  tokens (light + dark); security checklist walked through (below); visual pass in both locales
+  and desktop (fixed: squeezed member names, unbounded sessions list, review "+0 %" text,
+  past-month pace insight, e2e account race).
+
 ## In progress
-- M10 — hardening & polish.
+- M11 — deploy script, smoke test, runbook.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -114,10 +121,49 @@ Last updated: 2026-11-15T02:15Z — currently: M10 hardening & polish (starting)
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M9: `npm run verify` green — unit 133, api 59, e2e 40.
+- M10: `npm run verify` green — unit 158, api 60, e2e 40 (iphone 39 + desktop 1).
 
-## Security checklist
-- (ticked in M10)
+## Security checklist (PLAN §18, walked through in M10)
+- [x] Secrets only in Wrangler secrets / `.dev.vars` / `.env.local` (all gitignored); `git grep`
+      for token-like strings finds only the local test tokens `e2e-bootstrap` /
+      `test-bootstrap-token`; no secrets in `wrangler.jsonc` vars.
+- [x] Public repo: no real bank file / account number / transaction committed;
+      `fixtures/**/private/` gitignored and `tests/unit/source-rules.test.ts` fails if tracked.
+- [x] Logs: one JSON line per request (rid, method, route pattern, status, ms, userId); errors
+      log name + truncated message only; responses carry codes, never stacks.
+- [x] Session: `__Host-mz_session`, HttpOnly, Secure, SameSite=Lax, hashed at rest, rolling 60 d
+      + absolute 180 d, logout / logout-all, removed member's sessions lose the household.
+- [x] CSRF: Origin + `X-MZ: 1` + JSON content type on every non-GET; GETs don't change data
+      (only the hourly session `last_seen_at` refresh).
+- [x] WebAuthn: single-use 5-minute challenges, origin + RP ID verified (`APP_HOST` lock),
+      counter regression rejected, tokens only in URL fragments.
+- [x] Tokens: 256-bit, SHA-256 at rest, single use (claimed with `used_at IS NULL`), expiring,
+      constant-time bootstrap compare, 5 failures / 15 min / IP → 429.
+- [x] Authorization: every tenant route behind session + household + role middleware; payload
+      ids checked with `assertOwned`; isolation suite green over all 113 routes (route table
+      must classify every route).
+- [x] Input: zod on bodies/queries (hand-written loop for import rows), body ≤ 1.5 MB,
+      ≤ 250 rows/request, ≤ 5,000 rows/import, string caps, file ≤ 5 MB + magic-byte sniffing,
+      parsing in try/catch → `unsupported_file`.
+- [x] SQL: bound parameters only; table/column names only from the `TENANT_TABLES` registry /
+      code constants.
+- [x] Output: React escaping only, no `dangerouslySetInnerHTML` (unit-tested); AI text rendered
+      as plain text; CSV export neutralises `= + - @` cells.
+- [x] Headers: CSP / HSTS / nosniff / no-referrer / Permissions-Policy on pages (`_headers`) and
+      API (`hono/secure-headers`); API `Cache-Control: no-store` (API + e2e tests).
+- [x] Service worker never caches `/api/*` (e2e checks Cache Storage); web storage only holds
+      `mz_locale`, `mz_theme`, `mz_hint_install`.
+- [x] AI: off by default, consent recorded, payload builders canary-tested, keys server-side,
+      limits enforced server-side.
+- [x] Account number: last 4 digits at most; the raw file is never uploaded.
+- [x] Super-admin: metadata only (isolation suite asserts no amounts/descriptions/canary).
+- [~] Dependencies: `npm audit --omit=dev` → 1 high: `xlsx@0.18.5` (prototype pollution,
+      ReDoS; fixed in 0.20.x, which is distributed only via cdn.sheetjs.com — blocked here).
+      Mitigation: SheetJS runs only in the user's own browser tab, on the user's own file.
+      **Owner action:** `npm i https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` (TODO(sheetjs-cdn)).
+- [x] Destructive actions (reset, delete household, remove member, undo import) need explicit
+      confirmation (typed name for reset/delete) and are written to `audit_log` (deleting a
+      household removes its audit rows with it).
 
 ## Deviations
 - See DECISIONS.md D-R1 … D-R5.

@@ -218,6 +218,13 @@ authRoutes.delete('/auth/passkeys/:id', requireSession, async (c) => {
   return c.json({ ok: true });
 });
 
+/** The user's active sessions (no token material; the id is a short hash prefix). */
+authRoutes.get('/auth/sessions', requireSession, async (c) => {
+  const s = c.get('session')!;
+  const rows = await globalDb(c.env.DB).sessionsOfUser(s.userId);
+  return c.json({ sessions: rows.map((r) => ({ id: r.token_hash.slice(0, 12), current: r.token_hash === s.tokenHash, createdAt: r.created_at, lastSeenAt: r.last_seen_at, device: (r.user_agent ?? '').slice(0, 120) })) });
+});
+
 // ---------------- me / session ----------------
 authRoutes.get('/me', requireSession, async (c) => {
   const g = globalDb(c.env.DB);

@@ -21,6 +21,7 @@ export const ROUTES: Record<string, Cls> = {
   'POST /api/invites/inspect': 'public',
   'POST /api/auth/logout-all': 'auth',
   'GET /api/auth/passkeys': 'auth',
+  'GET /api/auth/sessions': 'auth',
   'POST /api/auth/passkeys/options': 'auth',
   'POST /api/auth/passkeys': 'auth',
   'DELETE /api/auth/passkeys/:id': 'auth',

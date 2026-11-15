@@ -937,5 +937,23 @@
     "applied_two": "סווגו {{count}} תנועות",
     "applied_other": "סווגו {{count}} תנועות",
     "times": "×{{count}}"
+  },
+  "security": {
+    "title": "כניסה ומכשירים",
+    "passkeys": "מפתחות גישה",
+    "addPasskey": "הוספת מפתח גישה במכשיר הזה",
+    "passkeyAdded": "מפתח הגישה נוסף",
+    "remove": "הסרה",
+    "lastUsed": "שימוש אחרון {{date}}",
+    "neverUsed": "עוד לא היה בשימוש",
+    "created": "נוסף {{date}}",
+    "sessions": "מכשירים מחוברים",
+    "current": "המכשיר הזה",
+    "lastSeen": "פעיל לאחרונה {{date}}",
+    "onlyPasskey": "זה מפתח הגישה היחיד שלך; כדאי להוסיף עוד אחד לפני ההסרה.",
+    "unnamed": "מפתח גישה",
+    "more_one": "ועוד מכשיר אחד",
+    "more_two": "ועוד {{count}} מכשירים",
+    "more_other": "ועוד {{count}} מכשירים"
   }
 }
