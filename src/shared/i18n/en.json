@@ -318,10 +318,18 @@
   "categories": {
     "title": "Categories & rules",
     "add": "Add category",
+    "addOption": "+ Add category…",
+    "suggested": "Suggested — tap to add",
+    "custom": "Or create your own",
+    "hideUnused": "Hide unused categories",
+    "hiddenToast_one": "{{count}} unused category hidden",
+    "hiddenToast_other": "{{count}} unused categories hidden",
+    "showHidden": "Show hidden ({{count}})",
     "name": "Name",
     "kind": "Kind",
     "group": "Group",
-    "isDebt": "Debt repayment",
+    "isDebt": "Loan or mortgage repayment",
+    "isDebtHint": "Tick for loan and mortgage payments. They count toward the debt load in the health score.",
     "fixed": "Fixed",
     "variable": "Variable",
     "kinds": {
@@ -919,7 +927,13 @@
     "enableHintLink": "Open Settings",
     "suggest": "Suggest categories with AI",
     "suggestTitle": "AI category suggestions",
-    "suggestBody": "Review the suggestions and apply the ones you agree with. Applied merchants are remembered.",
+    "suggestBody": "Nothing is saved until you approve. Unsure guesses start unticked. Approved merchants are remembered.",
+    "suggestCount_one": "Let AI suggest a category for {{count}} uncategorized transaction",
+    "suggestCount_other": "Let AI suggest categories for {{count}} uncategorized transactions",
+    "approveAll": "Approve all",
+    "applyCount": "Save approved ({{count}})",
+    "sure": "Confidence {{pct}}%",
+    "unsure": "Not sure ({{pct}}%), please check",
     "noSuggestions": "No suggestions — nothing eligible to categorize.",
     "apply": "Apply selected",
     "applied_one": "{{count}} transaction categorized",
@@ -987,7 +1001,7 @@
       },
       "categories": {
         "body": "The categories your money is sorted into, and the rules that sort it automatically.",
-        "points": "Income, expense and transfer categories, grouped, and marked fixed or variable.\nMark a category as debt repayment so it counts toward the debt load in the health score.\nRules: “if the description contains X, use category Y”. They run on every import.\nYour own rules win over learned, AI and built-in ones. “Apply rules now” re-categorizes existing transactions."
+        "points": "Income, expense and transfer categories, grouped, and marked fixed or variable.\nMark a category as a loan or mortgage repayment so it counts toward the debt load in the health score.\nRules: “if the description contains X, use category Y”. They run on every import.\nYour own rules win over learned, AI and built-in ones. “Apply rules now” re-categorizes existing transactions."
       },
       "goals": {
         "body": "Savings goals and how you are progressing toward them.",

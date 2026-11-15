@@ -16,6 +16,7 @@ import { IMPORT_CHUNK, type ParseResult } from '../../../shared/import/types';
 import { toWire, type ImportSummary, type PreviewResponse, type PreviewRow, type RowStatus } from '../../../shared/schemas/imports';
 import { Mapper } from './Mapper';
 import { download, errorReportCsv, FileError, parseFile, type Parsed } from './parseFile';
+import { AiSuggestButton } from '../ai/AiSuggest';
 
 const ACCEPT = '.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv';
 const countTiles = (c: Record<RowStatus, number>, errors: number) =>
@@ -446,6 +447,7 @@ export function Component() {
                   <Button variant="secondary" onClick={reset} data-testid="import-another">
                     {t('import.another')}
                   </Button>
+                  <AiSuggestButton />
                 </div>
               </div>
             </Card>

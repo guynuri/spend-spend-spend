@@ -66,7 +66,7 @@ aiRoutes.post('/consent', requireOwner, async (c) => {
   return c.json({ ok: true });
 });
 
-const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional() }));
+const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional(), reason: z.string().max(120).optional() }));
 
 aiRoutes.post('/categorize', async (c) => {
   const { db } = tctx(c);
@@ -82,14 +82,17 @@ aiRoutes.post('/categorize', async (c) => {
   const { payload, keys } = buildCategorizePayload(rows, cats.map((x) => x.name));
   if (!payload.items.length) return c.json({ suggestions: [] });
   const p = await gate(c, 'categorize');
-  const res = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload }), schema: catOut, maxTokens: 700, temperature: 0 }));
+  const res = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload }), schema: catOut, maxTokens: 1600, temperature: 0 }));
   await recordTokensStmt(db, 'categorize', res.tokensIn, res.tokensOut).run();
   const byName = new Map(cats.map((x) => [norm(x.name), x.id]));
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const suggestions = res.data
-    .map((o) => ({ key: keys[o.i], categoryId: byName.get(norm(o.category)), confidence: o.confidence ?? null }))
-    .filter((s): s is { key: string; categoryId: string; confidence: number | null } => !!s.key && !!s.categoryId)
-    .map((s) => ({ ...s, description: byKey.get(s.key)!.description, count: byKey.get(s.key)!.n, direction: byKey.get(s.key)!.amountMinor >= 0 ? 'in' : 'out' }));
+    .map((o) => ({ key: keys[o.i], categoryId: byName.get(norm(o.category)), confidence: o.confidence ?? null, reason: o.reason?.trim() || null }))
+    .filter((s): s is { key: string; categoryId: string; confidence: number | null; reason: string | null } => !!s.key && !!s.categoryId)
+    .map((s) => {
+      const r = byKey.get(s.key)!;
+      return { ...s, description: r.description, count: r.n, amountMinor: r.amountMinor, direction: r.amountMinor >= 0 ? 'in' : 'out' };
+    });
   return c.json({ suggestions });
 });
 

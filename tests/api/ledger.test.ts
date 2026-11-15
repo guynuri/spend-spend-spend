@@ -32,7 +32,7 @@ describe('accounts (AC3.1)', () => {
 describe('categories (AC3.2)', () => {
   it('defaults exist; add, rename, regroup; in-use is archived, unused deleted, system kept', async () => {
     const s = await setup();
-    expect(s.cats.length).toBeGreaterThanOrEqual(28);
+    expect(s.cats.length).toBe(19);
     expect(s.cats.find((c) => c.systemKey === 'card_unsplit')).toBeTruthy();
     const rules = (await json<{ rules: unknown[] }>('GET', '/api/rules', { cookie: s.cookie })).body.rules;
     expect(rules.length).toBeGreaterThanOrEqual(30);
@@ -45,6 +45,32 @@ describe('categories (AC3.2)', () => {
     const c2 = await json<{ id: string }>('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Unused', kind: 'expense' } });
     expect((await json<{ deleted: boolean }>('DELETE', `/api/categories/${c2.body.id}`, { cookie: s.cookie })).body.deleted).toBe(true);
     expect((await json('DELETE', `/api/categories/${s.cats.find((c) => c.systemKey === 'card_unsplit')!.id}`, { cookie: s.cookie })).status).toBe(409);
+  });
+
+  it('catalog: short core set, one-tap add with built-in rules, hide unused keeps used ones; hidden categories get no rule hits', async () => {
+    const s = await setup();
+    expect(s.cats.some((c) => c.name === 'Cash withdrawals')).toBe(false);
+    const sug = (await json<{ suggestions: { key: string; en: string }[] }>('GET', '/api/categories/suggestions', { cookie: s.cookie })).body.suggestions;
+    expect(sug.map((x) => x.key)).toContain('cash');
+    expect(sug.some((x) => x.key === 'groceries' || x.key === 'transfers')).toBe(false);
+    const add = await json<{ id: string }>('POST', '/api/categories/suggestions/cash', { cookie: s.cookie, headers: { 'x-mz-locale': 'en' } });
+    expect(add.status).toBe(201);
+    expect((await s.add('2026-02-04', -20000, 'משיכת מזומן')).categoryId).toBe(add.body.id);
+    expect((await json('POST', '/api/categories/suggestions/nope', { cookie: s.cookie })).status).toBe(404);
+    const g = s.cat('Groceries');
+    await s.add('2026-02-05', -5000, 'שופרסל');
+    const hid = await json<{ hidden: number }>('POST', '/api/categories/hide-unused', { cookie: s.cookie });
+    expect(hid.body.hidden).toBeGreaterThan(5);
+    const after = (await json<{ categories: Category[] }>('GET', '/api/categories', { cookie: s.cookie })).body.categories;
+    const byId = new Map(after.map((c) => [c.id, c]));
+    expect(byId.get(g)!.archived).toBe(false);
+    expect(byId.get(add.body.id)!.archived).toBe(false);
+    expect(after.filter((c) => c.systemKey).every((c) => !c.archived)).toBe(true);
+    const phone = byId.get(s.cat('Phone & internet'))!;
+    expect(phone.archived).toBe(true);
+    expect((await s.add('2026-02-06', -9000, 'בזק')).categoryId).toBeNull();
+    // re-adding a hidden default restores it
+    expect((await json<{ id: string }>('POST', '/api/categories/suggestions/phone', { cookie: s.cookie })).body.id).toBe(phone.id);
   });
 });
 
@@ -91,9 +117,9 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
 
   it('rules never overwrite a user category', async () => {
     const s = await setup();
-    const t = await s.add('2026-02-03', -100, 'רמי לוי', { categoryId: s.cat('Kids') });
+    const t = await s.add('2026-02-03', -100, 'רמי לוי', { categoryId: s.cat('Leisure') });
     await json('POST', '/api/rules/apply', { cookie: s.cookie });
-    expect((await DB.prepare('SELECT category_id FROM transactions WHERE id = ?1').bind(t.id).first<{ category_id: string }>())!.category_id).toBe(s.cat('Kids'));
+    expect((await DB.prepare('SELECT category_id FROM transactions WHERE id = ?1').bind(t.id).first<{ category_id: string }>())!.category_id).toBe(s.cat('Leisure'));
   });
 
   it('imported fields are read-only; manual edits allowed', async () => {

@@ -12,6 +12,8 @@ export interface DefaultCategory {
   isDebt?: boolean;
   systemKey?: string;
   icon: string;
+  /** Not seeded: offered in the "add category" catalog instead (keeps new households short). */
+  extra?: true;
 }
 
 export const DEFAULT_CATEGORIES: DefaultCategory[] = [
@@ -19,27 +21,30 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: 'benefits', en: 'Benefits & allowances', he: 'קצבאות והטבות', kind: 'income', grp: null, icon: 'hand-coins' },
   { key: 'other_income', en: 'Other income', he: 'הכנסות אחרות', kind: 'income', grp: null, icon: 'plus-circle' },
   { key: 'rent', en: 'Rent', he: 'שכר דירה', kind: 'expense', grp: 'fixed', icon: 'home' },
-  { key: 'mortgage', en: 'Mortgage', he: 'משכנתא', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'landmark' },
-  { key: 'loans', en: 'Loans', he: 'הלוואות', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'banknote' },
+  { key: 'mortgage', en: 'Mortgage', he: 'משכנתא', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'landmark', extra: true },
+  { key: 'loans', en: 'Loan repayments', he: 'החזרי הלוואות', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'banknote' },
   { key: 'utilities', en: 'Municipal tax & utilities', he: 'ארנונה וחשבונות', kind: 'expense', grp: 'fixed', icon: 'zap' },
   { key: 'phone', en: 'Phone & internet', he: 'טלפון ואינטרנט', kind: 'expense', grp: 'fixed', icon: 'smartphone' },
   { key: 'insurance', en: 'Insurance', he: 'ביטוחים', kind: 'expense', grp: 'fixed', icon: 'shield' },
   { key: 'education', en: 'Education & childcare', he: 'חינוך ומסגרות', kind: 'expense', grp: 'fixed', icon: 'graduation-cap' },
-  { key: 'subscriptions', en: 'Subscriptions', he: 'מנויים', kind: 'expense', grp: 'fixed', icon: 'repeat' },
-  { key: 'bank_fees', en: 'Bank fees', he: 'עמלות בנק', kind: 'expense', grp: 'fixed', icon: 'percent' },
+  { key: 'subscriptions', en: 'Subscriptions', he: 'מנויים', kind: 'expense', grp: 'fixed', icon: 'repeat', extra: true },
+  { key: 'bank_fees', en: 'Bank fees', he: 'עמלות בנק', kind: 'expense', grp: 'fixed', icon: 'percent', extra: true },
   { key: 'groceries', en: 'Groceries', he: 'סופר ומכולת', kind: 'expense', grp: 'variable', icon: 'shopping-cart' },
   { key: 'eating_out', en: 'Eating out', he: 'אוכל בחוץ', kind: 'expense', grp: 'variable', icon: 'utensils' },
   { key: 'transport', en: 'Transport & fuel', he: 'תחבורה ודלק', kind: 'expense', grp: 'variable', icon: 'fuel' },
-  { key: 'car', en: 'Car', he: 'רכב', kind: 'expense', grp: 'variable', icon: 'car' },
+  { key: 'car', en: 'Car', he: 'רכב', kind: 'expense', grp: 'variable', icon: 'car', extra: true },
   { key: 'health', en: 'Health', he: 'בריאות', kind: 'expense', grp: 'variable', icon: 'heart-pulse' },
-  { key: 'clothing', en: 'Clothing', he: 'ביגוד והנעלה', kind: 'expense', grp: 'variable', icon: 'shirt' },
+  { key: 'clothing', en: 'Clothing', he: 'ביגוד והנעלה', kind: 'expense', grp: 'variable', icon: 'shirt', extra: true },
   { key: 'home', en: 'Home', he: 'בית', kind: 'expense', grp: 'variable', icon: 'sofa' },
   { key: 'leisure', en: 'Leisure', he: 'פנאי', kind: 'expense', grp: 'variable', icon: 'ticket' },
-  { key: 'kids', en: 'Kids', he: 'ילדים', kind: 'expense', grp: 'variable', icon: 'baby' },
-  { key: 'gifts', en: 'Gifts & donations', he: 'מתנות ותרומות', kind: 'expense', grp: 'variable', icon: 'gift' },
-  { key: 'travel', en: 'Travel', he: 'חופשות', kind: 'expense', grp: 'variable', icon: 'plane' },
-  { key: 'cash', en: 'Cash withdrawals', he: 'משיכות מזומן', kind: 'expense', grp: 'variable', icon: 'wallet' },
+  { key: 'kids', en: 'Kids', he: 'ילדים', kind: 'expense', grp: 'variable', icon: 'baby', extra: true },
+  { key: 'gifts', en: 'Gifts & donations', he: 'מתנות ותרומות', kind: 'expense', grp: 'variable', icon: 'gift', extra: true },
+  { key: 'travel', en: 'Travel', he: 'חופשות', kind: 'expense', grp: 'variable', icon: 'plane', extra: true },
+  { key: 'cash', en: 'Cash withdrawals', he: 'משיכות מזומן', kind: 'expense', grp: 'variable', icon: 'wallet', extra: true },
   { key: 'card_unsplit', en: 'Credit card (not split)', he: 'כרטיס אשראי (לא מפוצל)', kind: 'expense', grp: 'variable', systemKey: 'card_unsplit', icon: 'credit-card' },
+  { key: 'pets', en: 'Pets', he: 'חיות מחמד', kind: 'expense', grp: 'variable', icon: 'paw-print', extra: true },
+  { key: 'personal_care', en: 'Personal care', he: 'טיפוח', kind: 'expense', grp: 'variable', icon: 'sparkles', extra: true },
+  { key: 'sport', en: 'Sport & fitness', he: 'ספורט וכושר', kind: 'expense', grp: 'variable', icon: 'dumbbell', extra: true },
   { key: 'other', en: 'Other', he: 'אחר', kind: 'expense', grp: 'variable', icon: 'circle-help' },
   { key: 'transfers', en: 'Internal transfers', he: 'העברות פנימיות', kind: 'transfer', grp: null, systemKey: 'transfer', icon: 'arrow-left-right' },
   { key: 'savings', en: 'Savings & investments', he: 'חיסכון והשקעות', kind: 'transfer', grp: null, icon: 'piggy-bank' },
@@ -99,23 +104,40 @@ export interface SeedRows {
   rules: Record<string, string | number | null>[];
 }
 
-/** Rows for the default categories and seed rules of a household (inserted set-based). */
-export function defaultCategoryRows(locale: Locale): SeedRows {
-  const ids = new Map<string, string>();
-  const categories = DEFAULT_CATEGORIES.map((d, i) => {
-    const id = newId();
-    ids.set(d.key, id);
-    return { id, name: locale === 'he' ? d.he : d.en, kind: d.kind, grp: d.grp, is_debt: d.isDebt ? 1 : 0, system_key: d.systemKey ?? null, icon: d.icon, sort: i };
-  });
+export const categoryRow = (d: DefaultCategory, locale: Locale, sort: number) => ({
+  id: newId(),
+  name: locale === 'he' ? d.he : d.en,
+  kind: d.kind,
+  grp: d.grp,
+  is_debt: d.isDebt ? 1 : 0,
+  system_key: d.systemKey ?? null,
+  icon: d.icon,
+  sort,
+});
+
+/** Seed rules (deduped) for the categories in `ids` (default key → category id). */
+export function seedRuleRows(ids: Map<string, string>) {
   const now = nowIso();
   const seen = new Set<string>();
-  const rules: SeedRows['rules'] = [];
+  const rules: { id: string; field: string; match: string; pattern_norm: string; sign: string; category_id: string; source: 'seed'; created_at: string }[] = [];
   for (const r of SEED_RULES) {
     const pat = norm(r.pattern);
     const k = `${r.field}|${r.match}|${pat}|${r.sign}`;
-    if (seen.has(k)) continue;
+    const categoryId = ids.get(r.cat);
+    if (!categoryId || seen.has(k)) continue;
     seen.add(k);
-    rules.push({ id: newId(), field: r.field, match: r.match, pattern_norm: pat, sign: r.sign, category_id: ids.get(r.cat)!, source: 'seed', created_at: now });
+    rules.push({ id: newId(), field: r.field, match: r.match, pattern_norm: pat, sign: r.sign, category_id: categoryId, source: 'seed', created_at: now });
   }
-  return { categories, rules };
+  return rules;
+}
+
+/** Rows for the core default categories (catalog extras excluded) and their seed rules (inserted set-based). */
+export function defaultCategoryRows(locale: Locale): SeedRows {
+  const ids = new Map<string, string>();
+  const categories = DEFAULT_CATEGORIES.filter((d) => !d.extra).map((d, i) => {
+    const row = categoryRow(d, locale, i);
+    ids.set(d.key, row.id);
+    return row;
+  });
+  return { categories, rules: seedRuleRows(ids) };
 }
