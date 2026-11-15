@@ -53,6 +53,8 @@ export function tenantDb(db: D1Database, householdId: string) {
       for (let i = 0; i < rows.length; i += chunk) out.push(bulkInsertStmt(table, cols, rows.slice(i, i + chunk)));
       return out;
     },
+    /** Global AI calls today across all households — a counter only, used for the global daily cap (AC13.3). */
+    aiCallsToday: async (day: string) => (await db.prepare('SELECT COALESCE(SUM(calls), 0) AS n FROM ai_usage WHERE day = ?1').bind(day).first<{ n: number }>())?.n ?? 0,
     /** Membership/invite operations for THIS household only. */
     members: householdMembers(db, householdId),
     all: async <T = Record<string, unknown>>(sql: string, ...params: Param[]): Promise<T[]> => (await prep(sql, params).all<T>()).results,

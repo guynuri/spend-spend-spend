@@ -104,6 +104,11 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/reviews': 'tenant',
   'GET /api/reviews/:month': 'tenant',
   'POST /api/reviews/:month/complete': 'tenant',
+  'GET /api/ai/status': 'tenant',
+  'POST /api/ai/consent': 'tenant',
+  'POST /api/ai/categorize': 'tenant',
+  'POST /api/ai/categorize/apply': 'tenant',
+  'POST /api/ai/review/:month': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';

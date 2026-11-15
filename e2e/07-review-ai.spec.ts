@@ -10,6 +10,8 @@ test('AI disabled: all 7 chapters render; complete the review; it appears in his
   await signIn(page, 'admin');
   await page.goto('/review');
   await page.getByTestId('review-start').click();
+  await expect(page.getByTestId('ai-enable-hint')).toBeVisible();
+  await expect(page.getByTestId('ai-write')).toHaveCount(0);
   for (const [i, ch] of CHAPTERS.entries()) {
     await expect(page.getByTestId(`chapter-${ch}`)).toBeVisible();
     if (ch !== 'wrapup') await expect(page.getByTestId(`chapter-${ch}`).getByTestId('chapter-commentary').first()).not.toBeEmpty();
@@ -26,4 +28,32 @@ test('AI disabled: all 7 chapters render; complete the review; it appears in his
   await page.getByTestId('review-history-item').first().click();
   await expect(page.getByTestId('chapter-summary')).toBeVisible();
   await expect(page.getByTestId('review-flow')).toHaveAttribute('data-status', 'completed');
+});
+
+test('enable AI through the consent sheet, write commentary (mock), disable again', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/settings');
+  await page.getByTestId('ai-enable').click();
+  const sheet = page.getByTestId('ai-consent');
+  await expect(sheet.getByTestId('ai-consent-provider')).toContainText('Mock');
+  await expect(sheet.getByTestId('ai-consent-model')).not.toBeEmpty();
+  await expect(sheet.getByTestId('ai-consent-sent').locator('li')).toHaveCount(4);
+  await expect(sheet.getByTestId('ai-consent-trains')).toContainText(/not used for training/);
+  await expect(sheet.getByTestId('ai-consent-limits')).toContainText('10');
+  await page.getByTestId('ai-consent-ok').click();
+  await expect(page.getByTestId('ai-disable')).toBeVisible();
+
+  await page.goto('/review?month=2026-09&step=0');
+  await page.getByTestId('ai-write').click();
+  await expect(page.getByTestId('ai-written')).toBeVisible();
+  await expect(page.getByTestId('ai-text').first()).toContainText('AI note on summary');
+  await page.getByTestId('review-skip').click();
+  await expect(page.getByTestId('ai-headline')).toContainText('AI headline');
+
+  await page.goto('/settings');
+  await page.getByTestId('ai-disable').click();
+  await expect(page.getByTestId('ai-enable')).toBeVisible();
+  await page.goto('/review?month=2026-08&step=0');
+  await expect(page.getByTestId('ai-enable-hint')).toBeVisible();
+  await expect(page.getByTestId('ai-write')).toHaveCount(0);
 });

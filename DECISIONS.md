@@ -178,3 +178,21 @@ Format: date · milestone · what · why · alternatives rejected.
 - Path params that are not tenant-owned ids (`:month`, `:dueDate`) are excluded from the
   isolation suite's "B id → 404" check; those routes are still covered by the B-unchanged and
   GET-canary checks.
+
+## D-R14 · 2026-11-15 · M9 · AI
+- Model: no Cloudflare credentials in this session, so `wrangler ai models` could not be run;
+  `AI_MODEL` defaults to `@cf/meta/llama-3.3-70b-instruct-fp8-fast` per PLAN §11.1.
+  **Owner check:** run `npx wrangler ai models --json` once deployed and pick the first available
+  of `@cf/openai/gpt-oss-120b`, `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, `@cf/zai-org/glm-4.7-flash`.
+- The Workers AI binding exists only in `env.production` (D-R4). Locally AI is `mock` (tests,
+  e2e) or unavailable (plain `npm run dev`).
+- Person-to-person transfers are recognised by operation type / description words (העברה, bit,
+  ביט, PayBox, Pepper, transfer) and never sent. Digit runs are scrubbed when ≥ 5 digits,
+  including dash-grouped numbers (phones, account numbers); e-mails are removed.
+- AI review commentary is stored on the review row (`ai_json`, draft or beside a completed
+  snapshot) so it survives reloads and is kept when the review is completed; the immutable
+  snapshot itself is never changed by AI.
+- The AI gate checks provider → household opt-in → limits before any work; a call is reserved
+  (counted) before it is made, so failed calls also count toward the daily limits.
+- The global daily cap reads the per-day counters of all households through an explicit
+  `tenantDb.aiCallsToday()` method (counters only, no tenant content).

@@ -136,6 +136,8 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         return { name: 'g' };
       case 'POST /api/goals/:id/contributions':
         return { date: today, amountMinor: 5 };
+      case 'POST /api/ai/categorize/apply':
+        return { items: [{ key: 'zz', categoryId: s.ids.category, direction: 'out' }] };
       case 'PUT /api/budgets':
         return { month: today.slice(0, 7), items: [{ categoryId: s.ids.category, limitMinor: 100 }] };
       case 'PUT /api/import-profiles':

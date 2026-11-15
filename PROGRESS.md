@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T02:08Z — currently: M9 AI (starting)
+Last updated: 2026-11-15T02:15Z — currently: M10 hardening & polish (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -84,8 +84,17 @@ Last updated: 2026-11-15T02:08Z — currently: M9 AI (starting)
   AC12.1–12.2: `tests/api/reviews.test.ts`, unit review-builder test, e2e `07-review-ai.spec.ts`
   (AI-off path), `12-review-screens.spec.ts`.
 
+- **M9** — AI (opt-in): provider interface with Workers AI, OpenAI-compatible and mock
+  adapters (20 s timeout, JSON extraction, zod validation, one retry, typed errors); owner
+  consent sheet (provider, model, what is / isn't sent, training, limits) with consent recorded;
+  limits 10 categorize + 5 review per household/day and a global daily cap (429
+  `ai_rate_limited`); AI category suggestions → apply (category_source=ai, ai rules); review
+  commentary with "AI-written" tag + disclaimer, rule text kept on failure; AI-off path shows an
+  owner hint or nothing. AC12.3, AC13.1–13.4: `tests/unit/ai-payloads.test.ts` (PII canary +
+  snapshots), `tests/api/ai.test.ts` (5), e2e `07-review-ai.spec.ts`.
+
 ## In progress
-- M9 — AI (opt-in).
+- M10 — hardening & polish.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -105,7 +114,7 @@ Last updated: 2026-11-15T02:08Z — currently: M9 AI (starting)
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M8: `npm run verify` green — unit 130, api 54, e2e 39.
+- M9: `npm run verify` green — unit 133, api 59, e2e 40.
 
 ## Security checklist
 - (ticked in M10)

@@ -1,2 +1,2 @@
-// Provider adapters register themselves here (M9).
-export {};
+// Provider adapters register themselves on import.
+import './adapters';

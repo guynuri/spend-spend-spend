@@ -18,6 +18,7 @@ import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
 import { UnsplitCardBanner } from './UnsplitCardBanner';
+import { AiSuggestButton } from '../ai/AiSuggest';
 
 function CategoryLabel({ tx }: { tx: Tx }) {
   const { t } = useTranslation();
@@ -170,6 +171,7 @@ export function Component() {
         </div>
       )}
       <UnsplitCardBanner month={f.from.slice(0, 7)} />
+      {f.uncategorized && <AiSuggestButton />}
       {summary && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted" data-testid="ledger-summary">
           <span data-count={summary.count}>{t('ledger.summary', { count: summary.count })}</span>

@@ -5,6 +5,8 @@ import { setLocale } from '../../i18n';
 import { setTheme, storedTheme, type Theme } from '../../theme';
 import type { Locale } from '../../../shared/money';
 import { useSavePrefs } from '../../lib/prefs';
+import { useMe } from '../../lib/session';
+import { AiSettings } from '../ai/AiSettings';
 
 export function AppearanceCard() {
   const { t, i18n } = useTranslation();
@@ -57,10 +59,12 @@ export function AppearanceCard() {
 
 export function Component() {
   const { t } = useTranslation();
+  const me = useMe();
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('settings.title')} />
       <AppearanceCard />
+      {me?.active && <AiSettings />}
     </div>
   );
 }
