@@ -52,7 +52,8 @@
     "share": "Share",
     "search": "Search",
     "notEnoughData": "Not enough data",
-    "today": "Today"
+    "today": "Today",
+    "month": "Month"
   },
   "explain": {
     "open": "How is this calculated?",
@@ -448,5 +449,66 @@
       "file_empty": "The file is empty.",
       "no_rows": "No transactions were found in the file."
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "budgeted": "Budgeted",
+    "spent": "Spent",
+    "remaining": "Left",
+    "over": "Over by",
+    "avg3": "3-month average",
+    "noLimit": "No budget",
+    "setBudget": "Set budget",
+    "limit": "Monthly limit",
+    "pctSpent": "{{spent}} of the budget spent",
+    "pctMonth": "{{elapsed}} of the month elapsed",
+    "noDataYet": "No data for this month yet — import a statement to see your pace.",
+    "pace": {
+      "ahead": "Spending faster than the month is passing",
+      "under": "Spending slower than the month is passing",
+      "on_pace": "Spending in step with the month"
+    },
+    "status": {
+      "over": "Over",
+      "watch": "Watch",
+      "on_pace": "On pace"
+    },
+    "counts": "{{over}} over · {{watch}} to watch · {{onPace}} on pace",
+    "fixed": "Fixed",
+    "variable": "Variable",
+    "unbudgeted": "Spending without a budget",
+    "allocation": "Allocation check",
+    "allocationLine": "{{budgeted}} of {{income}} allocated",
+    "allocationHelp": "Total monthly budgets compared with average monthly income over the last 3 complete months.",
+    "allocationNoIncome": "Not enough income history yet.",
+    "unsplitBanner": "{{amount}} in card charges this month isn't split into categories yet.",
+    "unsplitCta": "Split it",
+    "history": "Last 6 months",
+    "distribution": "Where the money went",
+    "viewTransactions": "View transactions",
+    "appliesFrom": "Applies from {{month}} onward; earlier months keep their limits.",
+    "explainStatus": "How are statuses decided?",
+    "explainStatusBody": "Over: spent more than the limit. Watch (variable categories): used ≥ 90 % of the limit, or ≥ 50 % while ahead of the month by more than 10 points. Otherwise on pace.",
+    "explainTotals": "Budgeted = sum of limits. Spent = spending in budgeted categories (refunds reduce it). Pace compares % of budget spent with % of the month elapsed (± 5 points).",
+    "removeLimit": "Remove budget",
+    "empty": "No expense categories yet."
+  },
+  "trends": {
+    "title": "Trends",
+    "byCategory": "By category",
+    "byDay": "By day",
+    "overMonths": "Over months",
+    "total": "Total spending",
+    "share": "Share",
+    "daily": "Daily spending",
+    "cumulative": "This month, cumulative",
+    "prevCumulative": "Last month, cumulative",
+    "income": "Income",
+    "expenses": "Spending",
+    "net": "Left over",
+    "category": "Category",
+    "allCategories": "Income, spending and left over",
+    "empty": "No spending in this period.",
+    "uncategorized": "Uncategorized"
   }
 }

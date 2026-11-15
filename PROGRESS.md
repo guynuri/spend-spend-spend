@@ -1,5 +1,5 @@
 # Progress
-Last updated: 2026-11-15T01:27Z — currently: M5 budgets & trends (starting)
+Last updated: 2026-11-15T01:35Z — currently: M6 recurring, planned, forecast (starting)
 
 ## Done
 - **M0** (082f61d) — scaffold: Vite + Cloudflare plugin, Hono `/api/health` (D1 probe), wrangler
@@ -48,8 +48,17 @@ Last updated: 2026-11-15T01:27Z — currently: M5 budgets & trends (starting)
   `03-import.spec.ts` (7) + `11-screens.spec.ts`. Real-file test runs only if
   `fixtures/otsar-hahayal/private/` has files (empty here → `TODO(otsar-real-file)`).
 
+- **M5** — budgets: per-category limits effective from M onward (inline edit), spent/remaining/
+  utilization bar (green/amber/red + icon), 3-month average, status per §10.4, totals with
+  % spent vs % of month elapsed + pace sentence, over/watch/on-pace counts, fixed/variable
+  sub-totals, unbudgeted row, allocation check with explain sheet, unsplit-card banner (AC5.5)
+  linking to card charges, 6-month history chart, distribution bars, category sheet with
+  6-month chart. Trends: by category (tap → ledger), by day (daily bars + cumulative vs last
+  month), over 12 months (income/spending/net, or one category). AC5.1–5.5, AC10.1:
+  `tests/unit/budget.test.ts`, `tests/api/budgets.test.ts`, e2e `06-budget-goals.spec.ts`.
+
 ## In progress
-- M5 — budgets & trends.
+- M6 — recurring, planned, forecast.
 
 ## Blocked / stubbed
 - **SheetJS CDN** unreachable (proxy 403) → `xlsx@0.18.5` from npm (DECISIONS D-R2,
@@ -69,7 +78,7 @@ Last updated: 2026-11-15T01:27Z — currently: M5 budgets & trends (starting)
 - `fixtures/otsar-hahayal/private/`: empty → synthetic fixtures only (`TODO(otsar-real-file)`).
 
 ## Verification
-- M4: `npm run verify` green — unit 44, api 40, e2e 27.
+- M5: `npm run verify` green — unit 51, api 42, e2e 32.
 
 ## Security checklist
 - (ticked in M10)

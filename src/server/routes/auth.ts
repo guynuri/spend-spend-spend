@@ -234,7 +234,7 @@ authRoutes.get('/me', requireSession, async (c) => {
       const today = todayInTz(h.timezone);
       active = { id: h.id, name: h.name, currency: h.currency, timezone: h.timezone, hasSampleData: h.has_sample_data === 1, aiEnabled: h.ai_enabled === 1, today };
       role = m.role;
-      if (h.status === 'active') badges = await loadBadges(tenantDb(c.env.DB, h.id), today);
+      if (h.status === 'active') badges = await loadBadges(tenantDb(c.env.DB, h.id), h, today);
     }
   }
   const res: MeResponse = {

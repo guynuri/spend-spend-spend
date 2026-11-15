@@ -17,7 +17,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Placeholder titleKey="nav.overview" /> },
           { path: 'transactions', lazy: () => import('./features/ledger/page') },
-          { path: 'budget', element: <Placeholder titleKey="nav.budget" /> },
+          { path: 'budget', lazy: () => import('./features/budget/page') },
           { path: 'upcoming', element: <Placeholder titleKey="nav.upcoming" /> },
           { path: 'more', lazy: () => import('./features/more/page') },
           { path: 'forecast', element: <Placeholder titleKey="nav.forecast" /> },
@@ -25,7 +25,7 @@ export const router = createBrowserRouter([
           { path: 'accounts', lazy: () => import('./features/accounts/page') },
           { path: 'categories', lazy: () => import('./features/categories/page') },
           { path: 'goals', element: <Placeholder titleKey="nav.goals" /> },
-          { path: 'trends', element: <Placeholder titleKey="nav.trends" /> },
+          { path: 'trends', lazy: () => import('./features/trends/page') },
           { path: 'review', element: <Placeholder titleKey="nav.review" /> },
           { path: 'import', lazy: () => import('./features/import/page') },
           { path: 'household', lazy: () => import('./features/household/page') },

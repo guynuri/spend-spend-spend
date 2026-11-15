@@ -113,3 +113,17 @@ Format: date · milestone · what · why · alternatives rejected.
   windows-1255; Node's CJS build bundles code pages. `grid.ts` handles both.
 - The file input is disabled until an account is selected (fixes a race found by e2e where a
   file chosen before the account list loaded was previewed without an account).
+
+## D-R10 · 2026-11-15 · M5 · Budgets & trends
+- One server function `computeBudget()` feeds the Budget page, the nav over-budget dot and
+  (from M7) the dashboard summary and health score — so the numbers cannot disagree (AC5.4).
+- "Spending without a budget" = Expenses(M) per §10.1 (which includes uncategorized outflows)
+  minus spending in budgeted categories.
+- Budget "history" = last 6 months of total limits vs spending in budgeted categories;
+  "distribution" = share of the month's spending by category (CSS bars, tap → filtered ledger).
+- Trends "by category" uses accessible CSS bars instead of a chart; "by day" and "over months"
+  use Recharts (lazy route chunks only). Charts are wrapped in `dir="ltr"` so time runs
+  oldest → newest left to right in both locales.
+- ESLint i18n rule runs in `jsx-text-only` mode (array literals inside JSX expressions are
+  not user-visible); user-visible attributes (`aria-label`, `title`, `placeholder`, `alt`)
+  with letters are blocked by a separate `no-restricted-syntax` selector.

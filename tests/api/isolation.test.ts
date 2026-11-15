@@ -74,6 +74,11 @@ export const ROUTES: Record<string, Cls> = {
   'DELETE /api/imports/:id': 'tenant',
   'GET /api/import-profiles': 'tenant',
   'PUT /api/import-profiles': 'tenant',
+  'GET /api/budgets': 'tenant',
+  'PUT /api/budgets': 'tenant',
+  'GET /api/trends/categories': 'tenant',
+  'GET /api/trends/daily': 'tenant',
+  'GET /api/trends/monthly': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';

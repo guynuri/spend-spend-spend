@@ -23,6 +23,10 @@ const dbRestriction = {
       message: 'env.DB may only be used under src/server/db/** (and auth/admin/middleware/seed). Use tenantDb.',
     },
     {
+      selector: "JSXAttribute[name.name=/^(aria-label|title|placeholder|alt)$/] > Literal[value=/[A-Za-z\\u0590-\\u05FF]/]",
+      message: 'User-visible attribute text must come from the i18n catalog.',
+    },
+    {
       selector: "Identifier[name='D1Database']",
       message: 'D1Database may only be referenced under src/server/db/** (and auth/admin/middleware/seed).',
     },
@@ -50,7 +54,7 @@ export default tseslint.config(
       'i18next/no-literal-string': [
         'error',
         {
-          mode: 'jsx-only',
+          mode: 'jsx-text-only',
           'jsx-attributes': { include: ['^(aria-label|title|placeholder|alt)$'] },
           callees: { exclude: ['^(t|i18n\\.t|useTranslation|Trans)$'] },
         },

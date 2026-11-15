@@ -114,6 +114,8 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         return { accountId: s.ids.account, parserId: 'generic', fileName: 'x', fileHash: 'd'.repeat(64), period: null, rowsTotal: 0, rowsError: 0, closingBalance: null };
       case 'POST /api/imports/:id/rows':
         return { rows: [{ row: 1, date: today, valueDate: null, amountMinor: -1, description: 'x', reference: null, operationType: null, balanceMinor: null, occ: 1 }] };
+      case 'PUT /api/budgets':
+        return { month: today.slice(0, 7), items: [{ categoryId: s.ids.category, limitMinor: 100 }] };
       case 'PUT /api/import-profiles':
         return { accountId: s.ids.account, headerSignature: 'zz', mapping: { headerRow: 0, columns: {}, dateFormat: 'dmy', negate: false } };
       default:
@@ -131,6 +133,7 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         const from = '2000-01-01';
         return ['', `?from=${from}&to=2100-01-01`, `?from=${from}&to=2100-01-01&account=${b.ids.account}`, `?from=${from}&to=2100-01-01&category=${b.ids.category}`, `?from=${from}&to=2100-01-01&q=CANARY`];
       }
+      if (pattern === '/api/trends/monthly') return ['', `?category=${b.ids.category}`];
       if (pattern === '/api/import-profiles') return [`?accountId=${a.ids.account}`, `?accountId=${b.ids.account}`];
       return [''];
     },
