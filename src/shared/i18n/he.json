@@ -115,7 +115,11 @@
     "name_taken": "השם הזה כבר בשימוש.",
     "system_category": "אי אפשר להסיר קטגוריה מובנית.",
     "rule_exists": "כבר קיים כלל זהה.",
-    "date_in_future": "התאריך לא יכול להיות בעתיד."
+    "date_in_future": "התאריך לא יכול להיות בעתיד.",
+    "too_many_rows": "יותר מדי שורות בבקשה אחת.",
+    "row_invalid": "שורה בקובץ אינה תקינה.",
+    "import_closed": "הייבוא הזה כבר הסתיים.",
+    "not_empty": "במשק הבית הזה כבר יש נתונים."
   },
   "auth": {
     "signInTitle": "כניסה",
@@ -359,5 +363,98 @@
     "showSeed": "הצגת כללים מובנים",
     "deleted": "נמחק",
     "archivedToast": "הקטגוריה בשימוש ולכן הועברה לארכיון."
+  },
+  "import": {
+    "title": "ייבוא",
+    "subtitle": "מעלים את דף החשבון שהורד מהבנק. הקובץ נקרא במכשיר הזה; רק התנועות נשלחות.",
+    "account": "לחשבון",
+    "newAccount": "יש להוסיף חשבון קודם",
+    "choose": "בחירת קובץ",
+    "drop": "או לגרור לכאן קובץ ‎.xlsx‏, ‎.xls‏ או ‎.csv",
+    "accepted": "Excel ‏(‎.xlsx, .xls‏) או CSV, עד 5MB",
+    "parsing": "קורא את הקובץ…",
+    "detected": "זוהה פורמט: {{parser}}",
+    "parsers": {
+      "otsar": "בנק אוצר החייל",
+      "generic": "בנק אחר (התאמת עמודות)"
+    },
+    "maskHint": "הקובץ שייך לחשבון שמסתיים ב־{{mask}}.",
+    "maskMismatch": "החשבון בקובץ מסתיים ב־{{mask}}, שונה מהחשבון שנבחר.",
+    "mapTitle": "התאמת עמודות",
+    "mapBody": "לא זיהינו את מבנה הקובץ. כדאי לסמן איזו עמודה מכילה מה — נזכור את זה לחשבון הזה.",
+    "headerRow": "שורת הכותרות",
+    "field": "שדה",
+    "column": "עמודה",
+    "notMapped": "— לא קיים בקובץ —",
+    "fields": {
+      "date": "תאריך",
+      "valueDate": "תאריך ערך",
+      "description": "תיאור",
+      "amount": "סכום",
+      "debit": "חובה (יוצא)",
+      "credit": "זכות (נכנס)",
+      "balance": "יתרה",
+      "reference": "אסמכתא",
+      "type": "סוג פעולה"
+    },
+    "dateFormat": "פורמט תאריך",
+    "dateFormats": {
+      "serial": "מספרי תאריך של Excel",
+      "dmy": "יום/חודש/שנה",
+      "mdy": "חודש/יום/שנה",
+      "ymd": "שנה-חודש-יום"
+    },
+    "negate": "הוצאות מופיעות כסכום חיובי",
+    "mappingInvalid": "יש לסמן לפחות תאריך, תיאור, וסכום או חובה + זכות.",
+    "samplePreview": "השורות הראשונות לפי ההתאמה",
+    "profileUsed": "נעשה שימוש בהתאמת העמודות שנשמרה לחשבון הזה.",
+    "previewTitle": "בדיקה לפני הייבוא",
+    "period": "תקופה",
+    "closing": "יתרת סגירה",
+    "rowsInFile_one": "תנועה אחת בקובץ",
+    "rowsInFile_two": "{{count}} תנועות בקובץ",
+    "rowsInFile_other": "{{count}} תנועות בקובץ",
+    "statuses": {
+      "new": "חדשה",
+      "duplicate": "כבר יובאה",
+      "matches_manual": "תואמת רישום ידני",
+      "error": "דולגה"
+    },
+    "countNew": "חדשות",
+    "countDuplicate": "כבר יובאו",
+    "countManual": "מיזוג עם ידני",
+    "countError": "שורות שדולגו",
+    "balanceMismatch": "היתרה המצטברת בקובץ לא מסתדרת. התנועות ייובאו בכל זאת — כדאי לבדוק את יתרת הסגירה לאחר מכן.",
+    "firstRows": "{{count}} השורות הראשונות",
+    "commit": "ייבוא {{count}} תנועות",
+    "commitNothing": "אין תנועות חדשות לייבוא",
+    "importing": "מייבא…",
+    "cancel": "בחירת קובץ אחר",
+    "doneTitle": "הייבוא הסתיים",
+    "doneBody": "{{inserted}} חדשות, {{duplicates}} כבר יובאו, {{merged}} מוזגו עם רישומים ידניים, {{errors}} דולגו.",
+    "viewLedger": "לתנועות",
+    "another": "ייבוא קובץ נוסף",
+    "errorsTitle": "שורות שדולגו",
+    "downloadErrors": "הורדת דוח שגיאות (CSV)",
+    "rowNo": "שורה",
+    "reason": "סיבה",
+    "errorCodes": {
+      "date_invalid": "תאריך חסר או לא תקין",
+      "amount_invalid": "סכום לא תקין (נדרש בדיוק אחד מזכות/חובה)",
+      "description_missing": "אין תיאור",
+      "amount_too_large": "סכום גדול מדי"
+    },
+    "history": "היסטוריית ייבוא",
+    "noHistory": "עדיין לא בוצע ייבוא.",
+    "undo": "ביטול הייבוא",
+    "undoConfirm": "להסיר את {{count}} התנועות שנוספו בייבוא הזה? רישומים ידניים שמוזגו יחזרו למצבם הקודם.",
+    "undone": "בוטל",
+    "fileErrors": {
+      "file_too_large": "הקובץ גדול מ־5MB.",
+      "file_type": "יש לבחור קובץ ‎.xlsx‏, ‎.xls‏ או ‎.csv.",
+      "unsupported_file": "לא ניתן לקרוא את הקובץ. כדאי לייצא אותו שוב מהבנק כ־Excel או CSV.",
+      "file_empty": "הקובץ ריק.",
+      "no_rows": "לא נמצאו תנועות בקובץ."
+    }
   }
 }

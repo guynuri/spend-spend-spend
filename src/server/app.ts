@@ -12,6 +12,7 @@ import { accountRoutes } from './routes/accounts';
 import { categoryRoutes } from './routes/categories';
 import { ruleRoutes } from './routes/rules';
 import { transactionRoutes } from './routes/transactions';
+import { importProfileRoutes, importRoutes } from './routes/imports';
 import './ai/register';
 
 /** Mounted tenant route groups: prefix → router. Each is behind household + role middleware. */
@@ -21,6 +22,8 @@ export const TENANT_GROUPS = {
   '/api/categories': categoryRoutes,
   '/api/rules': ruleRoutes,
   '/api/transactions': transactionRoutes,
+  '/api/imports': importRoutes,
+  '/api/import-profiles': importProfileRoutes,
 } as const;
 
 export function createApp() {

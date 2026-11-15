@@ -114,7 +114,11 @@
     "name_taken": "That name is already used.",
     "system_category": "This built-in category can't be removed.",
     "rule_exists": "An identical rule already exists.",
-    "date_in_future": "The date can't be in the future."
+    "date_in_future": "The date can't be in the future.",
+    "too_many_rows": "Too many rows in one request.",
+    "row_invalid": "A row in the file is invalid.",
+    "import_closed": "This import was already finished.",
+    "not_empty": "This household already has data."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -352,5 +356,97 @@
     "showSeed": "Show built-in rules",
     "deleted": "Deleted",
     "archivedToast": "The category is in use, so it was archived."
+  },
+  "import": {
+    "title": "Import",
+    "subtitle": "Upload the statement you downloaded from your bank. The file is read on this device; only the transactions are sent.",
+    "account": "Into account",
+    "newAccount": "Add an account first",
+    "choose": "Choose a file",
+    "drop": "or drop an .xlsx, .xls or .csv file here",
+    "accepted": "Excel (.xlsx, .xls) or CSV, up to 5 MB",
+    "parsing": "Reading the file…",
+    "detected": "Detected format: {{parser}}",
+    "parsers": {
+      "otsar": "Bank Otsar Ha-Hayal",
+      "generic": "Other bank (column mapping)"
+    },
+    "maskHint": "The file is for an account ending in {{mask}}.",
+    "maskMismatch": "The file's account ends in {{mask}}, which differs from the selected account.",
+    "mapTitle": "Match the columns",
+    "mapBody": "We couldn't recognize this layout. Tell us which column holds what — we'll remember it for this account.",
+    "headerRow": "Header row",
+    "field": "Field",
+    "column": "Column",
+    "notMapped": "— not in file —",
+    "fields": {
+      "date": "Date",
+      "valueDate": "Value date",
+      "description": "Description",
+      "amount": "Amount",
+      "debit": "Debit (money out)",
+      "credit": "Credit (money in)",
+      "balance": "Balance",
+      "reference": "Reference",
+      "type": "Operation type"
+    },
+    "dateFormat": "Date format",
+    "dateFormats": {
+      "serial": "Excel date numbers",
+      "dmy": "day/month/year",
+      "mdy": "month/day/year",
+      "ymd": "year-month-day"
+    },
+    "negate": "Amounts are positive for spending",
+    "mappingInvalid": "Map at least the date, the description and either an amount or debit + credit.",
+    "samplePreview": "First rows with this mapping",
+    "profileUsed": "Using the column mapping saved for this account.",
+    "previewTitle": "Check before importing",
+    "period": "Period",
+    "closing": "Closing balance",
+    "rowsInFile_one": "{{count}} transaction in the file",
+    "rowsInFile_other": "{{count}} transactions in the file",
+    "statuses": {
+      "new": "New",
+      "duplicate": "Already imported",
+      "matches_manual": "Matches a manual entry",
+      "error": "Skipped"
+    },
+    "countNew": "New",
+    "countDuplicate": "Already imported",
+    "countManual": "Merge with manual",
+    "countError": "Skipped rows",
+    "balanceMismatch": "The running balance in the file doesn't add up. The transactions will still be imported — check the closing balance afterwards.",
+    "firstRows": "First {{count}} rows",
+    "commit": "Import {{count}} transactions",
+    "commitNothing": "Nothing new to import",
+    "importing": "Importing…",
+    "cancel": "Choose another file",
+    "doneTitle": "Import complete",
+    "doneBody": "{{inserted}} new, {{duplicates}} already imported, {{merged}} merged with manual entries, {{errors}} skipped.",
+    "viewLedger": "View transactions",
+    "another": "Import another file",
+    "errorsTitle": "Skipped rows",
+    "downloadErrors": "Download error report (CSV)",
+    "rowNo": "Row",
+    "reason": "Reason",
+    "errorCodes": {
+      "date_invalid": "Invalid or missing date",
+      "amount_invalid": "Invalid amount (needs exactly one of credit/debit)",
+      "description_missing": "No description",
+      "amount_too_large": "Amount too large"
+    },
+    "history": "Import history",
+    "noHistory": "No imports yet.",
+    "undo": "Undo import",
+    "undoConfirm": "Remove the {{count}} transactions added by this import? Manual entries that were merged return to how they were.",
+    "undone": "Undone",
+    "fileErrors": {
+      "file_too_large": "The file is larger than 5 MB.",
+      "file_type": "Choose an .xlsx, .xls or .csv file.",
+      "unsupported_file": "This file can't be read. Export it again from the bank as Excel or CSV.",
+      "file_empty": "The file is empty.",
+      "no_rows": "No transactions were found in the file."
+    }
   }
 }

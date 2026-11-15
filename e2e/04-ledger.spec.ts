@@ -1,17 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureAdmin, signIn } from './auth';
+import { ensureAccountNamed } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ browser }) => ensureAdmin(browser));
 
 async function ensureAccount(page: Page) {
-  await page.goto('/accounts');
-  await expect(page.getByTestId('account-add')).toBeVisible();
-  if ((await page.getByTestId('account-card').count()) > 0) return;
-  await page.getByTestId('account-add').click();
-  await page.getByTestId('account-name').fill('Main checking');
-  await page.getByTestId('account-save').click();
-  await expect(page.getByTestId('account-card')).toHaveCount(1);
+  return ensureAccountNamed(page, 'Main checking');
 }
 
 async function closeSheet(page: Page, testId: string) {

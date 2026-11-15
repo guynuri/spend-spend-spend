@@ -58,6 +58,12 @@ async function side(label: 'A' | 'B'): Promise<Side> {
   ids.tx = (await post('/api/transactions', { date: today, amountMinor: 12345, direction: 'out', description: `Shop${tag}`, accountId: ids.account, categoryId: ids.category, notes: `note${tag}` })).id as string;
   ids.lump = (await post('/api/transactions', { date: today, amountMinor: 50000, direction: 'out', description: `ישראכרט${tag}`, accountId: ids.account })).id as string;
   const cats = (await json<{ categories: { id: string; kind: string }[] }>('GET', '/api/categories', { cookie })).body.categories.filter((c) => c.kind === 'expense');
+  const wire = { row: 1, date: today, valueDate: null, amountMinor: -777, description: `Imported${tag}`, reference: `R${tag}`.slice(0, 40), operationType: null, balanceMinor: 5000, occ: 1 };
+  ids.import = (await post('/api/imports', { accountId: ids.account, parserId: 'generic', fileName: `f${tag}.csv`, fileHash: 'b'.repeat(64), period: null, rowsTotal: 1, rowsError: 0, closingBalance: { date: today, minor: 5000 } })).importId as string;
+  await post(`/api/imports/${ids.import}/rows`, { rows: [wire] });
+  await post(`/api/imports/${ids.import}/commit`, {});
+  ids.openImport = (await post('/api/imports', { accountId: ids.account, parserId: 'generic', fileName: 'open.csv', fileHash: 'c'.repeat(64), period: null, rowsTotal: 1, rowsError: 0, closingBalance: null })).importId as string;
+  await json('PUT', '/api/import-profiles', { cookie, body: { accountId: ids.account, headerSignature: `sig${tag}`, mapping: { headerRow: 0, columns: { date: 0 }, dateFormat: 'dmy', negate: false } } });
   await json('PUT', `/api/transactions/${ids.lump}/splits`, { cookie, body: { lines: [{ categoryId: cats[0]!.id, amountMinor: -30000, note: `split${tag}` }, { categoryId: ids.category, amountMinor: -20000 }] } });
   return { householdId, ownerId, memberId, ownerCookie: cookie, inviteId: inv.id, ids };
 }
@@ -72,6 +78,8 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
     if (pattern.startsWith('/api/categories/')) return s.ids.category!;
     if (pattern.startsWith('/api/rules/')) return s.ids.rule!;
     if (pattern.startsWith('/api/transactions/')) return s.ids.tx!;
+    if (pattern === '/api/imports/:id/rows' || pattern === '/api/imports/:id/commit') return s.ids.openImport!;
+    if (pattern.startsWith('/api/imports/')) return s.ids.import!;
     throw new Error(`no id mapping for ${pattern} :${param}`);
   };
   const bodyFor = (key: string, sideL: 'A' | 'B'): unknown => {
@@ -100,6 +108,14 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         return { ids: [s.ids.tx], categoryId: a.ids.category };
       case 'POST /api/transactions/undo-learn':
         return { ruleId: s.ids.rule, txIds: [s.ids.tx] };
+      case 'POST /api/imports/preview':
+        return { accountId: s.ids.account, rows: [{ row: 1, date: today, valueDate: null, amountMinor: -1, description: 'x', reference: null, operationType: null, balanceMinor: null, occ: 1 }] };
+      case 'POST /api/imports':
+        return { accountId: s.ids.account, parserId: 'generic', fileName: 'x', fileHash: 'd'.repeat(64), period: null, rowsTotal: 0, rowsError: 0, closingBalance: null };
+      case 'POST /api/imports/:id/rows':
+        return { rows: [{ row: 1, date: today, valueDate: null, amountMinor: -1, description: 'x', reference: null, operationType: null, balanceMinor: null, occ: 1 }] };
+      case 'PUT /api/import-profiles':
+        return { accountId: s.ids.account, headerSignature: 'zz', mapping: { headerRow: 0, columns: {}, dateFormat: 'dmy', negate: false } };
       default:
         return undefined;
     }
@@ -115,6 +131,7 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         const from = '2000-01-01';
         return ['', `?from=${from}&to=2100-01-01`, `?from=${from}&to=2100-01-01&account=${b.ids.account}`, `?from=${from}&to=2100-01-01&category=${b.ids.category}`, `?from=${from}&to=2100-01-01&q=CANARY`];
       }
+      if (pattern === '/api/import-profiles') return [`?accountId=${a.ids.account}`, `?accountId=${b.ids.account}`];
       return [''];
     },
   };

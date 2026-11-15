@@ -6,13 +6,16 @@ const fieldMatch = (col: string) => `(
   (r.match = 'contains' AND instr(${col}, r.pattern_norm) > 0) OR
   (r.match = 'starts_with' AND substr(${col}, 1, length(r.pattern_norm)) = r.pattern_norm))`;
 
-/** Correlated subquery: the winning rule id for transaction alias t (PLAN §9.6). */
-export const WINNING_RULE = `(SELECT r.id FROM category_rules r
-   WHERE r.household_id = t.household_id
-     AND (r.sign = 'any' OR (r.sign = 'in' AND t.amount_minor > 0) OR (r.sign = 'out' AND t.amount_minor < 0))
-     AND ((r.field = 'description' AND t.description_norm <> '' AND ${fieldMatch('t.description_norm')})
-       OR (r.field = 'operation_type' AND t.operation_type IS NOT NULL AND t.operation_type <> '' AND ${fieldMatch('t.operation_type')}))
+/** Correlated subquery selecting the winning rule's `select` column (PLAN §9.6). */
+export function winningRuleSql(o: { hh: string; amount: string; dn: string; op: string; select: 'r.id' | 'r.category_id' }) {
+  return `(SELECT ${o.select} FROM category_rules r
+   WHERE r.household_id = ${o.hh}
+     AND (r.sign = 'any' OR (r.sign = 'in' AND ${o.amount} > 0) OR (r.sign = 'out' AND ${o.amount} < 0))
+     AND ((r.field = 'description' AND ${o.dn} <> '' AND ${fieldMatch(o.dn)})
+       OR (r.field = 'operation_type' AND ${o.op} IS NOT NULL AND ${o.op} <> '' AND ${fieldMatch(o.op)}))
    ORDER BY ${SQL_RULE_ORDER} LIMIT 1)`;
+}
+export const WINNING_RULE = winningRuleSql({ hh: 't.household_id', amount: 't.amount_minor', dn: 't.description_norm', op: 't.operation_type', select: 'r.id' });
 
 export type RuleScope = { kind: 'all' } | { kind: 'import'; importId: string } | { kind: 'ids'; ids: string[] };
 

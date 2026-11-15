@@ -88,3 +88,28 @@ Format: date · milestone · what · why · alternatives rejected.
 - The demo generator is complete from M3 (accounts, ~7 months of transactions with split card
   lumps, recurring items, budgets, goals, planned expenses). `npm run seed:local` bundles it
   with esbuild and loads it through `wrangler d1 execute --local`.
+
+## D-R9 · 2026-11-15 · M4 · Import pipeline details
+- Chunked upload state lives in a staging table `import_rows` (one row per ≤ 250-row chunk, JSON);
+  commit runs set-based SQL over `json_each` of the staged chunks: pair-and-merge manual matches,
+  `INSERT … ON CONFLICT DO NOTHING`, card-lump flag, rule pass, closing-balance snapshot. The
+  server recomputes dedupe keys and normalized text from the wire rows; preview never writes.
+- Manual ↔ import merge pairs each manual row with at most one imported row (same account,
+  same amount, ±3 days, nearest date first) via window functions. The manual row adopts date,
+  description, reference, balance and key, keeps category/notes/splits, and stores its original
+  fields in `transactions.pre_merge_json` (migration 0004) so "Undo import" restores it exactly.
+- Ids of imported transactions are generated in SQL (`substr(lower(hex(randomblob(11))),1,21)`,
+  21 hex chars) instead of nanoid, to keep the insert a single statement.
+- Otsar parser ordering: rows are put in chronological order (stable by date); within a day the
+  file order or its reverse is chosen by the running-balance continuity check, newest-first
+  files trying the reversed order first. A `0` balance on a day that has a real balance is
+  "missing"; any other `0` that breaks continuity is also treated as missing.
+- Rows without a date are skipped silently only when the date cell is empty **and** there is no
+  reference (totals/footers); otherwise `date_invalid`. Description falls back to the operation
+  type; both empty → `description_missing`.
+- Error report CSV is produced in the browser from the parse result (the server only stores the
+  count), since the rows never existed server-side.
+- SheetJS npm build: in the browser the ESM build needs `set_cptable(cpexcel.full.mjs)` for
+  windows-1255; Node's CJS build bundles code pages. `grid.ts` handles both.
+- The file input is disabled until an account is selected (fixes a race found by e2e where a
+  file chosen before the account list loaded was previewed without an account).
