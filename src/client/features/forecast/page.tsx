@@ -26,7 +26,7 @@ function RecurringReadOnly() {
       >
         {t('forecast.recurringTitle')}
       </CardTitle>
-      <p className="mb-2 text-xs text-muted">{t('forecast.recurringHint', { count: items.length })}</p>
+      <p className="mb-2 text-xs text-muted" data-testid="forecast-recurring-hint">{items.length === 0 ? t('forecast.recurringEmpty') : t('forecast.recurringHint', { count: items.length })}</p>
       <ul className="divide-y divide-border text-sm">
         {items.slice(0, 3).map((r) => (
           <li key={r.id} className="flex justify-between gap-2 py-2">

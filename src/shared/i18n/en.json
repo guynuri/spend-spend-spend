@@ -539,7 +539,9 @@
   "forecast": {
     "title": "Forecast",
     "recurringTitle": "Recurring payments",
-    "recurringHint": "{{count}} active recurring payments are counted automatically. Next due:",
+    "recurringHint_one": "1 active recurring payment is counted automatically. Next due:",
+    "recurringHint_other": "{{count}} active recurring payments are counted automatically. Next due:",
+    "recurringEmpty": "No recurring payments yet. Add them under Recurring and they are included automatically.",
     "manageRecurring": "Manage recurring",
     "eom": "Expected at month end",
     "low": "Lowest point this month",
