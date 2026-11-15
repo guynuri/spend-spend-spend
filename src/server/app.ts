@@ -49,8 +49,10 @@ export function createApp() {
   app.use('/api/*', requestId, headers);
   app.onError(onError);
   app.use('/api/*', bodyLimit);
-  app.use('/api/auth/*', async (c, next) => rateLimit('auth', Number(c.env.RATE_LIMIT_AUTH || 20), 5 * 60_000)(c, next));
-  app.use('/api/invites/*', async (c, next) => rateLimit('auth', Number(c.env.RATE_LIMIT_AUTH || 20), 5 * 60_000)(c, next));
+  // Only the unauthenticated ceremonies are limited; signed-in pages (passkey / device lists) must not
+  // eat into a household's shared-IP sign-in allowance.
+  for (const path of ['/api/auth/register/*', '/api/auth/login/*', '/api/invites/*'])
+    app.use(path, async (c, next) => rateLimit('auth', Number(c.env.RATE_LIMIT_AUTH || 20), 5 * 60_000)(c, next));
   app.use('/api/*', csrf, loadSession);
 
   app.get('/api/health', async (c) => {

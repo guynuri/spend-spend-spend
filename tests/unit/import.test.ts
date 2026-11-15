@@ -7,6 +7,7 @@ import { pickParser } from '../../src/shared/import/registry';
 import { otsarParser } from '../../src/shared/import/otsar';
 import { guessMapping, headerSignature, mappingValid, parseWithMapping } from '../../src/shared/import/generic';
 import { assignOccurrences, dedupeKey } from '../../src/shared/import/dedupe';
+import { finalizeRows } from '../../src/shared/import/finalize';
 import { detectDateFormat, parseAmount, parseDateCell } from '../../src/shared/import/values';
 import type { ParseResult } from '../../src/shared/import/types';
 
@@ -154,6 +155,18 @@ describe('generic mapper (AC4.4)', () => {
 });
 
 describe('dedupe (AC4.6)', () => {
+  it('rows differing only in a long digit run keep distinct keys (regression: second row was dropped)', () => {
+    const mk = (row: number, description: string) => ({ row, date: '2026-10-05', amountMinor: -50000, description, reference: null, operationType: null, balanceMinor: null, valueDate: null });
+    const rows = assignOccurrences([mk(1, 'העברה לחשבון 123456'), mk(2, 'העברה לחשבון 987654')]);
+    expect(rows.map((r) => r.occ)).toEqual([1, 2]);
+    expect(new Set(rows.map((r) => dedupeKey(r))).size).toBe(2);
+  });
+  it('over-long cells are capped to the server limits instead of failing the upload', () => {
+    const r = finalizeRows('generic', [{ row: 1, date: '2026-10-05', amountMinor: -100, description: 'x'.repeat(400), reference: '9'.repeat(80), operationType: 'y'.repeat(90), balanceMinor: null, valueDate: null }], [], {});
+    expect(r.rows[0]!.description.length).toBe(300);
+    expect(r.rows[0]!.reference!.length).toBe(60);
+    expect(r.rows[0]!.operationType!.length).toBe(60);
+  });
   it('occurrence index and key', () => {
     const rows = assignOccurrences([
       { row: 1, date: '2026-10-01', amountMinor: -100, description: 'A', reference: '1' },

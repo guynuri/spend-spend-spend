@@ -44,9 +44,10 @@ adminRoutes.post('/admin/households', async (c) => {
   const b = await body(c, z.object({ name: z.string().trim().min(1).max(60), locale: z.enum(['en', 'he']).optional(), email: z.string().email().max(120).optional() }).strict());
   const g = globalDb(c.env.DB);
   const id = newId();
+  const loc = b.locale ?? (c.env.DEFAULT_LOCALE === 'he' ? 'he' : 'en');
   await c.env.DB.batch([
-    g.createHouseholdStmt({ id, name: b.name, createdBy: c.get('userId')!, locale: b.locale ?? 'he' }),
-    ...householdInitStatements(c.env.DB, id, b.locale ?? 'he'),
+    g.createHouseholdStmt({ id, name: b.name, createdBy: c.get('userId')!, locale: loc }),
+    ...householdInitStatements(c.env.DB, id, loc),
     tenantDb(c.env.DB, id).audit(c.get('userId')!, 'admin.household.create', 'household', id),
   ]);
   return c.json({ id, invite: await ownerInvite(c, id, b.email) }, 201);

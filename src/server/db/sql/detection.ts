@@ -20,12 +20,13 @@ export async function runDetection(q: TenantDb, today: string): Promise<number> 
   const data = (rows!.results as (Omit<DetectRow, 'lump'> & { lump: number; description: string })[]).map((r) => ({ ...r, lump: !!r.lump }));
   const names = new Map<string, string>();
   for (const r of data) names.set(groupKeyOf(r), r.description);
-  const have = new Set(
-    (existing!.results as { account_id: string | null; match_norm: string; kind: string; amount_minor: number }[]).map((e) =>
-      e.kind === 'card_charge' && !e.match_norm ? `${e.account_id}|card_lump|` : `${e.account_id}|${Math.sign(e.amount_minor)}|${e.match_norm}`,
-    ),
+  const ex = existing!.results as { account_id: string | null; match_norm: string; kind: string; amount_minor: number }[];
+  const have = new Set(ex.map((e) => (e.kind === 'card_charge' ? `${e.account_id}|card_lump|${e.match_norm}` : `${e.account_id}|${Math.sign(e.amount_minor)}|${e.match_norm}`)));
+  const suggestions = detectRecurring(data, names).filter((s) =>
+    s.kind === 'card_charge'
+      ? !have.has(`${s.account_id}|card_lump|`) && !have.has(`${s.account_id}|card_lump|${s.match_norm}`)
+      : !have.has(`${s.account_id}|${Math.sign(s.amount_minor)}|${s.match_norm}`),
   );
-  const suggestions = detectRecurring(data, names).filter((s) => !have.has(s.kind === 'card_charge' ? `${s.account_id}|card_lump|` : `${s.account_id}|${Math.sign(s.amount_minor)}|${s.match_norm}`));
   if (!suggestions.length) return 0;
   const now = nowIso();
   await q.batch(

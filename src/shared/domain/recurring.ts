@@ -114,11 +114,14 @@ export function linkTransactions(items: RecItem[], txs: LinkTx[], overrides: Ove
   const taken = new Set(settled.map((s) => `${s.recurring_id}|${s.due}`));
   const out: { txId: string; itemId: string; due: DateStr }[] = [];
   for (const tx of [...txs].sort((a, b) => (a.date < b.date ? -1 : 1))) {
+    // Among all items the transaction could settle, take the one with the nearest free due date
+    // (ties: creation order). First-match would cross two cards charged on different days.
+    let best: { itemId: string; due: DateStr; dist: number } | null = null;
     for (const it of active) {
       if (Math.sign(tx.amount_minor) !== Math.sign(it.amount_minor)) continue;
       if (it.account_id && it.account_id !== tx.account_id) continue;
       if (it.kind === 'card_charge' && !it.match_norm) {
-        if (tx.kind !== 'card_lump') continue;
+        if (tx.kind !== 'card_lump') continue; // catch-all card item: any card lump on its account
       } else if (!it.match_norm || !tx.description_norm.includes(it.match_norm)) continue;
       if (it.kind !== 'card_charge') {
         const desc = settled.filter((s) => s.recurring_id === it.id).sort((a, b) => (a.due < b.due ? 1 : -1)).map((s) => s.amount_minor);
@@ -128,10 +131,15 @@ export function linkTransactions(items: RecItem[], txs: LinkTx[], overrides: Ove
       const cands = dueDates(it, addDays(tx.date, -10), addDays(tx.date, 10)).filter((d) => !taken.has(`${it.id}|${d}`) && !overrides.some((o) => o.recurring_id === it.id && o.due_date === d && o.skipped === 1));
       if (!cands.length) continue;
       cands.sort((a, b) => Math.abs(daysBetween(a, tx.date)) - Math.abs(daysBetween(b, tx.date)) || (a < b ? -1 : 1));
-      const due = cands[0]!;
-      taken.add(`${it.id}|${due}`);
-      out.push({ txId: tx.id, itemId: it.id, due });
-      break;
+      const dist = Math.abs(daysBetween(cands[0]!, tx.date));
+      // A card item that names its issuer beats a catch-all one at any distance.
+      const specific = it.kind === 'card_charge' && !!it.match_norm;
+      const score = specific ? dist - 100 : dist;
+      if (!best || score < best.dist) best = { itemId: it.id, due: cands[0]!, dist: score };
+    }
+    if (best) {
+      taken.add(`${best.itemId}|${best.due}`);
+      out.push({ txId: tx.id, itemId: best.itemId, due: best.due });
     }
   }
   return out;
@@ -179,6 +187,13 @@ export function daySpread(days: number[]): number {
   return 31 - maxGap;
 }
 
+/** Median day of month that survives a month-end wrap (28, 30, 1, 2 → 30, not 15). */
+export function medianDay(days: number[]): number {
+  if (Math.max(...days) - Math.min(...days) <= 15) return median(days);
+  const m = median(days.map((d) => (d < 16 ? d + 31 : d)));
+  return m > 31 ? m - 31 : m;
+}
+
 export const groupKeyOf = (r: Pick<DetectRow, 'account_id' | 'sign' | 'lump' | 'key'>) => `${r.account_id}|${r.lump ? 'card_lump' : r.sign}|${r.key}`;
 
 /** Candidate recurring patterns from the last 6 months of non-transfer transactions (PLAN §10.2). */
@@ -211,12 +226,12 @@ export function detectRecurring(rows: DetectRow[], names: Map<string, string> = 
     const last = [...g].sort((a, b) => (a.date < b.date ? 1 : -1))[0]!;
     out.push({
       account_id: g[0]!.account_id,
-      match_norm: lump ? '' : g[0]!.key,
+      match_norm: g[0]!.key,
       kind: lump ? 'card_charge' : sign > 0 ? 'income' : 'expense',
       amount_minor: sign * med,
       amount_mode: relSpread <= 0.02 ? 'fixed' : 'estimated',
       cadence: alternating ? 'bimonthly' : 'monthly',
-      day_of_month: median(g.map((r) => dayOf(r.date))),
+      day_of_month: medianDay(g.map((r) => dayOf(r.date))),
       anchor_date: last.date,
       category_id: cat,
       name: names.get(gk) ?? g[0]!.key,

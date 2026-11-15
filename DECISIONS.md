@@ -214,3 +214,22 @@ Format: date · milestone · what · why · alternatives rejected.
 - Client: typed confirmations reset on every opening; confirmation errors are shown; the invite
   page waits for the profile before offering registration; ledger filters patch the current URL
   (no stale debounced writes) and empty/invalid periods fall back to the current month.
+
+## D-R16 · 2026-11-15 · Second review fixes (PR #1)
+- **Dedupe:** the occurrence index now groups rows by the same text form as the dedupe key
+  (`normKey`). Before, two same-day, same-amount rows differing only in a ≥ 4-digit run got one
+  key and the second was dropped. (PLAN §9.1.6 said `norm`; §9.4's key is what matters.)
+- **Several cards on one account:** detected card items carry the issuer text as `match_norm`
+  (one suggestion per issuer); linking picks, among all matching items, the one with the nearest
+  free due date, and an item that names its issuer beats a catch-all (empty match) card item.
+  A catch-all card item on an account still suppresses further card suggestions there.
+- **Import robustness:** over-long cells are capped client-side to the server limits; linking /
+  detection failures after the insert no longer leave the import `open`; cleaning up an open
+  import that already wrote transactions performs a full undo.
+- **Rate limit** applies to `/api/auth/register/*`, `/api/auth/login/*`, `/api/invites/*` only.
+- **Recovery** replaces the user's passkeys and ends all their sessions (lost or stolen device).
+- **Admin-created households** use the admin's UI language (server fallback `DEFAULT_LOCALE`).
+- Invite accept gives the link back if the membership write fails; detected day-of-month uses a
+  median that survives a month-end wrap.
+- Not changed (known): undoing an import that overwrote another import's same-date balance
+  snapshot removes that snapshot; the low-point headline looks only to month end (PLAN §10.3).

@@ -224,8 +224,14 @@ importRoutes.post('/:id/commit', async (c) => {
   const inserted = res[pairs.length ? 1 : 0]?.meta.changes ?? 0;
   const merged = pairs.length ? (res[0]?.meta.changes ?? 0) : 0;
   const duplicates = Math.max(0, (staged?.n ?? 0) - inserted - merged);
-  await afterTransactionsWritten(db, { importId: imp.id }, householdToday(hh));
-  await afterImportCommitted(db, householdToday(hh));
+  // The rows are in. Linking and detection are best-effort: a failure there must not leave the import
+  // 'open' with its transactions already written (they re-run on the next import or registry change).
+  try {
+    await afterTransactionsWritten(db, { importId: imp.id }, householdToday(hh));
+    await afterImportCommitted(db, householdToday(hh));
+  } catch (e) {
+    console.error(JSON.stringify({ rid: c.get('rid'), error: 'import_postprocess', msg: String((e as Error).message).slice(0, 200) }));
+  }
   await db.batch([
     db.stmt(
       "UPDATE imports SET status = 'committed', rows_inserted = ?3, rows_merged = ?4, rows_duplicate = ?5 WHERE household_id = ?1 AND id = ?2",
@@ -254,7 +260,10 @@ importRoutes.delete('/:id', async (c) => {
   if (imp.status === 'undone') throw new HttpError(409, 'import_closed', 'Already undone');
   // `?onlyOpen=1` (client cleanup after a failed upload) must never undo a committed import.
   if (c.req.query('onlyOpen') === '1' && imp.status !== 'open') throw new HttpError(409, 'import_closed', 'Import already committed');
-  if (imp.status === 'open') {
+  // An open import normally has no transactions. If a commit died half-way it does: then fall through to
+  // the full undo below, so nothing is left behind that could no longer be undone.
+  const written = imp.status === 'open' ? await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND (import_id = ?2 OR merged_import_id = ?2)', imp.id) : null;
+  if (imp.status === 'open' && !written?.n) {
     // An unfinished upload (e.g. a failed commit the client is retrying): drop it entirely.
     await db.batch([db.stmt('DELETE FROM import_rows WHERE household_id = ?1 AND import_id = ?2', imp.id), db.stmt('DELETE FROM imports WHERE household_id = ?1 AND id = ?2', imp.id)]);
     return c.json({ ok: true, discarded: true });

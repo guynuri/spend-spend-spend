@@ -120,7 +120,8 @@ authRoutes.post('/auth/register/verify', async (c) => {
     const claimed = await g.useInviteStmt(inv.id, ch.user_id).run();
     if (!claimed.meta.changes) throw new HttpError(410, 'invite_invalid', 'Link already used');
     if (t.kind === 'recovery') {
-      stmts.push(passkey);
+      // Recovery means the old device is gone (lost or stolen): its passkeys and every open session go.
+      stmts.push(g.raw.prepare('DELETE FROM passkeys WHERE user_id = ?1').bind(ch.user_id), g.raw.prepare('DELETE FROM sessions WHERE user_id = ?1').bind(ch.user_id), passkey);
       householdId = (await g.membershipsOfUser(ch.user_id))[0]?.id ?? null;
     } else {
       householdId = inv.household_id;
@@ -296,11 +297,16 @@ authRoutes.post('/invites/accept', requireSession, async (c) => {
   const claimed = await g.useInviteStmt(t.invite.id, s.userId).run();
   if (!claimed.meta.changes) throw new HttpError(410, 'invite_invalid', 'Link already used');
   const hid = t.invite.household_id!;
-  await c.env.DB.batch([
+  try {
+    await c.env.DB.batch([
     g.upsertMembershipStmt(hid, s.userId, t.kind === 'owner' ? 'owner' : (t.invite.role ?? 'member')),
     g.raw.prepare('UPDATE sessions SET active_household_id = ?2 WHERE token_hash = ?1').bind(s.tokenHash, hid),
     tenantDb(c.env.DB, hid).audit(s.userId, 'invite.accept', 'user', s.userId),
-  ]);
+    ]);
+  } catch (e) {
+    await g.unclaimInvite(t.invite.id, s.userId);
+    throw e;
+  }
   return c.json({ ok: true });
 });
 

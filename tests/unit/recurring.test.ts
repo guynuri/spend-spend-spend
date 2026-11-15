@@ -77,6 +77,15 @@ describe('settlement linking (§10.2)', () => {
     expect(linkTransactions([est], [tx('t', '2026-03-01', -13900, 'electric co')], [], [])).toHaveLength(1);
     expect(linkTransactions([est], [tx('t', '2026-03-01', -14100, 'electric co')], [], [])).toHaveLength(0);
   });
+  it('two cards on one account: each charge settles the card due nearest to it', () => {
+    const c10 = item({ id: 'c10', kind: 'card_charge', match_norm: '', amount_mode: 'estimated', day_of_month: 10, anchor_date: '2026-01-10', created_at: '1' });
+    const c2 = item({ id: 'c2', kind: 'card_charge', match_norm: '', amount_mode: 'estimated', day_of_month: 2, anchor_date: '2026-01-02', created_at: '2' });
+    const l = linkTransactions([c10, c2], [tx('a', '2026-03-02', -300000, 'isracard', 'card_lump'), tx('b', '2026-03-10', -700000, 'cal', 'card_lump')], [], []);
+    expect(l).toEqual([{ txId: 'a', itemId: 'c2', due: '2026-03-02' }, { txId: 'b', itemId: 'c10', due: '2026-03-10' }]);
+    // an item that names its issuer wins over a catch-all one, whatever the dates
+    const named = item({ id: 'cal', kind: 'card_charge', match_norm: 'cal', amount_mode: 'estimated', day_of_month: 15, anchor_date: '2026-01-15', created_at: '3' });
+    expect(linkTransactions([c10, named], [tx('b', '2026-03-10', -700000, 'cal', 'card_lump')], [], [])[0]!.itemId).toBe('cal');
+  });
   it('items are tried in creation order', () => {
     const a = item({ id: 'a', created_at: '2026-02-01', match_norm: 'rent' });
     const b = item({ id: 'b', created_at: '2026-01-01', match_norm: 'rent' });
@@ -110,7 +119,7 @@ describe('detection thresholds (§10.2, AC6.2)', () => {
   });
   it('card lumps ignore amount spread; bimonthly when alternating; income', () => {
     const lump = detectRecurring(rows(['2026-07-10', '2026-08-10', '2026-09-10'], [-600000, -900000, -700000], 'isracard', true));
-    expect(lump[0]).toMatchObject({ kind: 'card_charge', match_norm: '', amount_mode: 'estimated' });
+    expect(lump[0]).toMatchObject({ kind: 'card_charge', match_norm: 'isracard', amount_mode: 'estimated' });
     expect(detectRecurring(rows(['2026-05-15', '2026-07-15', '2026-09-15'], [-98000]))[0]!.cadence).toBe('bimonthly');
     const inc = detectRecurring(rows(['2026-07-01', '2026-08-01', '2026-09-01'], [1450000]).map((r) => ({ ...r, sign: 1 as const })));
     expect(inc[0]!.kind).toBe('income');

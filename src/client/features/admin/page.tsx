@@ -22,12 +22,12 @@ interface AdminHousehold {
 }
 
 export function Component() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const me = useMe();
   const [name, setName] = useState('');
   const [links, setLinks] = useState<Record<string, { label: string; link: string }>>({});
   const q = useQuery({ queryKey: ['admin-households'], queryFn: () => get<{ households: AdminHousehold[] }>('/api/admin/households'), enabled: !!me?.user.isSuperAdmin });
-  const create = useApiMutation((n: string) => post<{ id: string; invite: { link: string } }>('/api/admin/households', { name: n, locale: 'he' }), {
+  const create = useApiMutation((n: string) => post<{ id: string; invite: { link: string } }>('/api/admin/households', { name: n, locale: i18n.language === 'he' ? 'he' : 'en' }), {
     invalidate: [['admin-households']],
     onSuccess: (r) => {
       setName('');

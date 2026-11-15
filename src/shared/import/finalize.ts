@@ -36,7 +36,15 @@ export function finalizeRows(parserId: string, raw: RawRow[], errors: RowError[]
   const warnings: ParseResult['warnings'] = [];
   // 0 on a day where another row has a real balance = "missing".
   const dayHasBalance = new Set(raw.filter((r) => r.balanceMinor !== null && r.balanceMinor !== undefined && r.balanceMinor !== 0).map((r) => r.date));
-  const cleaned = raw.map((r) => (r.balanceMinor === 0 && dayHasBalance.has(r.date) ? { ...r, balanceMinor: null } : r));
+  // Field caps match the server's row validation, so one over-long cell never fails the whole upload.
+  const cap = (s: string | null | undefined, n: number) => (s ? s.slice(0, n).trim() || null : (s ?? null));
+  const cleaned = raw.map((r) => ({
+    ...r,
+    description: r.description.slice(0, 300).trim(),
+    reference: cap(r.reference, 60),
+    operationType: cap(r.operationType, 60),
+    balanceMinor: r.balanceMinor === 0 && dayHasBalance.has(r.date) ? null : r.balanceMinor,
+  }));
   const newestFirst = cleaned.length > 1 && cleaned[0]!.date > cleaned[cleaned.length - 1]!.date;
   const a = stableByDate(cleaned);
   const b = stableByDate([...cleaned].reverse());
