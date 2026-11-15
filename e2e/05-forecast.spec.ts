@@ -22,6 +22,19 @@ test('planned expense of ₪1,234 lowers the month-end figure by exactly ₪1,23
   await expect.poll(() => eom(page)).toBe(before - 123400);
 });
 
+test('recurring payments are managed in one place: links between upcoming, recurring and forecast', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/upcoming');
+  await page.getByTestId('upcoming-recurring').click();
+  await expect(page).toHaveURL(/\/recurring$/);
+  await page.getByTestId('recurring-upcoming').click();
+  await expect(page).toHaveURL(/\/upcoming$/);
+  await page.goto('/forecast');
+  await expect(page.getByTestId('forecast-recurring')).toBeVisible();
+  await page.getByTestId('forecast-manage-recurring').click();
+  await expect(page).toHaveURL(/\/recurring$/);
+});
+
 test('card charge override changes the forecast; explain rows add up to the figure', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/recurring');

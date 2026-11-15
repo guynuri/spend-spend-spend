@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search } from 'lucide-react';
+import { CalendarClock, Plus, Search } from 'lucide-react';
+import { Link } from 'react-router';
 import { del, get, patch, post } from '../../api';
 import { Badge, Button, Card, CardTitle, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
@@ -180,7 +181,12 @@ export function Component() {
       <PageHeader
         title={t('recurring.title')}
         actions={
-          canWrite && (
+          <>
+            <Link to="/upcoming" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-surface-2 px-3 text-sm font-medium" data-testid="recurring-upcoming">
+              <CalendarClock className="size-4" aria-hidden />
+              {t('recurring.upcomingLink')}
+            </Link>
+            {canWrite && (
             <>
               <Button variant="secondary" onClick={() => detect.mutate(undefined)} busy={detect.isPending} aria-label={t('recurring.detect')}>
                 <Search className="size-5" aria-hidden />
@@ -190,7 +196,8 @@ export function Component() {
                 {t('recurring.add')}
               </Button>
             </>
-          )
+            )}
+          </>
         }
       />
       <Card>

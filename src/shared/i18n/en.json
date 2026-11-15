@@ -510,6 +510,21 @@
     "explainStatusBody": "Over: spent more than the limit. Watch (variable categories): used ≥ 90 % of the limit, or ≥ 50 % while ahead of the month by more than 10 points. Otherwise on pace.",
     "explainTotals": "Budgeted = sum of limits. Spent = spending in budgeted categories (refunds reduce it). Pace compares % of budget spent with % of the month elapsed (± 5 points).",
     "removeLimit": "Remove budget",
+    "add": "Add budget",
+    "edit": "Edit budget",
+    "category": "Category",
+    "pickCategory": "Choose a category",
+    "amount": "Amount",
+    "when": "Applies to",
+    "every": "Every month",
+    "once": "Only {{month}}",
+    "onceHint": "Only for {{month}}; other months keep their usual budget.",
+    "monthly": "Monthly",
+    "oneTime": "One-time",
+    "removeOneTime": "Remove this month's budget",
+    "seeAll": "See all ({{count}})",
+    "noBudgets": "No budgets yet",
+    "howItWorks": "Pick a category and an amount. “Every month” repeats from this month on until you change it; “Only this month” is a one-off limit (holidays, a big purchase) that replaces the usual one for that month. Spending is tracked against it as transactions come in.",
     "empty": "No expense categories yet."
   },
   "trends": {
@@ -532,6 +547,11 @@
   },
   "forecast": {
     "title": "Forecast",
+    "recurringTitle": "Recurring payments",
+    "recurringHint_one": "1 active recurring payment is counted automatically. Next due:",
+    "recurringHint_other": "{{count}} active recurring payments are counted automatically. Next due:",
+    "recurringEmpty": "No recurring payments yet. Add them under Recurring and they are included automatically.",
+    "manageRecurring": "Manage recurring",
     "eom": "Expected at month end",
     "low": "Lowest point this month",
     "afterCard": "After the next card charge",
@@ -577,7 +597,8 @@
     "overridden": "Your amount",
     "late": "Expected, not yet seen",
     "empty": "Nothing expected in the next 45 days.",
-    "addPlanned": "Plan an expense",
+    "addPlanned": "Add one-time item",
+    "recurringLink": "Recurring payments",
     "types": {
       "income": "Income",
       "recurring": "Recurring",
@@ -589,6 +610,7 @@
   },
   "recurring": {
     "title": "Recurring",
+    "upcomingLink": "Upcoming",
     "add": "Add recurring item",
     "monthly": "Monthly cost",
     "yearly": "Yearly cost",
@@ -640,8 +662,8 @@
     "deleteConfirm": "Delete this recurring item? Linked transactions stay."
   },
   "planned": {
-    "title": "Planned expenses",
-    "add": "Plan an expense",
+    "title": "One-time planned items",
+    "add": "Add one-time item",
     "name": "What",
     "amount": "Amount",
     "date": "Date",
@@ -652,6 +674,8 @@
       "done": "Done",
       "cancelled": "Cancelled"
     },
+    "oneTimeHint": "A single expected income or expense (a gift, a refund). Regular payments are managed under Recurring and are already in the forecast.",
+    "twin": "This looks like the recurring payment “{{name}}”, which the forecast already counts. Add it only if it is an extra payment.",
     "markDone": "Mark done",
     "cancel": "Cancel it",
     "empty": "No planned expenses.",
