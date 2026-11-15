@@ -19,7 +19,7 @@ export async function computeBudget(q: TenantDb, base: BaseFacts, month: MonthSt
   const from = [monthsBack(month, historyMonths - 1), ...avgMonths, ...incomeMonths].sort()[0]!;
   const [cats, budgets, spent, pnl, unsplit] = await q.batch([
     q.stmt("SELECT id, name, grp, archived FROM categories WHERE household_id = ?1 AND kind = 'expense' ORDER BY sort, name"),
-    q.stmt('SELECT category_id, effective_from, limit_minor FROM budgets WHERE household_id = ?1'),
+    q.stmt('SELECT category_id, effective_from, limit_minor, one_time FROM budgets WHERE household_id = ?1'),
     spentByCategoryStmt(q, from, month),
     pnlByMonthStmt(q, from, month),
     unsplitCardStmt(q, month),

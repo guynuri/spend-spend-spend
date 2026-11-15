@@ -99,7 +99,7 @@ describe('action items (§10.7, AC11.2)', () => {
     unsplitCardMinor: 0, lines: [], pace: null, suggestedCount: 0, bigPayments: [], goals: [], lastComplete: null, ...p,
   });
   it('each rule fires and the order is alert, warn, info, good', () => {
-    const line = (id: string, status: 'over' | null, spent: number, avg: number, rem: number | null) => ({ categoryId: id, name: id, grp: 'variable' as const, limitMinor: rem === null ? null : spent + rem, spentMinor: spent, remainingMinor: rem, utilization: null, status, avg3Minor: avg });
+    const line = (id: string, status: 'over' | null, spent: number, avg: number, rem: number | null) => ({ categoryId: id, name: id, grp: 'variable' as const, limitMinor: rem === null ? null : spent + rem, oneTime: false, spentMinor: spent, remainingMinor: rem, utilization: null, status, avg3Minor: avg });
     const r = buildInsights(
       inp({
         stale: true,
@@ -118,7 +118,7 @@ describe('action items (§10.7, AC11.2)', () => {
     expect(r.find((x) => x.key === 'budget_over')!.params.category).toBe('d');
   });
   it('spike only compares pro-rated spend when f ≥ 0.5; pace needs ≥ 10 %', () => {
-    const l = { categoryId: 'e', name: 'e', grp: 'variable' as const, limitMinor: null, spentMinor: 20000, remainingMinor: null, utilization: null, status: null, avg3Minor: 20000 };
+    const l = { categoryId: 'e', name: 'e', grp: 'variable' as const, limitMinor: null, oneTime: false, spentMinor: 20000, remainingMinor: null, utilization: null, status: null, avg3Minor: 20000 };
     expect(buildInsights(inp({ f: 0.4, lines: [{ ...l, spentMinor: 40000 }] })).some((x) => x.key === 'category_spike')).toBe(false);
     expect(buildInsights(inp({ f: 0.5, lines: [l] })).some((x) => x.key === 'category_spike')).toBe(true);
     expect(buildInsights(inp({ pace: { thisMinor: 109, prevMinor: 100, day: 3 } })).some((x) => x.key.startsWith('pace'))).toBe(false);
