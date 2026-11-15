@@ -180,20 +180,27 @@ test('split a card payment from an uploaded card statement; keep the difference 
   await addTx(page, '1000', 'ISRACARD E2E statement');
   await page.getByTestId('tx-row').first().click();
   await page.getByTestId('tx-split').click();
-  const csv = 'תאריך עסקה,שם בית העסק,סכום חיוב\n01/11/2026,שופרסל דיל 123,400.00\n02/11/2026,קפה E2E אחד,350.00\n03/11/2026,קפה E2E שני,200.00\n';
+  const csv = 'תאריך עסקה,שם בית העסק,סכום חיוב\n01/11/2026,שופרסל דיל 123,400.00\n02/11/2026,קפה E2E אחד,350.00\n03/11/2026,קפה E2E שני,200.00\n04/11/2026,זיכוי E2E,-50.00\nלא תאריך,שורה שבורה,10.00\n';
   await page.getByTestId('split-file').setInputFiles({ name: 'card.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') });
-  await expect(page.getByTestId('split-loaded')).toContainText('3');
+  await expect(page.getByTestId('split-loaded')).toContainText('4');
+  await expect(page.getByTestId('split-skipped')).toBeVisible(); // the broken row is reported, not dropped silently
   const lines = page.getByTestId('split-line');
-  await expect(lines).toHaveCount(3);
+  await expect(lines).toHaveCount(4);
+  await expect(lines.nth(3).locator('input')).toHaveValue('-50.00'); // refund keeps its sign
   await expect(lines.nth(0).locator('select')).not.toHaveValue(''); // שופרסל → seed rule
   await expect(lines.nth(1)).toContainText('קפה E2E אחד');
   await expect(page.getByTestId('split-save')).toBeDisabled();
   await expectSheetFits(page);
   await page.getByTestId('split-keep-remainder').click();
-  await expect(lines).toHaveCount(4);
+  await expect(lines).toHaveCount(5);
   await expect(page.getByTestId('split-remaining')).toHaveAttribute('class', /text-good/);
   await expectSheetFits(page);
   await page.getByTestId('split-save').click();
   await expect(page.getByTestId('tx-sheet')).toBeHidden();
   await expect(page.getByTestId('tx-row').first().getByText(/^(Split|מפוצל)$/)).toBeVisible();
+  // Reopening keeps the refund negative, so the saved split still adds up.
+  await page.getByTestId('tx-row').first().click();
+  await page.getByTestId('tx-split').click();
+  await expect(page.getByTestId('split-line').nth(3).locator('input')).toHaveValue('-50.00');
+  await expect(page.getByTestId('split-save')).toBeEnabled();
 });

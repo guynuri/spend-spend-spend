@@ -16,6 +16,9 @@ import type { Tx } from '../../../shared/schemas/ledger';
 import { SplitEditor } from './SplitEditor';
 import { TxTitle } from '../../components/TxTitle';
 
+/** The learned rule as it was before "always for this merchant" (restored on undo). */
+type Previous = { categoryId: string; source: 'user' | 'learned' | 'ai' | 'seed' } | null;
+
 export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -33,8 +36,8 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
     setSimilar(null);
   }, [tx]);
   const [similar, setSimilar] = useState<{ count: number; txIds: string[]; categoryId: string } | null>(null);
-  const undo = useApiMutation((v: { ruleId: string; txIds: string[] }) => post('/api/transactions/undo-learn', v), { invalidate: [...LEDGER_DEPENDENT] });
-  type PatchRes = { tx: Tx; learned: { ruleId: string; count: number; txIds: string[] } | null; similar: { count: number; txIds: string[] } | null };
+  const undo = useApiMutation((v: { ruleId: string; txIds: string[]; previous: Previous }) => post('/api/transactions/undo-learn', v), { invalidate: [...LEDGER_DEPENDENT] });
+  type PatchRes = { tx: Tx; learned: { ruleId: string; count: number; txIds: string[]; previous: Previous } | null; similar: { count: number; txIds: string[] } | null };
   // Changes only this transaction; similar uncategorized ones are offered below, never changed silently.
   const setCat = useApiMutation((v: { categoryId: string | null; learn?: boolean }) => patch<PatchRes>(`/api/transactions/${current!.id}`, v), {
     invalidate: [...LEDGER_DEPENDENT],
@@ -42,7 +45,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
       setCurrent(r.tx);
       setSimilar(r.similar && r.tx.categoryId ? { ...r.similar, categoryId: r.tx.categoryId } : null);
       const l = r.learned;
-      if (l) toast({ title: t('ledger.learned', { count: l.count }), action: { label: t('common.undo'), onClick: () => undo.mutate({ ruleId: l.ruleId, txIds: l.txIds }) }, duration: 10000 });
+      if (l) toast({ title: t('ledger.learned', { count: l.count }), action: { label: t('common.undo'), onClick: () => undo.mutate({ ruleId: l.ruleId, txIds: l.txIds, previous: l.previous }) }, duration: 10000 });
       else toast({ title: t('ledger.saved') });
     },
   });

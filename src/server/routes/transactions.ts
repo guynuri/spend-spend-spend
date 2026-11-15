@@ -61,7 +61,7 @@ function filterSql(c: Ctx) {
     where.push(
       `(t.description_norm LIKE ?${n + 2} ESCAPE '\\' OR lower(t.description) LIKE ?${n + 3} ESCAPE '\\' OR lower(COALESCE(t.notes, '')) LIKE ?${n + 3} ESCAPE '\\' OR COALESCE(t.reference, '') LIKE ?${n + 3} ESCAPE '\\'
         OR EXISTS (SELECT 1 FROM categories c WHERE c.household_id = ?1
-          AND (c.id = t.category_id OR c.id IN (SELECT s.category_id FROM transaction_splits s WHERE s.household_id = ?1 AND s.transaction_id = t.id))
+          AND ((t.has_splits = 0 AND c.id = t.category_id) OR c.id IN (SELECT s.category_id FROM transaction_splits s WHERE s.household_id = ?1 AND s.transaction_id = t.id))
           AND (lower(c.name) LIKE ?${n + 3} ESCAPE '\\' OR c.name IN (SELECT value FROM json_each(?${n + 4})))))`,
     );
     params.push(esc(normKey(f.q!) || qn), esc(qn), JSON.stringify(defaults));
@@ -250,32 +250,34 @@ transactionRoutes.patch('/:id', async (c) => {
         key.pattern_norm,
         key.sign,
       );
-      const rule = await db.first<{ id: string }>(
-        `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
-         SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, 'learned', ?8 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
-         ON CONFLICT(household_id, field, match, pattern_norm, sign) DO UPDATE SET category_id = excluded.category_id,
-           source = CASE WHEN category_rules.source = 'user' THEN 'user' ELSE 'learned' END
-         RETURNING id`,
-        newId(),
-        key.field,
-        key.match,
-        key.pattern_norm,
-        key.sign,
-        b.categoryId,
-        now,
-      );
-      const applied = await db.all<{ id: string }>(
-        `UPDATE transactions SET category_id = ?2, category_source = 'rule', updated_at = ?3
-          WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND id <> ?5
-            AND ((?6 = 'in' AND amount_minor > 0) OR (?6 = 'out' AND amount_minor < 0))
-          RETURNING id`,
-        b.categoryId,
-        now,
-        key.pattern_norm,
-        id,
-        key.sign,
-      );
-      learned = { ruleId: rule!.id, count: applied.length, txIds: applied.map((r) => r.id), previous: prev ? { categoryId: prev.category_id, source: prev.source } : null };
+      // An explicit user rule for this merchant wins: a single choice never re-points it.
+      if (prev?.source !== 'user') {
+        const rule = await db.first<{ id: string }>(
+          `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
+           SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, 'learned', ?8 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
+           ON CONFLICT(household_id, field, match, pattern_norm, sign) DO UPDATE SET category_id = excluded.category_id, source = 'learned'
+           RETURNING id`,
+          newId(),
+          key.field,
+          key.match,
+          key.pattern_norm,
+          key.sign,
+          b.categoryId,
+          now,
+        );
+        const applied = await db.all<{ id: string }>(
+          `UPDATE transactions SET category_id = ?2, category_source = 'rule', updated_at = ?3
+            WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND id <> ?5
+              AND ((?6 = 'in' AND amount_minor > 0) OR (?6 = 'out' AND amount_minor < 0))
+            RETURNING id`,
+          b.categoryId,
+          now,
+          key.pattern_norm,
+          id,
+          key.sign,
+        );
+        learned = { ruleId: rule!.id, count: applied.length, txIds: applied.map((r) => r.id), previous: prev ? { categoryId: prev.category_id, source: prev.source } : null };
+      }
     }
   }
   if (editingCore) await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));

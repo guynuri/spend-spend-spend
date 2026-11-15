@@ -7,9 +7,9 @@ const r = (id: string, source: RuleLike['source'], pattern: string, cat: string,
 
 describe('isGenericPayee', () => {
   it('flags payment apps, transfers, checks and ATM; not merchants', () => {
-    for (const d of ['BIT transfer 0501234567', 'ביט', 'העברה בביט', 'PAYBOX', 'Venmo *John', 'PAYPAL *EBAY', 'העברת זה"ב', 'העברה לחשבון 12345', "צ'ק 1234", 'משיכת מזומן כספומט', 'ATM WITHDRAWAL'])
+    for (const d of ['BIT transfer 0501234567', 'ביט', 'העברה בביט', 'PAYBOX', 'Venmo *John', 'PAYPAL *EBAY', 'העברת זה"ב', 'העברה לחשבון 12345', "צ'ק 1234", 'משיכת מזומן כספומט', 'ATM WITHDRAWAL', "העב' לאחר-נייד", 'העב. לחשבון', 'העברות שוטפות'])
       expect(isGenericPayee(d), d).toBe(true);
-    for (const d of ['שופרסל דיל', 'ביטוח ישיר', 'Bitter Cafe', 'Pizza Napoli', 'checkpoint market', 'ISRACARD'])
+    for (const d of ['שופרסל דיל', 'ביטוח ישיר', 'Bitter Cafe', 'Pizza Napoli', 'checkpoint market', 'ISRACARD', 'CHECK POINT SOFTWARE', 'האוניברסיטה העברית', 'ספרים העברי', ''])
       expect(isGenericPayee(d), d).toBe(false);
   });
 });

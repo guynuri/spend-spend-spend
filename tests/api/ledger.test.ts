@@ -114,6 +114,27 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
     expect((await DB.prepare('SELECT COUNT(*) AS n FROM category_rules WHERE id = ?1').bind(r.body.learned.ruleId).first<{ n: number }>())!.n).toBe(0);
   });
 
+  it('"always" never re-points an explicit user rule; undo restores a re-pointed learned rule', async () => {
+    const s = await setup();
+    await json('POST', '/api/rules', { cookie: s.cookie, body: { field: 'description', match: 'equals', pattern: 'Corner Deli', sign: 'out', categoryId: s.cat('Home') } });
+    const a = await s.add('2026-02-05', -300, 'Corner Deli');
+    expect(a.categoryId).toBe(s.cat('Home'));
+    const r = await json<{ tx: Tx; learned: unknown }>('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Eating out'), learn: true } });
+    expect(r.body.tx.categoryId).toBe(s.cat('Eating out'));
+    expect(r.body.learned).toBeNull();
+    const rule = await DB.prepare("SELECT category_id, source FROM category_rules WHERE household_id = ?1 AND pattern_norm = 'corner deli'").bind(s.householdId).first<{ category_id: string; source: string }>();
+    expect(rule).toEqual({ category_id: s.cat('Home'), source: 'user' });
+  });
+
+  it('category search ignores the old category of a split transaction', async () => {
+    const s = await setup();
+    const t = await s.add('2026-02-07', -1000, 'Split Me', { categoryId: s.cat('Groceries') });
+    await json('PUT', `/api/transactions/${t.id}/splits`, { cookie: s.cookie, body: { lines: [{ categoryId: s.cat('Home'), amountMinor: -600 }, { categoryId: s.cat('Kids'), amountMinor: -400 }] } });
+    const q = (x: string) => json<TxList>('GET', `/api/transactions?from=2026-02-01&to=2026-02-28&q=${encodeURIComponent(x)}`, { cookie: s.cookie });
+    expect((await q('groceries')).body.items.map((i) => i.id)).not.toContain(t.id);
+    expect((await q('kids')).body.items.map((i) => i.id)).toContain(t.id);
+  });
+
   it('rule lookup for statement rows returns the winning category or null', async () => {
     const s = await setup();
     const r = await json<{ categoryIds: (string | null)[] }>('POST', '/api/rules/match', { cookie: s.cookie, body: { items: [{ description: 'שופרסל דיל 1234', amountMinor: -500 }, { description: 'Unknown Shop', amountMinor: -100 }] } });

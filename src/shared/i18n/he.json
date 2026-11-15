@@ -313,6 +313,9 @@
     "statementLoaded_one": "נטען חיוב אחד מהפירוט.",
     "statementLoaded_two": "נטענו {{count}} חיובים מהפירוט.",
     "statementLoaded_other": "נטענו {{count}} חיובים מהפירוט.",
+    "statementSkipped_one": "שורה אחת בקובץ לא נקראה ולא נכללה. כדאי לבדוק את הקובץ או להוסיף אותה ידנית.",
+    "statementSkipped_two": "{{count}} שורות בקובץ לא נקראו ולא נכללו. כדאי לבדוק את הקובץ או להוסיף אותן ידנית.",
+    "statementSkipped_other": "{{count}} שורות בקובץ לא נקראו ולא נכללו. כדאי לבדוק את הקובץ או להוסיף אותן ידנית.",
     "unassigned": "לא משויך",
     "keepRemainder": "להשאיר את ההפרש כלא משויך",
     "otherRows": "עוד {{count}} חיובים"

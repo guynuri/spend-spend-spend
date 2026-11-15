@@ -12,41 +12,18 @@ import { minorToInput, parseMoneyInput } from '../../../shared/money';
 import type { SplitLine, Tx } from '../../../shared/schemas/ledger';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT } from '../../lib/queries';
-import { FileError, parseFile } from '../import/parseFile';
+import { FileError } from '../import/parseFile';
+import { readStatement, statementFlip, statementLines } from './statement';
 
-const MAX_LINES = 29; // splitsPut allows 30: one is left for an unassigned remainder
-
-/**
- * Card statement rows → split lines in the transaction's direction: rows with a rule category are
- * summed per category, the rest stay one line each (note = description); overflow is merged.
- */
-async function statementLines(file: File, total: number, otherNote: (n: number) => string): Promise<{ lines: Line[]; count: number }> {
-  const p = await parseFile(file);
-  let rows = p.result?.rows;
-  if (!rows) {
-    const g = await import('../../../shared/import/generic');
-    if (!p.guess || !g.mappingValid(p.guess)) throw new FileError('unsupported_file');
-    rows = g.parseWithMapping(p.grid, p.guess).rows;
-  }
+/** Card statement → split lines (input text in the transaction's direction) + skipped row count. */
+async function loadStatement(file: File, total: number, otherNote: (n: number) => string): Promise<{ lines: Line[]; count: number; skipped: number }> {
+  const { rows, errors } = await readStatement(file);
   if (!rows.length) throw new FileError('no_rows');
-  const sum = rows.reduce((a, r) => a + r.amountMinor, 0);
-  // Card exports show charges as positive or negative depending on the issuer: align to the payment.
-  const flip = sum !== 0 && (sum < 0) !== (total < 0) ? -1 : 1;
+  const flip = statementFlip(rows, total);
   const { categoryIds } = await post<{ categoryIds: (string | null)[] }>('/api/rules/match', { items: rows.map((r) => ({ description: r.description.slice(0, 300), amountMinor: r.amountMinor * flip })) });
-  const byCat = new Map<string, number>();
-  const free: { minor: number; note: string }[] = [];
-  rows.forEach((r, i) => {
-    const c = categoryIds[i];
-    if (c) byCat.set(c, (byCat.get(c) ?? 0) + r.amountMinor * flip);
-    else free.push({ minor: r.amountMinor * flip, note: r.description.slice(0, 120) });
-  });
   const sign = total < 0 ? -1 : 1;
-  const out: (Line & { minor: number })[] = [...[...byCat].map(([categoryId, minor]) => ({ categoryId, minor, note: '' })), ...free.map((f) => ({ categoryId: null, ...f }))].map((l) => ({ ...l, amount: '' }));
-  if (out.length > MAX_LINES) {
-    const rest = out.splice(MAX_LINES - 1);
-    out.push({ categoryId: null, minor: rest.reduce((a, l) => a + l.minor, 0), note: otherNote(rest.length), amount: '' });
-  }
-  return { lines: out.map(({ minor, ...l }) => ({ ...l, amount: minorToInput(minor * sign) })), count: rows.length };
+  const lines = statementLines(rows, total, categoryIds, otherNote).map((l) => ({ categoryId: l.categoryId, note: l.note, amount: minorToInput(l.minor * sign) }));
+  return { lines, count: rows.length, skipped: errors.length };
 }
 
 interface Line {
@@ -54,17 +31,17 @@ interface Line {
   amount: string;
   note: string;
 }
-/** Lines are entered as positive numbers in the transaction's direction. */
-const toLines = (ls: SplitLine[]): Line[] => ls.map((l) => ({ categoryId: l.categoryId, amount: minorToInput(Math.abs(l.amountMinor)), note: l.note ?? '' }));
+/** Lines are entered in the transaction's direction (a refund line is negative). */
+const toLines = (ls: SplitLine[], sign: number): Line[] => ls.map((l) => ({ categoryId: l.categoryId, amount: minorToInput(l.amountMinor * sign), note: l.note ?? '' }));
 
 export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const { t } = useTranslation();
   const toast = useToast();
   const sign = tx.amountMinor < 0 ? -1 : 1;
-  const [lines, setLines] = useState<Line[]>(() => (tx.splits.length ? toLines(tx.splits) : [{ categoryId: null, amount: '', note: '' }, { categoryId: null, amount: '', note: '' }]));
+  const [lines, setLines] = useState<Line[]>(() => (tx.splits.length ? toLines(tx.splits, sign) : [{ categoryId: null, amount: '', note: '' }, { categoryId: null, amount: '', note: '' }]));
   const [from, setFrom] = useState<string | null>(null);
   const [noPrev, setNoPrev] = useState(false);
-  const [loaded, setLoaded] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState<{ count: number; skipped: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const parsed = lines.map((l) => parseMoneyInput(l.amount || '0'));
   const valid = parsed.every((p) => p !== null);
@@ -78,7 +55,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
     try {
       const r = await get<{ suggestion: { fromDate: string; lines: SplitLine[] } | null }>(`/api/transactions/${tx.id}/split-suggestion`);
       if (!r.suggestion) return setNoPrev(true);
-      setLines(toLines(r.suggestion.lines));
+      setLines(toLines(r.suggestion.lines, sign));
       setFrom(r.suggestion.fromDate);
     } catch (e) {
       toast({ title: t(errorKey(e), { defaultValue: t('errors.unknown') }), tone: 'bad' });
@@ -87,9 +64,9 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const upload = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const r = await statementLines(file, tx.amountMinor, (count) => t('split.otherRows', { count }));
+      const r = await loadStatement(file, tx.amountMinor, (count) => t('split.otherRows', { count }));
       setLines(r.lines);
-      setLoaded(r.count);
+      setLoaded(r);
       setFrom(null);
     } catch (e) {
       const k = e instanceof FileError ? `import.fileErrors.${e.code}` : errorKey(e);
@@ -122,8 +99,13 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
         {noPrev && <span className="text-xs text-muted">{t('split.noPrevious')}</span>}
       </div>
       <p className="text-xs text-muted" data-testid="split-loaded">
-        {loaded !== null ? t('split.statementLoaded', { count: loaded }) : t('split.uploadHint')}
+        {loaded ? t('split.statementLoaded', { count: loaded.count }) : t('split.uploadHint')}
       </p>
+      {!!loaded?.skipped && (
+        <p className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn" role="alert" data-testid="split-skipped">
+          {t('split.statementSkipped', { count: loaded.skipped })}
+        </p>
+      )}
       <ul className="flex flex-col gap-2">
         {lines.map((l, i) => (
           <li key={i} className="flex flex-col gap-1" data-testid="split-line">

@@ -8,6 +8,7 @@ import { AiError, getProvider, type AiProvider } from '../ai/provider';
 import { CATEGORIZE_SYSTEM, reviewSystem } from '../ai/prompts';
 import { buildCategorizePayload, buildReviewPayload } from '../../shared/ai/payloads';
 import { norm } from '../../shared/normalize';
+import { isGenericPayee } from '../../shared/domain/ledger';
 import { id, monthStr } from '../../shared/schemas/common';
 import { newId, nowIso } from '../lib/crypto';
 import { AI_LIMITS, recordTokensStmt, reserveStmt, usageToday } from '../db/sql/aiUsage';
@@ -99,8 +100,11 @@ aiRoutes.post('/categorize/apply', async (c) => {
   const { db } = tctx(c);
   await db.assertOwned({ categories: b.items.map((i) => i.categoryId) });
   const now = nowIso();
+  // Payment apps / transfers / checks / ATM: one category must not spread to every such row or become a rule.
+  const items = b.items.filter((i) => !isGenericPayee(i.key));
+  if (!items.length) return c.json({ updated: 0 });
   const res = await db.batch(
-    b.items.flatMap((i) => [
+    items.flatMap((i) => [
       db.stmt(
         `UPDATE transactions SET category_id = ?2, category_source = 'ai', updated_at = ?3
           WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND ((?5 = 'in' AND amount_minor > 0) OR (?5 = 'out' AND amount_minor < 0))`,

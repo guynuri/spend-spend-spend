@@ -44,9 +44,10 @@ export function learnedRuleFor(tx: { description: string; amountMinor: number })
 }
 
 const L = 'a-zא-ת';
-// Whole words, or Hebrew stems (העברה/העברת, משיכה/משיכת, המחאה) at a word start.
+// Whole words; Hebrew transfer forms incl. bank abbreviations (העב' / העב.); stems משיכה/משיכת, המחאה.
+// Bare "check" is left out (CHECK POINT, check-in): cheque / צ'ק / שיק cover checks.
 const GENERIC_PAYEE = new RegExp(
-  `(^|[^${L}])((bit|ביט|paybox|pay box|פייבוקס|פיי בוקס|venmo|paypal|פייפאל|zelle|transfer|wire|check|cheque|צ'ק|שיק|atm|כספומט|cash withdrawal)(?![${L}])|העבר|המחא|משיכ)`,
+  `(^|[^${L}])((bit|ביט|paybox|pay box|פייבוקס|פיי בוקס|venmo|paypal|פייפאל|zelle|transfer|wire|cheque|צ'ק|שיק|atm|כספומט|cash withdrawal|העברה|העברת|העברות)(?![${L}])|העב['.]|המחא|משיכ)`,
 );
 
 /**

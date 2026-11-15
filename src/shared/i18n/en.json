@@ -303,6 +303,8 @@
     "uploadHint": "Excel or CSV from the card company. Its charges become the split lines.",
     "statementLoaded_one": "{{count}} charge loaded from the statement.",
     "statementLoaded_other": "{{count}} charges loaded from the statement.",
+    "statementSkipped_one": "{{count}} row in the file couldn't be read and is not included. Check the file or add it by hand.",
+    "statementSkipped_other": "{{count}} rows in the file couldn't be read and are not included. Check the file or add them by hand.",
     "unassigned": "Unassigned",
     "keepRemainder": "Keep the difference as unassigned",
     "otherRows": "{{count}} more charges"
