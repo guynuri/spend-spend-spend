@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Maazan",
+    "name": "spend-spend-spend",
     "tagline": "Household money, calmly balanced"
   },
   "nav": {
@@ -128,7 +128,7 @@
     "ai_bad_output": "The AI reply couldn't be used.",
     "ai_timeout": "The AI took too long to answer.",
     "review_completed": "This review is already completed.",
-    "recovery_needs_admin": "This person also uses Maazan elsewhere (or is the administrator). Ask the administrator for a recovery link.",
+    "recovery_needs_admin": "This person also uses spend-spend-spend elsewhere (or is the administrator). Ask the administrator for a recovery link.",
     "registration_failed": "The account couldn't be created. Please try again with the same link."
   },
   "auth": {
