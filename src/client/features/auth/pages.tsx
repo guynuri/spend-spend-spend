@@ -3,10 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { KeyRound, Smartphone } from 'lucide-react';
-import { ApiError, errorKey, get, post } from '../../api';
+import { ApiError, errorKey, get, patch, post } from '../../api';
 import { Button, Field, Input, Spinner } from '../../components/ui';
 import { fragmentToken, registerWithToken, signInWithPasskey } from '../../lib/passkey';
 import { AuthLayout } from './AuthLayout';
+import { localePickedOnAuth } from '../../i18n';
 import type { MeResponse } from '../../../shared/schemas/me';
 
 function ErrorLine({ error }: { error: unknown }) {
@@ -32,7 +33,10 @@ function IosNote() {
 function useAfterAuth() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const { i18n } = useTranslation();
   return async (to = '/') => {
+    // A language explicitly picked on the sign-in screen wins over the one saved on the profile.
+    if (localePickedOnAuth()) await patch('/api/me', { locale: i18n.language === 'he' ? 'he' : 'en' }).catch(() => undefined);
     // The link is spent: keep the cached inspection (staleTime ∞) so it is never re-inspected —
     // a failed inspect counts against the token rate limit. Only the profile is refreshed.
     await qc.invalidateQueries({ queryKey: ['me'] });

@@ -7,6 +7,7 @@ export async function setLocale(page: Page, locale: 'en' | 'he') {
     try {
       localStorage.setItem('mz_locale', l);
       localStorage.setItem('mz_hint_install', '1');
+      localStorage.setItem('mz_tour_done', '1');
     } catch {
       /* ignore */
     }

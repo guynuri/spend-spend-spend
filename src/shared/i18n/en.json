@@ -942,5 +942,86 @@
     "unnamed": "Passkey",
     "more_one": "and {{count}} more device",
     "more_other": "and {{count}} more devices"
+  },
+  "tour": {
+    "pageInfo": "About this page",
+    "welcomeTitle": "Welcome! A quick tour",
+    "welcomeBody": "This short tour walks through every page of the app and what you can see and do on each one. It runs in the language you chose when signing in.",
+    "welcomePoints": "On a computer, pages are listed in the sidebar. On a phone, the four main pages are in the bottom bar and the rest are under “More”.\nEach step opens the page it describes, so you can see it behind the tour.\nTap the ⓘ icon next to any page title to see that page’s explanation again.\nYou can change the language and theme any time in Settings.",
+    "start": "Start the tour",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Not now",
+    "finish": "Finish",
+    "progress": "Page {{n}} of {{total}}",
+    "fullTour": "Take the full tour",
+    "gotIt": "Got it",
+    "pages": {
+      "overview": {
+        "body": "Your home screen: the state of the current month at a glance.",
+        "points": "This month: income, spending and what’s left over, with what to expect by month end.\nWhat needs attention: uncategorized transactions, categories over budget, unusual spending and payments coming soon.\nHealth score (0–100) built from savings rate, debt load, safety cushion, budget adherence and goal progress. Open it to see how it’s calculated and what would raise it.\nShort summaries of the budget, the next payments and your goals, each linking to its full page.\nWith no data yet, you can upload a statement or load sample data to explore."
+      },
+      "transactions": {
+        "body": "Every transaction from your imported statements and the ones you added by hand.",
+        "points": "Search and filter by month, account, category, date range or “uncategorized only”.\nTap a transaction to change its category, add notes or split it across several categories (useful for a monthly credit-card charge).\nSelect several transactions to set a category for all of them at once. Similar transactions are then categorized automatically.\nAdd a transaction by hand or export the list to CSV.\nThe number on the menu item shows how many transactions still need a category."
+      },
+      "budget": {
+        "body": "Monthly spending limits per category, and how the current month is tracking against them.",
+        "points": "Totals: budgeted, spent and left, plus the pace — the share of the budget spent versus the share of the month that has passed.\nEach category shows its limit, what was spent, its 3-month average and a status: on pace, watch or over.\nSet or change a limit from any category. Changes apply from that month onward.\nAllocation check: total budgets compared with your average monthly income.\nCharts of the last 6 months and of where the money went."
+      },
+      "upcoming": {
+        "body": "Everything expected in the next 45 days, with the projected balance after each item.",
+        "points": "Income, recurring payments, credit-card charges and planned expenses in date order.\nSkip a payment this time or change its amount for just this occurrence.\nItems that were expected but haven’t shown up yet are marked.\nPlan a one-off expense (and choose whether it’s paid by card) so it’s included in the forecast."
+      },
+      "forecast": {
+        "body": "Where your balance is heading by the end of the month.",
+        "points": "Expected month-end balance, the lowest point this month and the balance after the next card charge.\nA chart of the projected balance to the end of next month.\nWarnings if the balance may go below zero or below your safety buffer.\n“How is this calculated?” shows every input: start balance, income, recurring payments, card charges, planned items and the day-to-day estimate.\nOnly accounts marked “Include in the forecast” are counted."
+      },
+      "recurring": {
+        "body": "Fixed and repeating payments and income: salary, rent, subscriptions, card charges.",
+        "points": "Monthly and yearly cost of everything recurring.\n“Look for recurring payments” scans your history and suggests items to confirm or dismiss.\nAdd an item with its amount (fixed or estimated from recent charges), how often it repeats and the bank text that recognizes it.\nPause, resume or delete items. The next date and last charges are shown for each one."
+      },
+      "accounts": {
+        "body": "Your bank accounts, savings, cash and credit cards.",
+        "points": "Add an account with its opening balance, bank and last 4 digits.\nSet the current balance from your bank; a difference versus your transactions means something is missing or extra.\nChoose which accounts count in the forecast and which count as available money for the safety cushion.\nArchive accounts you no longer use without losing their history."
+      },
+      "categories": {
+        "body": "The categories your money is sorted into, and the rules that sort it automatically.",
+        "points": "Income, expense and transfer categories, grouped, and marked fixed or variable.\nMark a category as debt repayment so it counts toward the debt load in the health score.\nRules: “if the description contains X, use category Y”. They run on every import.\nYour own rules win over learned, AI and built-in ones. “Apply rules now” re-categorizes existing transactions."
+      },
+      "goals": {
+        "body": "Savings goals and how you are progressing toward them.",
+        "points": "Each goal shows its target, saved so far, what remains and how much is needed per month to reach it on time.\nStatus: on track, behind, no deadline or completed — plus a projected finish date at your recent pace.\nAdd contributions as you save, and see milestones along the way.\nCommitted to goals: monthly goal amounts compared with what you typically have left over."
+      },
+      "trends": {
+        "body": "How your spending changes over time.",
+        "points": "By category: how much each category took and its share of the total.\nBy day: daily spending and this month’s running total compared with last month.\nOver months: income, spending and what was left over, month by month."
+      },
+      "review": {
+        "body": "A guided walk through the past month, one short chapter at a time.",
+        "points": "Chapters: summary, income, spending, budget, goals, and cash flow & upcoming.\nThe wrap-up lists wins, a watch list and next steps, written from your numbers (with optional AI commentary).\nComplete the review to save it. Past reviews stay available to reopen."
+      },
+      "import": {
+        "body": "Bring in the statements you download from your bank.",
+        "points": "Choose the account, then upload an Excel (.xlsx, .xls) or CSV file.\nKnown bank formats are detected automatically. For others, you match the columns once and it is remembered.\nBefore importing you see new rows, ones already imported and rows that will be skipped.\nImport history lets you undo an import."
+      },
+      "household": {
+        "body": "The people who share this household’s finances.",
+        "points": "Members and their roles. Owners can change roles or remove members.\nInvite someone with a single-use link (valid 7 days), and see pending invites.\nCreate a recovery link for a member who lost their passkey.\nHousehold settings, and for owners: reset all data or delete the household."
+      },
+      "settings": {
+        "body": "Your personal preferences.",
+        "points": "Language (English / Hebrew) and theme (light, dark or system).\nAI assistance (optional, off by default): category suggestions and review commentary. Only an owner can turn it on.\nSecurity: your passkeys and signed-in devices."
+      },
+      "more": {
+        "body": "On a phone, every page that doesn’t fit in the bottom bar is listed here.",
+        "points": "Tap any item to open that page."
+      },
+      "admin": {
+        "body": "Site administration, visible only to administrators.",
+        "points": "Create households and send owner invite links.\nEnable or disable households and create owner recovery links.\nYou see household metadata only — never their transactions or amounts."
+      }
+    },
+    "viewerNote": "You have view-only access, so changes on this page can only be made by owners and members."
   }
 }

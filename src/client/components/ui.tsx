@@ -1,6 +1,8 @@
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { Loader2 } from 'lucide-react';
+import { forwardRef, useContext, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { Info, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
+import { TOUR_PATHS, TourCtx } from '../lib/tour';
 
 export const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Boolean).join(' ');
 
@@ -60,10 +62,20 @@ export function CardTitle({ children, action }: { children: ReactNode; action?: 
 }
 
 export function PageHeader({ title, actions, subtitle }: { title: ReactNode; actions?: ReactNode; subtitle?: ReactNode }) {
+  const openTour = useContext(TourCtx);
+  const { pathname } = useLocation();
+  const { t } = useTranslation();
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0">
-        <h1 className="truncate text-2xl font-bold text-text">{title}</h1>
+        <div className="flex items-center gap-1">
+          <h1 className="truncate text-2xl font-bold text-text">{title}</h1>
+          {openTour && TOUR_PATHS.has(pathname) && (
+            <IconButton label={t('tour.pageInfo')} className="shrink-0" data-testid="page-tour" onClick={() => openTour(pathname)}>
+              <Info className="size-5" aria-hidden />
+            </IconButton>
+          )}
+        </div>
         {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

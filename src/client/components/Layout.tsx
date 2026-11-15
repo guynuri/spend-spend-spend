@@ -6,6 +6,7 @@ import { useMe } from '../lib/session';
 import { cx, Spinner } from './ui';
 import { InstallHint, OfflineBanner, UpdatePrompt } from './Pwa';
 import { SampleDataBanner } from './SampleDataBanner';
+import { TourProvider } from './Tour';
 
 function Badge({ item }: { item: NavItem }) {
   const me = useMe();
@@ -83,6 +84,7 @@ function TabBar() {
 export function Layout() {
   const me = useMe();
   return (
+    <TourProvider>
     <div className="flex min-h-dvh bg-bg text-text">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -104,6 +106,7 @@ export function Layout() {
       <TabBar />
       <UpdatePrompt />
     </div>
+    </TourProvider>
   );
 }
 
