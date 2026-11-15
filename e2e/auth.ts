@@ -49,6 +49,7 @@ export async function prepPage(page: Page, locale: 'en' | 'he' = 'en') {
     try {
       localStorage.setItem('mz_locale', l);
       localStorage.setItem('mz_hint_install', '1');
+      localStorage.setItem('mz_tour_done', '1');
     } catch {
       /* ignore */
     }

@@ -64,3 +64,21 @@ test('safe-area padding and 16px inputs', async ({ page }) => {
   });
   expect(parseFloat(fs)).toBeGreaterThanOrEqual(16);
 });
+
+test('tour runs in the sign-in language and each page reopens its entry', async ({ page }) => {
+  await signIn(page, 'admin', 'he');
+  // runs after prepPage's init script, so the tour counts as not seen on every full load
+  await page.addInitScript(() => localStorage.removeItem('mz_tour_done'));
+  await page.goto('/');
+  await expect(page.getByTestId('tour-welcome')).toContainText('סיור');
+  await page.getByTestId('tour-next').click();
+  await expect(page.getByTestId('tour-page-overview')).toBeVisible();
+  await page.getByTestId('tour-next').click();
+  await expect(page).toHaveURL(/\/transactions$/);
+  await expect(page.getByTestId('tour-page-transactions')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('tour')).toHaveCount(0);
+  await page.getByTestId('tab-budget').click();
+  await page.getByTestId('page-tour').click();
+  await expect(page.getByTestId('tour-page-budget')).toContainText('תקציב');
+});
