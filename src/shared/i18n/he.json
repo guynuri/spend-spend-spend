@@ -23,6 +23,7 @@
     "uncategorizedBadge_one": "תנועה אחת ללא קטגוריה",
     "uncategorizedBadge_two": "{{count}} תנועות ללא קטגוריה",
     "uncategorizedBadge_other": "{{count}} תנועות ללא קטגוריה",
+    "moreBadge": "יש משהו תחת „עוד” שדורש תשומת לב",
     "overBudgetBadge": "חריגה מהתקציב",
     "upcomingTab": "קרובים",
     "categories": "קטגוריות"

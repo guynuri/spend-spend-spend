@@ -17,7 +17,7 @@ import type { Tx, TxList } from '../../../shared/schemas/ledger';
 import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
-import { TxTitle } from '../../components/TxTitle';
+import { TxTitle, useTxTitle } from '../../components/TxTitle';
 import { UnsplitCardBanner } from './UnsplitCardBanner';
 import { AiSuggestButton } from '../ai/AiSuggest';
 
@@ -73,6 +73,7 @@ export function Component() {
   const fmt = useFormatDate();
   const { f, set, isMonth, shiftMonth, apiQuery, activeCount } = useLedgerFilters();
   const accounts = useAccounts();
+  const title = useTxTitle();
   const accMap = new Map((accounts.data?.accounts ?? []).map((a) => [a.id, a.name]));
   const [search, setSearch] = useState(f.q);
   const [open, setOpen] = useState<Tx | null>(null);
@@ -219,7 +220,7 @@ export function Component() {
                   {txs.map((tx) => (
                     <li key={tx.id}>
                       <button type="button" onClick={() => onRow(tx)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-start active:bg-surface-2" data-testid="tx-row" data-tx={tx.id}>
-                        {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={tx.description} />}
+                        {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={title(tx)} />}
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
                             <TxTitle tx={tx} />
@@ -254,7 +255,7 @@ export function Component() {
                   <tr key={tx.id} onClick={() => onRow(tx)} className="cursor-pointer hover:bg-surface-2">
                     {selecting && (
                       <td className="px-3">
-                        <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-4" aria-label={tx.description} />
+                        <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-4" aria-label={title(tx)} />
                       </td>
                     )}
                     <td className="whitespace-nowrap px-3 py-2">

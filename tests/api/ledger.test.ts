@@ -166,6 +166,15 @@ describe('splits (AC3.6) and bulk/export (AC3.7)', () => {
     expect(lineRows).toEqual({ n: 2, s: -700000 });
   });
 
+  it('no split suggestion for a description-less transaction', async () => {
+    const s = await setup();
+    const t1 = await s.add('2026-01-10', -1000, '');
+    await json('PUT', `/api/transactions/${t1.id}/splits`, { cookie: s.cookie, body: { lines: [{ categoryId: s.cat('Groceries'), amountMinor: -600 }, { categoryId: s.cat('Leisure'), amountMinor: -400 }] } });
+    const t2 = await s.add('2026-02-10', -2000, '');
+    const sug = await json<{ suggestion: unknown }>('GET', `/api/transactions/${t2.id}/split-suggestion`, { cookie: s.cookie });
+    expect(sug.body.suggestion).toBeNull();
+  });
+
   it('bulk sets a category; CSV export has BOM and neutralizes formulas', async () => {
     const s = await setup();
     const a = await s.add('2026-04-01', -100, '=HYPERLINK("x")');

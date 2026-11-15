@@ -22,6 +22,7 @@
     "main": "Main navigation",
     "uncategorizedBadge_one": "{{count}} uncategorized transaction",
     "uncategorizedBadge_other": "{{count}} uncategorized transactions",
+    "moreBadge": "Something under More needs attention",
     "overBudgetBadge": "Over budget",
     "upcomingTab": "Upcoming",
     "categories": "Categories"

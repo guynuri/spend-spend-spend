@@ -331,6 +331,8 @@ transactionRoutes.get('/:id/split-suggestion', async (c) => {
     id,
   );
   if (!tx) throw notFound();
+  // No payee to match on: an empty description would match every other description-less split.
+  if (tx.kind !== 'card_lump' && !tx.description_norm) return c.json({ suggestion: null });
   const prev = await db.first<{ id: string; date: string; amount_minor: number }>(
     `SELECT id, date, amount_minor FROM transactions WHERE household_id = ?1 AND has_splits = 1 AND id <> ?2
        AND (CASE WHEN ?3 = 'card_lump' THEN kind = 'card_lump' ELSE description_norm = ?4 END)

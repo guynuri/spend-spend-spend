@@ -56,6 +56,13 @@ test('choose bottom bar pages in settings', async ({ page }) => {
   await bar.getByTestId('tab-more').click();
   await expect(page.getByTestId('nav-budget')).toBeVisible();
   await expect(page.getByTestId('nav-upcoming')).toHaveCount(0);
+  // badges of pages moved off the bar move to More (uncategorized rows exist from the test above)
+  await page.goto('/settings');
+  await page.getByTestId('navbar-slot-2').selectOption('/goals');
+  await expect(bar.getByTestId('tab-transactions')).toHaveCount(0);
+  await expect(bar.getByTestId('badge-more')).toBeVisible();
+  await bar.getByTestId('tab-more').click();
+  await expect(page.getByTestId('nav-transactions').getByTestId('badge-uncategorized')).toBeVisible();
   await page.goto('/settings');
   await page.getByTestId('navbar-reset').click();
   await expect(bar.getByTestId('tab-budget')).toBeVisible();

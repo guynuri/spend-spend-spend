@@ -11,17 +11,22 @@ import { InstallHint, OfflineBanner, UpdatePrompt } from './Pwa';
 import { SampleDataBanner } from './SampleDataBanner';
 import { TourProvider } from './Tour';
 
-function Badge({ item }: { item: NavItem }) {
+/** `inline` = in a list row (More page) rather than over a tab icon. */
+export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
   const me = useMe();
   const { t } = useTranslation();
+  const [tabs] = useNavTabs();
+  // A badged page moved off the bar marks More instead.
+  if (item.to === '/more' && ((!tabs.includes('/transactions') && me?.badges.uncategorized) || (!tabs.includes('/budget') && me?.badges.overBudget)))
+    return <span className="absolute top-1 end-3 size-2 rounded-full bg-warn" data-testid="badge-more" role="img" aria-label={t('nav.moreBadge')} />;
   if (item.to === '/transactions' && me?.badges.uncategorized)
     return (
-      <span className="absolute -top-0.5 end-1 min-w-4 rounded-full bg-warn px-1 text-center text-[10px] font-bold leading-4 text-white lg:static lg:ms-auto" data-testid="badge-uncategorized" aria-label={t('nav.uncategorizedBadge', { count: me.badges.uncategorized })}>
+      <span className="absolute -top-0.5 end-1 min-w-4 rounded-full bg-warn px-1 text-center text-[10px] font-bold leading-4 text-white lg:static lg:ms-auto" style={inline ? { position: 'static' } : undefined} data-testid="badge-uncategorized" aria-label={t('nav.uncategorizedBadge', { count: me.badges.uncategorized })}>
         {me.badges.uncategorized > 99 ? '99+' : me.badges.uncategorized}
       </span>
     );
   if (item.to === '/budget' && me?.badges.overBudget)
-    return <span className="absolute top-1 end-3 size-2 rounded-full bg-bad lg:static lg:ms-auto" data-testid="badge-over-budget" role="img" aria-label={t('nav.overBudgetBadge')} />;
+    return <span className="absolute top-1 end-3 size-2 rounded-full bg-bad lg:static lg:ms-auto" style={inline ? { position: 'static' } : undefined} data-testid="badge-over-budget" role="img" aria-label={t('nav.overBudgetBadge')} />;
   return null;
 }
 
