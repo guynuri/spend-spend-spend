@@ -79,7 +79,8 @@ export interface FinalSummary {
  * so it works with AI off and for reviews completed before this existed. Top 3 of each.
  */
 export function finalSummary(s: ReviewSnapshot): FinalSummary {
-  const sr = s.cashflow.savingsRate;
+  // compare the rate as shown (formatPercent rounds to whole percents)
+  const sr = s.cashflow.savingsRate === null ? null : Math.round(s.cashflow.savingsRate * 100) / 100;
   const net = s.summary.netMinor;
   const sp = s.spending.changePct;
   const over = [...s.budget.lines].filter((l) => l.overMinor > 0).sort((a, b) => b.overMinor - a.overMinor);

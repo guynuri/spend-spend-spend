@@ -1,5 +1,4 @@
 import { addMonths, monthEnd, monthOf, monthStart, type MonthStr } from '../../../shared/dates';
-import { lastCompleteMonths } from '../../../shared/domain/common';
 import { buildReview, type ReviewSnapshot } from '../../../shared/domain/review';
 import type { TenantDb } from '../tenant';
 import type { HouseholdRow } from '../rows';
@@ -9,9 +8,9 @@ import { forecastFor } from './forecast';
 import { healthBundle } from './health';
 import { computeInsights } from './insights';
 
-/** Default review month: last complete month (else the previous calendar month). */
+/** Default review month: newest available month (ended + data-complete), else the previous calendar month. Never the running month. */
 export function defaultReviewMonth(base: BaseFacts): MonthStr {
-  return lastCompleteMonths(base.complete, 1)[0] ?? addMonths(monthOf(base.today), -1);
+  return availableReviewMonths(base)[0] ?? addMonths(monthOf(base.today), -1);
 }
 
 /**

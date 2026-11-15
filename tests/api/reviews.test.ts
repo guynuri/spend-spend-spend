@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { DB, json, ownerSetup } from './helpers';
+import { DB, addMember, json, makeUser, ownerSetup, sessionFor } from './helpers';
+import { defaultReviewMonth } from '../../src/server/db/sql/review';
+import type { BaseFacts } from '../../src/server/db/sql/facts';
+
+describe('defaultReviewMonth', () => {
+  it('never picks the running month, even when data covers its last day', () => {
+    const base = { today: '2026-11-30', asOf: '2026-11-30', complete: ['2026-09', '2026-10', '2026-11'] } as BaseFacts;
+    expect(defaultReviewMonth(base)).toBe('2026-10');
+    expect(defaultReviewMonth({ ...base, complete: [] })).toBe('2026-10');
+  });
+});
 import { CHAPTERS, type ReviewSnapshot } from '../../src/shared/domain/review';
 
 describe('monthly review (AC12.1–12.2)', () => {
@@ -48,6 +58,11 @@ describe('monthly review (AC12.1–12.2)', () => {
     await DB.prepare('DELETE FROM reviews WHERE month = ?1').bind(l.defaultMonth).run();
     expect((await due()).due).toBe(l.defaultMonth);
     expect(await badge()).toBe(l.defaultMonth);
+    // viewers can neither complete nor dismiss, so /api/me never nags them
+    const viewer = await makeUser('Viewer');
+    await addMember(o.householdId, viewer, 'viewer');
+    const vc = await sessionFor(viewer, o.householdId);
+    expect((await json<{ badges: { reviewDue: string | null } }>('GET', '/api/me', { cookie: vc })).body.badges.reviewDue).toBeNull();
     expect((await json('POST', `/api/reviews/${l.defaultMonth}/dismiss`, { cookie: o.cookie })).status).toBe(200);
     expect((await due()).due).toBeNull();
     expect(await badge()).toBeNull();

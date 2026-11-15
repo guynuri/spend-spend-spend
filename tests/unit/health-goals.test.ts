@@ -162,5 +162,11 @@ describe('review builder (§10.8)', () => {
     expect(over.focus[1]).toEqual({ key: 'review.fin.focus.over', params: { name: 'x', overMinor: 50 } });
     expect(over.actions.map((a) => a.key)).toEqual(['health.recs.savings', 'review.fin.act.over', 'review.fin.act.next_review']);
     expect(over.actions[0]!.gain).toBe(2);
+    // thresholds use the rate as displayed (whole percents)
+    const at = (savingsRate: number) => finalSummary({ ...r, cashflow: { ...r.cashflow, savingsRate } });
+    expect(at(0.0996).focus.map((x) => x.key)).not.toContain('review.fin.focus.low_savings');
+    expect(at(0.094).focus.map((x) => x.key)).toContain('review.fin.focus.low_savings');
+    expect(at(0.1996).wins.map((x) => x.key)).toContain('review.fin.win.savings');
+    expect(at(0.194).wins.map((x) => x.key)).not.toContain('review.fin.win.savings');
   });
 });
