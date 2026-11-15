@@ -85,9 +85,19 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     expect(q.body.points.at(-1)!.cumulativeMinor).toBe(sum);
     const cats = await json<{ totalMinor: number }>('GET', `/api/trends/categories?from=${monthStart(m3)}&to=${monthEnd(m1)}`, { cookie: o.cookie });
     expect(cats.body.totalMinor).toBe(sum);
-    // year to date compares with the same months a year earlier
-    const ytd = await json<Daily>('GET', `/api/trends/daily?from=${cur.slice(0, 4)}-01-01&to=${monthEnd(cur)}`, { cookie: o.cookie });
-    expect([ytd.body.prevFrom, ytd.body.prevTo]).toEqual([monthStart(addMonths(`${cur.slice(0, 4)}-01`, -12)), monthEnd(addMonths(cur, -12))]);
+    // compare=yoy ("This year") uses the same months a year earlier; otherwise the period just before, even in January
+    const prevOf = async (qs: string) => (await json<Daily>('GET', `/api/trends/daily?${qs}`, { cookie: o.cookie })).body;
+    expect(await prevOf('from=2026-01-01&to=2026-11-30&compare=yoy')).toMatchObject({ prevFrom: '2025-01-01', prevTo: '2025-11-30' });
+    expect(await prevOf('from=2026-01-01&to=2026-01-31')).toMatchObject({ prevFrom: '2025-12-01', prevTo: '2025-12-31' });
+    expect(await prevOf('from=2026-01-01&to=2026-03-31')).toMatchObject({ prevFrom: '2025-10-01', prevTo: '2025-12-31' });
+    expect((await json('GET', '/api/trends/daily?from=2026-01-01&to=2026-01-31&compare=x', { cookie: o.cookie })).status).toBe(400);
+    // 40-day range from a Wednesday: previous-period weeks use the same weekday offset as the current ones
+    const wed = addDays(monthStart(m1), (3 - dow(monthStart(m1)) + 7) % 7);
+    const w40 = await prevOf(`from=${wed}&to=${addDays(wed, 39)}`);
+    expect(w40.granularity).toBe('week');
+    const spentIn = async (f: string, t: string) => (await json<{ totalMinor: number }>('GET', `/api/trends/categories?from=${f}&to=${t}`, { cookie: o.cookie })).body.totalMinor;
+    for (const i of [0, 1, 2]) expect(w40.points[i]!.prevCumulativeMinor).toBe(await spentIn(w40.prevFrom, addDays(w40.prevFrom, 7 * i + 6 - 3)));
+    expect(w40.points.at(-1)!.prevCumulativeMinor).toBe(await spentIn(w40.prevFrom, w40.prevTo));
     // over-months uses the exact dates: partial edge months, same total as the categories tab
     const [pf, pt] = [`${m3}-10`, `${m1}-20`];
     const pm = await json<{ points: { month: string; partial: boolean; expensesMinor: number }[] }>('GET', `/api/trends/monthly?from=${pf}&to=${pt}`, { cookie: o.cookie });

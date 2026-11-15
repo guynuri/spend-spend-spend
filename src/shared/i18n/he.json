@@ -521,6 +521,7 @@
     "daily": "הוצאה יומית",
     "cumulative": "התקופה הזו, מצטבר",
     "prevCumulative": "התקופה הקודמת, מצטבר",
+    "prevYearCumulative": "אותם חודשים בשנה שעברה, מצטבר",
     "income": "הכנסות",
     "expenses": "הוצאות",
     "net": "נשאר",

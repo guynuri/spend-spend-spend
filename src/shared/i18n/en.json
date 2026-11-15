@@ -513,6 +513,7 @@
     "daily": "Daily spending",
     "cumulative": "This period, cumulative",
     "prevCumulative": "Previous period, cumulative",
+    "prevYearCumulative": "Same months last year, cumulative",
     "income": "Income",
     "expenses": "Spending",
     "net": "Left over",

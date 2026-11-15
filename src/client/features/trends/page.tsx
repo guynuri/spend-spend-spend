@@ -128,12 +128,12 @@ function ByCategory({ range: { from, to } }: { range: Range }) {
 
 type DayPoint = { start: string; partial: boolean; spentMinor: number; cumulativeMinor: number | null; prevCumulativeMinor: number };
 
-function ByDay({ range: { from, to } }: { range: Range }) {
+function ByDay({ range: { from, to }, yoy }: { range: Range; yoy: boolean }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
   const money = useMoneyFmt();
   const compact = useCompactMoney();
-  const q = useQuery({ queryKey: ['trends', 'daily', from, to], queryFn: () => get<{ granularity: 'day' | 'week' | 'month'; points: DayPoint[] }>(`/api/trends/daily?from=${from}&to=${to}`) });
+  const q = useQuery({ queryKey: ['trends', 'daily', from, to, yoy], queryFn: () => get<{ granularity: 'day' | 'week' | 'month'; points: DayPoint[] }>(`/api/trends/daily?from=${from}&to=${to}${yoy ? '&compare=yoy' : ''}`) });
   if (q.isPending) return <Spinner />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const g = q.data.granularity;
@@ -178,7 +178,7 @@ function ByDay({ range: { from, to } }: { range: Range }) {
               <Tooltip {...tip} />
               <Legend wrapperStyle={{ direction: i18n.dir() }} />
               <Line dataKey="cumulativeMinor" name={t('trends.cumulative')} stroke={C.bad} strokeWidth={2} dot={false} connectNulls={false} />
-              <Line dataKey="prevCumulativeMinor" name={t('trends.prevCumulative')} stroke={C.text} strokeWidth={2} strokeDasharray="4 4" dot={false} />
+              <Line dataKey="prevCumulativeMinor" name={t(yoy ? 'trends.prevYearCumulative' : 'trends.prevCumulative')} stroke={C.text} strokeWidth={2} strokeDasharray="4 4" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartBox>
@@ -278,7 +278,8 @@ export function Component() {
           <ByCategory range={range} />
         </Tabs.Content>
         <Tabs.Content value="day">
-          <ByDay range={range} />
+          {/* "This year" compares with the same months last year; everything else with the period before */}
+          <ByDay range={range} yoy={presetOf(range, today) === 'year'} />
         </Tabs.Content>
         <Tabs.Content value="months">
           <OverMonths range={range} />

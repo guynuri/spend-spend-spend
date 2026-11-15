@@ -12,15 +12,15 @@ const EXPENSE_LINE = "(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount
 
 /** `from`+`to` (inclusive, < MAX_RANGE_DAYS) or a `month`; defaults to the display month. */
 const rangeQ = z
-  .object({ month: monthStr.optional(), from: dateStr.optional(), to: dateStr.optional() })
+  .object({ month: monthStr.optional(), from: dateStr.optional(), to: dateStr.optional(), compare: z.enum(['prev', 'yoy']).default('prev') })
   .refine((q) => !q.from === !q.to && (!q.from || (q.from <= q.to! && daysBetween(q.from, q.to!) < MAX_RANGE_DAYS)), { message: 'invalid range', path: ['from'] });
 async function resolveRange(c: Parameters<typeof tctx>[0]) {
   const { db, hh } = tctx(c);
   const qv = query(c, rangeQ);
   const base = await loadBase(db, hh);
-  if (qv.from && qv.to) return { db, base, from: qv.from, to: qv.to };
+  if (qv.from && qv.to) return { db, base, compare: qv.compare, from: qv.from, to: qv.to };
   const month = qv.month ?? displayMonth(base.today, base.latestTx).month;
-  return { db, base, from: monthStart(month), to: monthEnd(month) };
+  return { db, base, compare: qv.compare, from: monthStart(month), to: monthEnd(month) };
 }
 
 trendRoutes.get('/categories', async (c) => {
@@ -37,29 +37,31 @@ trendRoutes.get('/categories', async (c) => {
 
 /**
  * Spending per bucket over [from, to] plus cumulative vs a previous period: whole-month ranges
- * compare with the same months shifted back by their month count (a year-to-date range with the
- * same months a year earlier), other ranges with the same number of days just before.
+ * compare with the same months shifted back by their month count (`compare=yoy`: the same months
+ * a year earlier), other ranges with the same number of days just before.
  * Buckets: day ≤ 35 days, Sunday-start week ≤ 190 days, else month; clipped edge buckets are `partial`.
  */
 trendRoutes.get('/daily', async (c) => {
-  const { db, base, from, to } = await resolveRange(c);
+  const { db, base, compare, from, to } = await resolveRange(c);
   const span = daysBetween(from, to) + 1;
   const granularity = span <= 35 ? 'day' : span <= 190 ? 'week' : 'month';
   const [fm, tm] = [monthOf(from), monthOf(to)];
   const wholeMonths = from === monthStart(fm) && to === monthEnd(tm);
-  const shift = from.slice(5) === '01-01' && fm.slice(0, 4) === tm.slice(0, 4) ? 12 : monthDiff(fm, tm) + 1;
+  const shift = compare === 'yoy' ? 12 : monthDiff(fm, tm) + 1;
   const [pFrom, pTo] = wholeMonths ? [monthStart(addMonths(fm, -shift)), monthEnd(addMonths(tm, -shift))] : [addDays(from, -span), addDays(from, -1)];
+  // weeks: both periods use the current period's weekday offset so bucket i lines up
+  const off = dayOfWeek(from);
   // nominal bucket i of a period starting at `start`: [first, last] day
   const bucket = (start: string, i: number): [string, string] => {
     if (granularity === 'day') return [addDays(start, i), addDays(start, i)];
     if (granularity === 'week') {
-      const s = addDays(start, 7 * i - dayOfWeek(start));
+      const s = addDays(start, 7 * i - off);
       return [s, addDays(s, 6)];
     }
     const m = addMonths(monthOf(start), i);
     return [monthStart(m), monthEnd(m)];
   };
-  const idx = (d: string, start: string) => (granularity === 'day' ? daysBetween(start, d) : granularity === 'week' ? Math.floor((daysBetween(start, d) + dayOfWeek(start)) / 7) : monthDiff(monthOf(start), monthOf(d)));
+  const idx = (d: string, start: string) => (granularity === 'day' ? daysBetween(start, d) : granularity === 'week' ? Math.floor((daysBetween(start, d) + off) / 7) : monthDiff(monthOf(start), monthOf(d)));
   const rows = await db.all<{ d: string; spent: number }>(
     `SELECT l.date AS d, -SUM(l.amount_minor) AS spent FROM v_lines l LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
       WHERE l.household_id = ?1 AND ${EXPENSE_LINE} AND l.date >= ?2 AND l.date <= ?3 GROUP BY l.date`,
