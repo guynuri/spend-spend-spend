@@ -32,9 +32,9 @@ describe('AI opt-in, limits, features (AC12.3, AC13.1–13.4)', () => {
     expect(s.body.suggestions.some((x) => /bit|paybox/i.test(x.description))).toBe(false);
     const all = await DB.prepare("SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL").bind(o.householdId).first<{ n: number }>();
     expect(all!.n).toBeGreaterThan(0);
+    // The sample's uncategorized rows are all bit / PayBox transfers: never sent, so not counted either.
     const unc = (await json<{ count: number }>('GET', '/api/ai/uncategorized', { cookie: o.cookie })).body.count;
-    expect(unc).toBeGreaterThan(0);
-    expect(unc).toBeLessThanOrEqual(all!.n);
+    expect(unc).toBe(0);
     // sample data adds only the catalog categories it uses
     const names = (await DB.prepare('SELECT name FROM categories WHERE household_id = ?1').bind(o.householdId).all<{ name: string }>()).results.map((r) => r.name);
     expect(names).toContain('Car');
@@ -44,6 +44,22 @@ describe('AI opt-in, limits, features (AC12.3, AC13.1–13.4)', () => {
       expect(a.body.updated).toBeGreaterThan(0);
       expect((await DB.prepare("SELECT COUNT(*) AS n FROM category_rules WHERE household_id = ?1 AND source = 'ai'").bind(o.householdId).first<{ n: number }>())!.n).toBeGreaterThan(0);
     }
+  });
+
+  it('apply never spreads a category or writes a rule for transfers / payment apps (Task 10)', async () => {
+    const o = await demo();
+    await json('POST', '/api/ai/consent', { cookie: o.cookie, body: { enabled: true } });
+    const cat = (await DB.prepare("SELECT id FROM categories WHERE household_id = ?1 AND kind = 'expense' LIMIT 1").bind(o.householdId).first<{ id: string }>())!.id;
+    const a = await json<{ updated: number; skipped: number }>('POST', '/api/ai/categorize/apply', { cookie: o.cookie, body: { items: [{ key: 'העברה לחשבון', categoryId: cat, direction: 'out' }] } });
+    expect(a.body).toEqual({ updated: 0, skipped: 1 });
+    // The AI button's count leaves out what is never sent (transfers / payment apps).
+    const count = async () => (await json<{ count: number }>('GET', '/api/ai/uncategorized', { cookie: o.cookie })).body.count;
+    const before = await count();
+    const acc = (await DB.prepare('SELECT id FROM accounts WHERE household_id = ?1 LIMIT 1').bind(o.householdId).first<{ id: string }>())!.id;
+    for (const d of ["צ'ק 1234", 'משיכת מזומן', 'Brand New Bakery'])
+      await json('POST', '/api/transactions', { cookie: o.cookie, body: { date: today(), amountMinor: 100, direction: 'out', description: d, accountId: acc } });
+    expect(await count()).toBe(before + 1);
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM category_rules WHERE household_id = ?1 AND pattern_norm = 'העברה לחשבון'").bind(o.householdId).first<{ n: number }>())!.n).toBe(0);
   });
 
   it('categorize: one reserved call per batch; a failing later batch returns the earlier suggestions as partial', async () => {

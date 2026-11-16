@@ -43,6 +43,19 @@ export function learnedRuleFor(tx: { description: string; amountMinor: number })
   return { field: 'description' as const, match: 'equals' as const, pattern_norm: normKey(tx.description), sign: tx.amountMinor >= 0 ? ('in' as const) : ('out' as const) };
 }
 
+const L = 'a-zא-ת';
+// Whole words; Hebrew transfer forms incl. bank abbreviations (העב' / העב.); stems משיכה/משיכת, המחאה.
+// Bare "check" is left out (CHECK POINT, check-in): cheque / צ'ק / שיק cover checks.
+const GENERIC_PAYEE = new RegExp(
+  `(^|[^${L}])((bit|ביט|paybox|pay box|פייבוקס|פיי בוקס|venmo|paypal|פייפאל|zelle|transfer|wire|cheque|צ'ק|שיק|atm|כספומט|cash withdrawal|העברה|העברת|העברות)(?![${L}])|העב['.]|המחא|משיכ)`,
+);
+
+/**
+ * Payment apps, transfers, checks and ATM: the counterparty differs each time, so one choice must
+ * never be offered for similar transactions or turned into a rule.
+ */
+export const isGenericPayee = (description: string) => GENERIC_PAYEE.test(normKey(description));
+
 /**
  * Scales a previous split to a new total (AC3.6): proportional, rounding remainder to the
  * largest line so the lines sum exactly to `total`.

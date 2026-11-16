@@ -1,10 +1,10 @@
 import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { HttpError, body, notFound } from '../http';
-import { ruleCreate, rulePatch, type Rule } from '../../shared/schemas/ledger';
+import { ruleCreate, ruleLookup, rulePatch, type Rule } from '../../shared/schemas/ledger';
 import { norm, normKey } from '../../shared/normalize';
 import { newId, nowIso } from '../lib/crypto';
-import { applyRulesStmt } from '../db/sql/rules';
+import { applyRulesStmt, winningRuleSql } from '../db/sql/rules';
 
 export const ruleRoutes = tenantGroup();
 
@@ -84,4 +84,17 @@ ruleRoutes.post('/apply', async (c) => {
   const { db } = tctx(c);
   const r = await (await applyRulesStmt(db, { kind: 'all' }, nowIso())).run();
   return c.json({ applied: r.meta.changes ?? 0 });
+});
+
+/** Winning rule category per row (null when none), for rows that are not transactions yet. */
+ruleRoutes.post('/match', async (c) => {
+  const b = await body(c, ruleLookup);
+  const { db } = tctx(c);
+  const rows = await db.all<{ i: number; c: string | null }>(
+    `SELECT CAST(j.key AS INTEGER) AS i, ${winningRuleSql({ hh: '?1', amount: "json_extract(j.value, '$[1]')", dn: "json_extract(j.value, '$[0]')", op: 'NULL', select: 'r.category_id' })} AS c FROM json_each(?2) j`,
+    JSON.stringify(b.items.map((x) => [normKey(x.description), x.amountMinor])),
+  );
+  const out: (string | null)[] = b.items.map(() => null);
+  for (const r of rows) out[r.i] = r.c;
+  return c.json({ categoryIds: out });
 });
