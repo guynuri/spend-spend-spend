@@ -67,6 +67,50 @@ export function notableTransactions<T extends { amountMinor: number }>(txs: T[])
   return txs.filter((t) => -t.amountMinor >= th).sort((a, b) => a.amountMinor - b.amountMinor).slice(0, 5);
 }
 
+export interface FinalSummary {
+  savingsRate: number | null;
+  wins: Commentary[];
+  focus: Commentary[];
+  actions: (Commentary & { gain?: number })[];
+}
+
+/**
+ * Final verdict chapter (wins, focus areas, numbered actions), derived from the stored snapshot only,
+ * so it works with AI off and for reviews completed before this existed. Top 3 of each.
+ */
+export function finalSummary(s: ReviewSnapshot): FinalSummary {
+  // compare the rate as shown (formatPercent rounds to whole percents)
+  const sr = s.cashflow.savingsRate === null ? null : Math.round(s.cashflow.savingsRate * 100) / 100;
+  const net = s.summary.netMinor;
+  const sp = s.spending.changePct;
+  const over = [...s.budget.lines].filter((l) => l.overMinor > 0).sort((a, b) => b.overMinor - a.overMinor);
+  const behind = s.goals.items.filter((g) => g.status === 'behind');
+  const c = (key: string, params: Commentary['params'] = {}): Commentary => ({ key, params });
+  const wins: Commentary[] = [];
+  if (net > 0) wins.push(c('review.fin.win.net', { netMinor: net }));
+  if (sr !== null && sr >= 0.2) wins.push(c('review.fin.win.savings', { pct: sr }));
+  if ((s.summary.change ?? 0) >= 3) wins.push(c('review.fin.win.score_up', { change: s.summary.change! }));
+  if (sp !== null && sp < -0.05) wins.push(c('review.fin.win.spending_down', { pct: -sp }));
+  if (s.budget.total > 0 && over.length === 0) wins.push(c('review.fin.win.budgets'));
+  for (const g of s.goals.items.filter((g) => g.milestones.length)) wins.push(c('review.fin.win.milestone', { name: g.name, pct: Math.max(...g.milestones) / 100 }));
+  if (s.income.changePct !== null && s.income.changePct > 0.05) wins.push(c('review.fin.win.income_up', { pct: s.income.changePct }));
+  const focus: Commentary[] = [];
+  if (net < 0) focus.push(c('review.fin.focus.net', { netMinor: -net }));
+  for (const l of over.slice(0, 2)) focus.push(c('review.fin.focus.over', { name: l.name, overMinor: l.overMinor }));
+  if (sp !== null && sp > 0.05) focus.push(c('review.fin.focus.spending_up', { pct: sp }));
+  for (const g of behind) focus.push(c('review.fin.focus.goal', { name: g.name }));
+  if (sr !== null && sr >= 0 && sr < 0.1) focus.push(c('review.fin.focus.low_savings', { pct: sr }));
+  const top = s.spending.byCategory[0];
+  if (focus.length < 2 && top?.name) focus.push(c('review.fin.focus.top_cat', { name: top.name, pct: top.share }));
+  const actions: FinalSummary['actions'] = s.wrapup.nextSteps.map((r) => ({ key: `health.recs.${r.key}`, params: { amountMinor: r.amountMinor }, gain: r.gain }));
+  if (over[0]) actions.push(c('review.fin.act.over', { name: over[0].name, limitMinor: over[0].limitMinor }));
+  const g = behind.find((x) => x.requiredMonthlyMinor !== null);
+  if (g) actions.push(c('review.fin.act.goal', { name: g.name, amountMinor: g.requiredMonthlyMinor! }));
+  if (s.budget.total === 0) actions.push(c('review.fin.act.set_budget'));
+  actions.push(c('review.fin.act.next_review'));
+  return { savingsRate: sr, wins: wins.slice(0, 3), focus: focus.slice(0, 3), actions: actions.slice(0, 3) };
+}
+
 export function buildReview(i: ReviewInput): ReviewSnapshot {
   const net = i.income.totalMinor - i.spending.totalMinor;
   const savingsRate = i.income.totalMinor > 0 ? net / i.income.totalMinor : null;

@@ -149,6 +149,14 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
 });
 
 describe('ledger list (AC3.4)', () => {
+  it('lists a just-added row first within its day; description is optional', async () => {
+    const s = await setup();
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) ids.push((await s.add('2026-04-10', -100 - i, i === 4 ? '' : `Same day ${i}`)).id);
+    const r = await json<TxList>('GET', '/api/transactions?from=2026-04-01&to=2026-04-30', { cookie: s.cookie });
+    expect(r.body.items.map((t) => t.id)).toEqual([...ids].reverse());
+    expect(r.body.items[0]!.description).toBe('');
+  });
   it('filters, search normalization, cursor pagination of 50', async () => {
     const s = await setup();
     const stmts = [];
@@ -199,6 +207,15 @@ describe('splits (AC3.6) and bulk/export (AC3.7)', () => {
     expect(lines[1]!.amountMinor).toBe(-342858);
     const lineRows = await DB.prepare('SELECT COUNT(*) AS n, SUM(amount_minor) AS s FROM v_lines WHERE household_id = ?1 AND tx_id = ?2').bind(s.householdId, t1.id).first<{ n: number; s: number }>();
     expect(lineRows).toEqual({ n: 2, s: -700000 });
+  });
+
+  it('no split suggestion for a description-less transaction', async () => {
+    const s = await setup();
+    const t1 = await s.add('2026-01-10', -1000, '');
+    await json('PUT', `/api/transactions/${t1.id}/splits`, { cookie: s.cookie, body: { lines: [{ categoryId: s.cat('Groceries'), amountMinor: -600 }, { categoryId: s.cat('Leisure'), amountMinor: -400 }] } });
+    const t2 = await s.add('2026-02-10', -2000, '');
+    const sug = await json<{ suggestion: unknown }>('GET', `/api/transactions/${t2.id}/split-suggestion`, { cookie: s.cookie });
+    expect(sug.body.suggestion).toBeNull();
   });
 
   it('bulk sets a category; CSV export has BOM and neutralizes formulas', async () => {

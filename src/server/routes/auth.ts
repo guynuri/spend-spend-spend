@@ -242,7 +242,7 @@ authRoutes.get('/me', requireSession, async (c) => {
   if (!user) throw new HttpError(401, 'unauthorized', 'Sign in required');
   let active: MeResponse['active'] = null;
   let role: MeResponse['role'] = null;
-  let badges: MeResponse['badges'] = { uncategorized: 0, overBudget: false };
+  let badges: MeResponse['badges'] = { uncategorized: 0, overBudget: false, reviewDue: null };
   const m = households.find((h) => h.id === s.activeHouseholdId);
   if (m) {
     const h = await g.getHousehold(m.id);
@@ -251,6 +251,7 @@ authRoutes.get('/me', requireSession, async (c) => {
       active = { id: h.id, name: h.name, currency: h.currency, timezone: h.timezone, hasSampleData: h.has_sample_data === 1, aiEnabled: h.ai_enabled === 1, today };
       role = m.role;
       if (h.status === 'active') badges = await loadBadges(tenantDb(c.env.DB, h.id), h, today);
+      if (m.role === 'viewer') badges.reviewDue = null; // viewers can neither complete nor dismiss: never nag them
     }
   }
   const res: MeResponse = {

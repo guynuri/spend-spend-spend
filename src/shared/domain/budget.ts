@@ -6,6 +6,8 @@ export interface BudgetRow {
   category_id: string;
   effective_from: MonthStr;
   limit_minor: number | null;
+  /** 1 = applies only to `effective_from` and overrides the recurring limit for that month. */
+  one_time?: number;
 }
 export interface BudgetCategoryIn {
   id: string;
@@ -15,12 +17,22 @@ export interface BudgetCategoryIn {
 }
 export type BudgetStatus = 'over' | 'watch' | 'on_pace';
 
-/** limit(category, M) = row with greatest effective_from ≤ M; none or NULL → unbudgeted. */
-export function limitFor(rows: BudgetRow[], categoryId: string, month: MonthStr): number | null {
+/**
+ * limit(category, M) = a one-time row for exactly M if any, else the recurring row with greatest
+ * effective_from ≤ M; none or NULL → unbudgeted.
+ */
+export function budgetFor(rows: BudgetRow[], categoryId: string, month: MonthStr): { limit: number | null; oneTime: boolean } {
   let best: BudgetRow | null = null;
-  for (const r of rows) if (r.category_id === categoryId && r.effective_from <= month && (!best || r.effective_from > best.effective_from)) best = r;
-  return best?.limit_minor ?? null;
+  for (const r of rows) {
+    if (r.category_id !== categoryId) continue;
+    if (r.one_time) {
+      if (r.effective_from === month) return { limit: r.limit_minor, oneTime: true };
+    } else if (r.effective_from <= month && (!best || r.effective_from > best.effective_from)) best = r;
+  }
+  return { limit: best?.limit_minor ?? null, oneTime: false };
 }
+
+export const limitFor = (rows: BudgetRow[], categoryId: string, month: MonthStr): number | null => budgetFor(rows, categoryId, month).limit;
 
 export function utilization(spent: number, limit: number): number {
   if (limit === 0) return spent > 0 ? Infinity : 0;
@@ -40,6 +52,8 @@ export interface BudgetLine {
   name: string;
   grp: 'fixed' | 'variable' | null;
   limitMinor: number | null;
+  /** The limit applies to this month only (else it carries forward every month). */
+  oneTime: boolean;
   spentMinor: number;
   remainingMinor: number | null;
   utilization: number | null;
@@ -88,7 +102,7 @@ export function buildBudgetView(input: {
   let budgeted = 0;
   let spentBudgeted = 0;
   for (const c of input.categories) {
-    const limit = limitFor(input.budgets, c.id, input.month);
+    const { limit, oneTime } = budgetFor(input.budgets, c.id, input.month);
     const spent = input.spent.get(c.id) ?? 0;
     if (c.archived && limit === null && spent === 0) continue;
     const avg3 = Math.round(mean(input.avgMonths.map((m) => input.history.get(c.id)?.get(m) ?? 0)));
@@ -101,7 +115,7 @@ export function buildBudgetView(input: {
       g.budgetedMinor += limit;
       g.spentMinor += spent;
     }
-    lines.push({ categoryId: c.id, name: c.name, grp: c.grp, limitMinor: limit, spentMinor: spent, remainingMinor: limit === null ? null : limit - spent, utilization: limit === null ? null : utilization(spent, limit), status, avg3Minor: avg3 });
+    lines.push({ categoryId: c.id, name: c.name, grp: c.grp, limitMinor: limit, oneTime, spentMinor: spent, remainingMinor: limit === null ? null : limit - spent, utilization: limit === null ? null : utilization(spent, limit), status, avg3Minor: avg3 });
   }
   const pctSpent = budgeted > 0 ? spentBudgeted / budgeted : null;
   const f = input.f;

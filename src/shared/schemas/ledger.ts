@@ -32,7 +32,7 @@ export const txCreate = z
     date: dateStr,
     amountMinor: posMinor.refine((v) => v > 0, 'must be positive'),
     direction: z.enum(['in', 'out']),
-    description: text(300).min(1),
+    description: text(300).default(''),
     accountId: id,
     categoryId: id.nullable().optional(),
     notes: text(500).optional(),
@@ -42,7 +42,7 @@ export const txPatch = z
   .object({
     categoryId: id.nullable().optional(),
     notes: text(500).nullable().optional(),
-    description: text(300).min(1).optional(),
+    description: text(300).optional(),
     date: dateStr.optional(),
     amountMinor: posMinor.refine((v) => v > 0).optional(),
     direction: z.enum(['in', 'out']).optional(),

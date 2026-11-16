@@ -27,6 +27,18 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     expect(now.body.lines.find((l) => l.name === 'Groceries')!.limitMinor).toBe(1);
     expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: cur, items: [{ categoryId: groceries.categoryId, limitMinor: null }] } })).status).toBe(200);
     expect((await json<BudgetView>('GET', `/api/budgets?month=${cur}`, { cookie: o.cookie })).body.lines.find((l) => l.name === 'Groceries')!.limitMinor).toBeNull();
+    // one-time limit: this month only, wins over the recurring one, removable; health still computes
+    const lineIn = async (m: string) => (await json<BudgetView>('GET', `/api/budgets?month=${m}`, { cookie: o.cookie })).body.lines.find((l) => l.name === 'Groceries')!;
+    expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: prev, items: [{ categoryId: groceries.categoryId, limitMinor: 777, oneTime: true }] } })).status).toBe(200);
+    expect(await lineIn(prev)).toMatchObject({ limitMinor: 777, oneTime: true });
+    expect((await lineIn(addMonths(prev, -1))).limitMinor).toBe(groceries.limitMinor);
+    expect((await json('GET', '/api/dashboard', { cookie: o.cookie })).status).toBe(200);
+    expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: prev, items: [{ categoryId: groceries.categoryId, limitMinor: null, oneTime: true }] } })).status).toBe(200);
+    expect(await lineIn(prev)).toMatchObject({ limitMinor: groceries.limitMinor, oneTime: false });
+    // a recurring save in M replaces that month's one-time limit
+    await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: prev, items: [{ categoryId: groceries.categoryId, limitMinor: 5, oneTime: true }] } });
+    await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: prev, items: [{ categoryId: groceries.categoryId, limitMinor: groceries.limitMinor }] } });
+    expect(await lineIn(prev)).toMatchObject({ limitMinor: groceries.limitMinor, oneTime: false });
     // the latest card lump is unsplit
     const lumpMonth = Number(today.slice(8)) > 10 ? cur : prev;
     expect((await json<BudgetView>('GET', `/api/budgets?month=${lumpMonth}`, { cookie: o.cookie })).body.unsplitCardMinor).toBeGreaterThan(600000);

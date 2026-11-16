@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { post } from '../../api';
 import { Sheet } from '../../components/Sheet';
-import { Button, Field, Input, Segmented, Select, Textarea } from '../../components/ui';
+import { Button, Field, Input, Segmented, Select, Spinner, Textarea } from '../../components/ui';
 import { AmountInput } from '../../components/AmountInput';
 import { CategorySelect } from '../../components/CategorySelect';
 import { useApiMutation } from '../../lib/mutate';
@@ -13,7 +13,8 @@ import { parseMoneyInput } from '../../../shared/money';
 export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t } = useTranslation();
   const today = useMe()?.active?.today ?? '';
-  const accounts = (useAccounts().data?.accounts ?? []).filter((a) => !a.archived);
+  const accQ = useAccounts();
+  const accounts = (accQ.data?.accounts ?? []).filter((a) => !a.archived);
   const [date, setDate] = useState(today);
   const [amount, setAmount] = useState('');
   const [direction, setDirection] = useState<'out' | 'in'>('out');
@@ -37,7 +38,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
       },
     },
   );
-  const ok = !!date && !!minor && minor > 0 && !!description.trim() && !!acc;
+  const ok = !!date && !!minor && minor > 0 && !!acc;
   return (
     <Sheet
       open={open}
@@ -50,10 +51,13 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
         </Button>
       }
     >
-      {accounts.length === 0 ? (
+      {accQ.isPending ? (
+        <Spinner />
+      ) : accounts.length === 0 ? (
         <p className="text-sm text-muted">{t('ledger.noAccounts')}</p>
       ) : (
         <div className="flex flex-col gap-3">
+          <div className="flex justify-center">
           <Segmented<'out' | 'in'>
             label={t('ledger.direction')}
             value={direction}
@@ -63,7 +67,8 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
               { value: 'in', label: t('ledger.income') },
             ]}
           />
-          <div className="grid grid-cols-2 gap-3">
+          </div>
+          <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
             <Field label={t('ledger.amount')} htmlFor="add-amount">
               <AmountInput id="add-amount" data-testid="add-amount" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             </Field>
@@ -72,7 +77,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
             </Field>
           </div>
           <Field label={t('ledger.description')} htmlFor="add-desc">
-            <Input id="add-desc" dir="auto" data-testid="add-description" maxLength={300} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Input id="add-desc" dir="auto" data-testid="add-description" placeholder={t('common.optional')} maxLength={300} value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
           <Field label={t('ledger.account')} htmlFor="add-acc">
             <Select id="add-acc" value={acc} onChange={(e) => setAccountId(e.target.value)}>
