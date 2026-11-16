@@ -64,6 +64,15 @@ test('an overlapping file imports only the new rows', async ({ page }) => {
   await expect(page.getByTestId('import-row')).toHaveCount(2);
 });
 
+test('a failed saved-mapping lookup stops the import instead of guessing', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.route('**/api/import-profiles*', (route) => route.fulfill({ status: 500, body: '{}' }));
+  await choose(page, 'otsar_2026-10.xlsx');
+  await expect(page.getByRole('alert').first()).toBeVisible();
+  await expect(page.getByTestId('import-preview')).toHaveCount(0);
+  await expect(page.getByTestId('import-commit')).toHaveCount(0);
+});
+
 test('broken file: error report listed and downloadable', async ({ page }) => {
   await signIn(page, 'admin');
   await choose(page, 'broken.xlsx');

@@ -210,12 +210,15 @@ export function Component() {
     setStep('previewing');
     // A mapping the household saved for this header wins over format detection, so re-imports keep
     // the same description column and dedupe keys.
-    let profiles = new Map<string, Mapping>();
+    let profiles: Map<string, Mapping>;
     try {
       const r = await get<{ profiles: { headerSignature: string; mapping: Mapping }[] }>(`/api/import-profiles?accountId=${account}`);
       profiles = new Map(r.profiles.map((x) => [x.headerSignature, x.mapping]));
-    } catch {
-      /* no profiles */
+    } catch (e) {
+      // never derive rows without knowing the account's saved mapping
+      if (my !== gen.current) return;
+      setApiError(e);
+      return setStep('pick');
     }
     if (my !== gen.current) return;
     const d = decideParse(p, profiles, current);
