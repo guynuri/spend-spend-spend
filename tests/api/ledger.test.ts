@@ -27,6 +27,17 @@ describe('accounts (AC3.1)', () => {
     const unused = await json<{ id: string }>('POST', '/api/accounts', { cookie: s.cookie, body: { name: 'Cash', type: 'cash' } });
     expect((await json<{ deleted: boolean }>('DELETE', `/api/accounts/${unused.body.id}`, { cookie: s.cookie })).body.deleted).toBe(true);
   });
+  it('bank from the catalog or free text; unknown bank ids rejected', async () => {
+    const s = await setup();
+    type L = { accounts: { id: string; bankId: string | null; institution: string | null }[] };
+    const get = async () => (await json<L>('GET', '/api/accounts', { cookie: s.cookie })).body.accounts.find((a) => a.id === s.accountId)!;
+    expect(await get()).toMatchObject({ bankId: null, institution: null });
+    expect((await json('PATCH', `/api/accounts/${s.accountId}`, { cookie: s.cookie, body: { bankId: 'leumi', institution: '' } })).status).toBe(200);
+    expect(await get()).toMatchObject({ bankId: 'leumi' });
+    expect((await json('PATCH', `/api/accounts/${s.accountId}`, { cookie: s.cookie, body: { bankId: null, institution: 'My credit union' } })).status).toBe(200);
+    expect(await get()).toMatchObject({ bankId: null, institution: 'My credit union' });
+    expect((await json('PATCH', `/api/accounts/${s.accountId}`, { cookie: s.cookie, body: { bankId: 'nope' } })).status).toBe(400);
+  });
 });
 
 describe('categories (AC3.2)', () => {

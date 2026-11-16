@@ -33,11 +33,24 @@ test('Otsar October file: preview → commit → ledger shows the rows', async (
 
 test('re-importing the same file finds 0 new and N duplicates', async ({ page }) => {
   await signIn(page, 'admin');
+  await ensureAccountNamed(page, 'Other bank');
   await choose(page, 'otsar_2026-10.xlsx');
   const e = expected['otsar_2026-10.xlsx'];
   await expect(count(page, 'new')).toHaveAttribute('data-value', '0');
   await expect(count(page, 'duplicate')).toHaveAttribute('data-value', String(e.rows));
   await expect(page.getByTestId('import-commit')).toBeDisabled();
+  // switching account re-derives the preview; no commit while that is in flight
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  await page.route('**/api/import-profiles*', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.getByTestId('import-preview-account').selectOption({ label: 'Other bank' });
+  await expect(page.getByTestId('import-commit')).toHaveCount(0);
+  release();
+  await expect(count(page, 'new')).toHaveAttribute('data-value', String(e.rows));
+  await expect(page.getByTestId('import-commit')).toBeEnabled();
 });
 
 test('an overlapping file imports only the new rows', async ({ page }) => {
@@ -49,6 +62,15 @@ test('an overlapping file imports only the new rows', async ({ page }) => {
   await page.getByTestId('import-commit').click();
   await expect(page.getByTestId('import-done-summary')).toHaveAttribute('data-inserted', String(e.newRowsAfterOctober));
   await expect(page.getByTestId('import-row')).toHaveCount(2);
+});
+
+test('a failed saved-mapping lookup stops the import instead of guessing', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.route('**/api/import-profiles*', (route) => route.fulfill({ status: 500, body: '{}' }));
+  await choose(page, 'otsar_2026-10.xlsx');
+  await expect(page.getByRole('alert').first()).toBeVisible();
+  await expect(page.getByTestId('import-preview')).toHaveCount(0);
+  await expect(page.getByTestId('import-commit')).toHaveCount(0);
 });
 
 test('broken file: error report listed and downloadable', async ({ page }) => {
@@ -85,6 +107,23 @@ test('generic windows-1255 CSV goes through the column mapper', async ({ page })
   await expect(page.getByTestId('import-done-summary')).toHaveAttribute('data-inserted', String(e.rows));
   // the mapping is remembered for this account
   await choose(page, 'generic_bank.csv', 'Other bank');
+  await expect(page.getByTestId('mapper')).toContainText(/saved|נשמרה/);
+});
+
+test('account picked from the bank list; a file without a known account asks which one', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/accounts');
+  await page.getByTestId('account-card').filter({ hasText: 'Other bank' }).getByRole('button', { name: /Edit|עריכה/ }).click();
+  await page.getByTestId('bank-leumi').click();
+  await page.getByTestId('account-save').click();
+  await expect(page.getByTestId('account-card').filter({ hasText: 'Other bank' }).getByTestId('bank-link')).toHaveAttribute('href', /leumi\.co\.il/);
+  // no account pre-selected; the generic CSV names no account → the user is asked
+  await page.goto('/import');
+  await page.getByTestId('import-file').setInputFiles(`${FIX}/generic_bank.csv`);
+  await expect(page.getByTestId('import-ask-account')).toBeVisible();
+  await expect(page.getByTestId('import-ask-continue')).toBeDisabled();
+  await page.getByTestId('import-ask-select').selectOption({ label: 'Other bank' });
+  await page.getByTestId('import-ask-continue').click();
   await expect(page.getByTestId('mapper')).toContainText(/saved|נשמרה/);
 });
 

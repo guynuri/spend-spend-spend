@@ -14,12 +14,17 @@ for (const locale of ['en', 'he'] as const) {
       await page.screenshot({ path: `e2e/screenshots/${locale}/state-${name}.png`, fullPage: false });
     };
     await page.goto('/import');
+    await page.getByTestId('import-file').setInputFiles(`${FIX}/otsar_2026-10.xlsx`);
+    await expect(page.getByTestId('import-ask-account')).toBeVisible();
+    await shot('import-ask-account');
+    await page.goto('/import');
+    await page.getByTestId('import-account').selectOption({ index: 1 });
     await expect(page.getByTestId('import-file')).toBeEnabled();
     await page.getByTestId('import-file').setInputFiles(`${FIX}/otsar_2026-10.xlsx`);
     await expect(page.getByTestId('import-preview')).toBeVisible();
     await shot('import-preview');
     await page.goto('/import');
-    await page.getByTestId('import-account').selectOption({ index: 1 });
+    await page.getByTestId('import-account').selectOption({ index: 2 });
     await expect(page.getByTestId('import-file')).toBeEnabled();
     await page.getByTestId('import-file').setInputFiles(`${FIX}/generic_bank.csv`);
     await expect(page.getByTestId('mapper')).toBeVisible();
