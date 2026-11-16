@@ -1,6 +1,6 @@
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { ADMIN_ITEM, MORE_ITEM, PAGE_ITEMS, SIDEBAR_ITEMS, navSlug, type NavItem } from '../lib/nav';
 import { useNavTabs } from '../lib/prefs';
@@ -116,6 +116,17 @@ export function Layout() {
   const canWrite = useCanWrite();
   const [adding, setAdding] = useState(false);
   const onAdd = me?.active && canWrite ? () => setAdding(true) : undefined;
+  // ?add=1 (daily reminder link) opens the add sheet once, then leaves the URL clean
+  const [sp, setSp] = useSearchParams();
+  const addParam = sp.get('add') === '1';
+  useEffect(() => {
+    if (!addParam || !me) return;
+    if (me.active && canWrite) setAdding(true);
+    setSp((p) => {
+      p.delete('add');
+      return p;
+    }, { replace: true });
+  }, [addParam, me, canWrite, setSp]);
   return (
     <TourProvider>
     <div className="flex min-h-dvh bg-bg text-text">

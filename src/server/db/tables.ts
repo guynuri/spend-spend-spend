@@ -3,6 +3,7 @@
  * isolation suite; a test asserts every table with a household_id column is listed here.
  */
 export const TENANT_TABLES = [
+  'reminders',
   'ai_usage',
   'reviews',
   'goal_contributions',

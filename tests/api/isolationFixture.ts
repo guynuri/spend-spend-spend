@@ -69,6 +69,9 @@ async function side(label: 'A' | 'B'): Promise<Side> {
   ids.openImport = (await post('/api/imports', { accountId: ids.account, parserId: 'generic', fileName: 'open.csv', fileHash: 'c'.repeat(64), period: null, rowsTotal: 1, rowsError: 0, closingBalance: null })).importId as string;
   await json('PUT', '/api/import-profiles', { cookie, body: { accountId: ids.account, headerSignature: `sig${tag}`, mapping: { headerRow: 0, columns: { date: 0 }, dateFormat: 'dmy', negate: false } } });
   await json('PUT', `/api/transactions/${ids.lump}/splits`, { cookie, body: { lines: [{ categoryId: cats[0]!.id, amountMinor: -30000, note: `split${tag}` }, { categoryId: ids.category, amountMinor: -20000 }] } });
+  ids.reminder = (await post('/api/reminders', { kind: 'import', freq: 'monthly', day: 1, hour: 9, accountId: ids.account })).id as string;
+  await post('/api/reminders/devices', { endpoint: `https://fcm.googleapis.com/fcm/send/${label}-${ownerId}`, keys: { p256dh: 'B'.repeat(87), auth: 'a'.repeat(22) } });
+  ids.device = (await DB.prepare('SELECT id FROM push_subscriptions WHERE user_id = ?1').bind(ownerId).first<{ id: string }>())!.id;
   return { householdId, ownerId, memberId, ownerCookie: cookie, inviteId: inv.id, ids };
 }
 
@@ -87,6 +90,8 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
     if (pattern.startsWith('/api/recurring/')) return param === 'dueDate' ? new Date().toISOString().slice(0, 10) : s.ids.recurring!;
     if (pattern.startsWith('/api/planned/')) return s.ids.planned!;
     if (pattern.startsWith('/api/reviews/')) return '2001-01';
+    if (pattern.startsWith('/api/reminders/devices/')) return s.ids.device!;
+    if (pattern.startsWith('/api/reminders/')) return s.ids.reminder!;
     if (pattern.startsWith('/api/goals/')) return param === 'cid' ? s.ids.contribution! : s.ids.goal!;
     throw new Error(`no id mapping for ${pattern} :${param}`);
   };
@@ -140,6 +145,10 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
         return { items: [{ key: 'zz', categoryId: s.ids.category, direction: 'out' }] };
       case 'PUT /api/budgets':
         return { month: today.slice(0, 7), items: [{ categoryId: s.ids.category, limitMinor: 100 }] };
+      case 'POST /api/reminders':
+        return { kind: 'import', freq: 'weekly', day: 0, hour: 9, accountId: s.ids.account };
+      case 'PATCH /api/reminders/:id':
+        return { enabled: false };
       case 'PUT /api/import-profiles':
         return { accountId: s.ids.account, headerSignature: 'zz', mapping: { headerRow: 0, columns: {}, dateFormat: 'dmy', negate: false } };
       default:

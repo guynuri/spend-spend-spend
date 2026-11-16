@@ -10,6 +10,7 @@ import { PAGE_ITEMS } from '../../lib/nav';
 import { useMe } from '../../lib/session';
 import { AiSettings } from '../ai/AiSettings';
 import { SecurityCard } from './Security';
+import { RemindersCard } from './Reminders';
 
 export function AppearanceCard() {
   const { t, i18n } = useTranslation();
@@ -106,6 +107,7 @@ export function Component() {
       <PageHeader title={t('settings.title')} />
       <AppearanceCard />
       <NavBarCard />
+      {me?.active && <RemindersCard />}
       {me?.active && <AiSettings />}
       <SecurityCard />
     </div>

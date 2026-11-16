@@ -118,6 +118,15 @@ export const ROUTES: Record<string, Cls> = {
   'POST /api/ai/categorize': 'tenant',
   'POST /api/ai/categorize/apply': 'tenant',
   'POST /api/ai/review/:month': 'tenant',
+  'GET /api/reminders': 'tenant',
+  'POST /api/reminders': 'tenant',
+  'PATCH /api/reminders/:id': 'tenant',
+  'DELETE /api/reminders/:id': 'tenant',
+  'POST /api/reminders/:id/seen': 'tenant',
+  'POST /api/reminders/devices': 'tenant',
+  'POST /api/reminders/devices/unsubscribe': 'tenant',
+  'DELETE /api/reminders/devices/:id': 'tenant',
+  'POST /api/reminders/test': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';
