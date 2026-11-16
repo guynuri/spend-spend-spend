@@ -6,8 +6,9 @@ import type { Ctx } from '../types';
 import { requireOwner } from '../middleware/auth';
 import { AiError, getProvider, type AiProvider } from '../ai/provider';
 import { CATEGORIZE_SYSTEM, reviewSystem } from '../ai/prompts';
-import { buildCategorizePayload, buildReviewPayload } from '../../shared/ai/payloads';
+import { buildCategorizePayload, buildReviewPayload, isP2P } from '../../shared/ai/payloads';
 import { norm } from '../../shared/normalize';
+import { isGenericPayee } from '../../shared/domain/ledger';
 import { id, monthStr } from '../../shared/schemas/common';
 import { newId, nowIso } from '../lib/crypto';
 import { AI_LIMITS, recordTokensStmt, reserveStmt, usageToday } from '../db/sql/aiUsage';
@@ -71,8 +72,11 @@ const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(
 /** All-time count of what /categorize can look at (the nav badge only covers 60 days). */
 aiRoutes.get('/uncategorized', async (c) => {
   const { db } = tctx(c);
-  const r = await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm <> ''");
-  return c.json({ count: r?.n ?? 0 });
+  // Same eligibility as buildCategorizePayload: transfers / payment apps are never sent, so not counted.
+  const rows = await db.all<{ d: string; op: string | null; n: number }>(
+    "SELECT MIN(description) AS d, MIN(operation_type) AS op, COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm <> '' GROUP BY description_norm",
+  );
+  return c.json({ count: rows.reduce((a, r) => a + (isP2P(r.d, r.op) || isGenericPayee(r.d) ? 0 : r.n), 0) });
 });
 
 aiRoutes.post('/categorize', async (c) => {
@@ -122,8 +126,12 @@ aiRoutes.post('/categorize/apply', async (c) => {
   const { db } = tctx(c);
   await db.assertOwned({ categories: b.items.map((i) => i.categoryId) });
   const now = nowIso();
+  // Payment apps / transfers / checks / ATM: one category must not spread to every such row or become a rule.
+  const items = b.items.filter((i) => !isGenericPayee(i.key));
+  const skipped = b.items.length - items.length;
+  if (!items.length) return c.json({ updated: 0, skipped });
   const res = await db.batch(
-    b.items.flatMap((i) => [
+    items.flatMap((i) => [
       db.stmt(
         `UPDATE transactions SET category_id = ?2, category_source = 'ai', updated_at = ?3
           WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND ((?5 = 'in' AND amount_minor > 0) OR (?5 = 'out' AND amount_minor < 0))`,
@@ -144,7 +152,7 @@ aiRoutes.post('/categorize/apply', async (c) => {
       ),
     ]),
   );
-  return c.json({ updated: res.filter((_, k) => k % 2 === 0).reduce((s, r) => s + (r.meta.changes ?? 0), 0) });
+  return c.json({ updated: res.filter((_, k) => k % 2 === 0).reduce((s, r) => s + (r.meta.changes ?? 0), 0), skipped });
 });
 
 const reviewOut = z.object({

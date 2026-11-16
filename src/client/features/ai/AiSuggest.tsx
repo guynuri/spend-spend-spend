@@ -53,10 +53,10 @@ export function AiSuggestButton() {
       setErr(e);
     }
   };
-  const apply = useApiMutation(() => post<{ updated: number }>('/api/ai/categorize/apply', { items: (items ?? []).filter((i) => i.on).map((i) => ({ key: i.key, categoryId: i.categoryId, direction: i.direction })) }), {
+  const apply = useApiMutation(() => post<{ updated: number; skipped?: number }>('/api/ai/categorize/apply', { items: (items ?? []).filter((i) => i.on).map((i) => ({ key: i.key, categoryId: i.categoryId, direction: i.direction })) }), {
     invalidate: [...LEDGER_DEPENDENT, ['rules'], ['ai-status']],
     onSuccess: (r) => {
-      toast({ title: t('ai.applied', { count: r.updated }), tone: 'good' });
+      toast({ title: [t('ai.applied', { count: r.updated }), r.skipped ? t('ai.skippedGeneric', { count: r.skipped }) : ''].filter(Boolean).join('. '), tone: 'good' });
       setOpen(false);
     },
   });
