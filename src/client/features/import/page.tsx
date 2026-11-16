@@ -120,10 +120,15 @@ export function Component() {
   const [apiError, setApiError] = useState<unknown>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Invariant: the rows shown and committed were derived for the selected account. Every re-derive
+  // bumps `gen` and leaves the preview step first (no commit button while in flight); a response
+  // whose `gen` is no longer current is dropped, so quick A→B→C switches can't land out of order.
+  const gen = useRef(0);
   const acc = accountId;
   const accObj = accounts.find((a) => a.id === acc);
 
   const reset = () => {
+    gen.current++; // drop any in-flight derive
     setStep('pick');
     setParsed(null);
     setResult(null);
@@ -138,6 +143,7 @@ export function Component() {
   };
 
   const runPreview = async (r: ParseResult, account: string) => {
+    const my = ++gen.current;
     setResult(r);
     setStep('previewing');
     try {
@@ -146,12 +152,14 @@ export function Component() {
       const wire = r.rows.map(toWire);
       for (let i = 0; i < wire.length; i += IMPORT_CHUNK) {
         const p = await post<PreviewResponse>('/api/imports/preview', { accountId: account, rows: wire.slice(i, i + IMPORT_CHUNK) });
+        if (my !== gen.current) return;
         rows.push(...p.rows);
         for (const k of Object.keys(counts) as RowStatus[]) counts[k] += p.counts[k];
       }
       setPreview({ rows, counts });
       setStep('preview');
     } catch (e) {
+      if (my !== gen.current) return;
       setApiError(e);
       setStep('pick');
     }
@@ -196,7 +204,10 @@ export function Component() {
     }
   };
 
-  const proceed = async (p: Parsed, account: string) => {
+  /** Derives the rows for `account` from the file as parsed (`orig`). `current` = the user's mapping, kept when the account has none. */
+  const proceed = async (p: Parsed, account: string, current?: Mapping | null) => {
+    const my = ++gen.current;
+    setStep('previewing');
     // A mapping the household saved for this header wins over format detection, so re-imports keep
     // the same description column and dedupe keys.
     let profiles = new Map<string, Mapping>();
@@ -206,7 +217,8 @@ export function Component() {
     } catch {
       /* no profiles */
     }
-    const d = decideParse(p, profiles);
+    if (my !== gen.current) return;
+    const d = decideParse(p, profiles, current);
     if ('result' in d) {
       setParsed(p);
       return void (await runPreview(d.result, account));
@@ -406,9 +418,8 @@ export function Component() {
                       onChange={(e) => {
                         setAccountId(e.target.value);
                         setAutoPicked(false);
-                        // a recognized layout may meet a saved mapping on the other account: decide again
-                        if (orig && orig.parserId !== 'generic') void proceed(orig, e.target.value);
-                        else void runPreview(result, e.target.value);
+                        // re-derive everything for the new account (its own saved mapping, its own preview)
+                        void proceed(orig!, e.target.value, mapping);
                       }}
                       data-testid="import-preview-account"
                     >

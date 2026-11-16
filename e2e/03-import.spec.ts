@@ -33,11 +33,24 @@ test('Otsar October file: preview → commit → ledger shows the rows', async (
 
 test('re-importing the same file finds 0 new and N duplicates', async ({ page }) => {
   await signIn(page, 'admin');
+  await ensureAccountNamed(page, 'Other bank');
   await choose(page, 'otsar_2026-10.xlsx');
   const e = expected['otsar_2026-10.xlsx'];
   await expect(count(page, 'new')).toHaveAttribute('data-value', '0');
   await expect(count(page, 'duplicate')).toHaveAttribute('data-value', String(e.rows));
   await expect(page.getByTestId('import-commit')).toBeDisabled();
+  // switching account re-derives the preview; no commit while that is in flight
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  await page.route('**/api/import-profiles*', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.getByTestId('import-preview-account').selectOption({ label: 'Other bank' });
+  await expect(page.getByTestId('import-commit')).toHaveCount(0);
+  release();
+  await expect(count(page, 'new')).toHaveAttribute('data-value', String(e.rows));
+  await expect(page.getByTestId('import-commit')).toBeEnabled();
 });
 
 test('an overlapping file imports only the new rows', async ({ page }) => {

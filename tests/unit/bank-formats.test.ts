@@ -188,6 +188,24 @@ describe('known bank / card layouts', () => {
     const d = decideParse(parsed, new Map([[headerSignature(g, 2), saved]]));
     expect('mapping' in d && d.profileUsed).toBe(true);
     if ('mapping' in d) expect(parseWithMapping(g, d.mapping).rows.map(dedupeKey)).toEqual(before);
+    // switching to an account without a profile while holding A's mapping: the format result, not A's mapping
+    expect('result' in decideParse(parsed, new Map(), saved)).toBe(true);
+  });
+
+  it('account switch on a generic file: the new account saved mapping wins over the current one', () => {
+    const g = grid([
+      ['תאריך', 'פרטים', 'הערה', 'סכום'],
+      ['01/10/2026', 'שכירות', 'אוקטובר', -3000],
+    ]);
+    const guess = guessMapping(g);
+    const parsed: Parsed = { fileName: 'f.csv', fileHash: '', kind: 'csv', grid: g, parserId: 'generic', bankIds: [], card: false, result: null, guess, signature: headerSignature(g, 0) };
+    const current: Mapping = { ...guess, columns: { ...guess.columns, description: 2 } }; // A's mapping
+    const bSaved: Mapping = { ...guess, columns: { ...guess.columns, description: 1 } };
+    const sig = headerSignature(g, 0);
+    const forB = decideParse(parsed, new Map([[sig, bSaved]]), current);
+    expect(forB).toEqual({ mapping: bSaved, signature: sig, profileUsed: true });
+    // B has no profile: keep the user's current mapping (shown in the Mapper again, not committed blindly)
+    expect(decideParse(parsed, new Map(), current)).toEqual({ mapping: current, signature: sig, profileUsed: false });
   });
 
   it('an unknown layout falls back to the generic mapper (debit/credit with currency suffix)', () => {
