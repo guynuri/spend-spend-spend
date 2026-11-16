@@ -180,9 +180,11 @@ test('split a card payment from an uploaded card statement; keep the difference 
   await addTx(page, '1000', 'ISRACARD E2E statement');
   await page.getByTestId('tx-row').first().click();
   await page.getByTestId('tx-split').click();
-  const csv = 'תאריך עסקה,שם בית העסק,סכום חיוב\n01/11/2026,שופרסל דיל 123,400.00\n02/11/2026,קפה E2E אחד,350.00\n03/11/2026,קפה E2E שני,200.00\n04/11/2026,זיכוי E2E,-50.00\n99/99/2026,שורה שבורה,10.00\n';
+  // Isracard layout: recognized by the card parser (parseCardStatement), not the generic guess.
+  const csv = 'תאריך רכישה,שם בית עסק,סכום חיוב\n01/11/2026,שופרסל דיל 123,400.00\n02/11/2026,קפה E2E אחד,350.00\n03/11/2026,קפה E2E שני,200.00\n04/11/2026,זיכוי E2E,-50.00\n99/99/2026,שורה שבורה,10.00\n';
   await page.getByTestId('split-file').setInputFiles({ name: 'card.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') });
   await expect(page.getByTestId('split-loaded')).toContainText('4');
+  await expect(page.getByTestId('split-loaded')).toHaveAttribute('data-card', 'true');
   await expect(page.getByTestId('split-skipped')).toBeVisible(); // the broken row is reported, not dropped silently
   const lines = page.getByTestId('split-line');
   await expect(lines).toHaveCount(4);

@@ -2,7 +2,7 @@ import { norm } from '../../../shared/normalize';
 import type { Grid, ParseResult } from '../../../shared/import/types';
 import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { parseAmount } from '../../../shared/import/values';
-import { FileError, parseFile } from '../import/parseFile';
+import { FileError, parseCardStatement, parseFile } from '../import/parseFile';
 
 /** splitsPut allows 30 lines: one is left for an unassigned remainder. */
 export const MAX_STATEMENT_LINES = 29;
@@ -11,14 +11,19 @@ export const MAX_STATEMENT_LINES = 29;
 const CHARGE = /^(סכום (ה)?חיוב|charge amount|billing amount|amount charged)/;
 
 /**
- * A card statement file → parsed rows (errors kept, never dropped).
- * ponytail: generic mapping (parseStatementGrid); swap for a card parser when one exists.
+ * A card statement file → parsed rows (errors kept, never dropped). Known card issuers go through
+ * the card parser; anything else falls back to a guessed mapping on the charged amount.
  */
-export async function readStatement(file: File): Promise<ParseResult> {
+export async function readStatement(file: File): Promise<ParseResult & { card: boolean }> {
+  try {
+    return { ...(await parseCardStatement(file)), card: true };
+  } catch (e) {
+    if (!(e instanceof FileError) || e.code !== 'not_card') throw e;
+  }
   const p = await parseFile(file);
-  if (p.result) return p.result;
+  if (p.result) return { ...p.result, card: false };
   if (!p.guess) throw new FileError('unsupported_file');
-  return parseStatementGrid(p.grid, p.guess);
+  return { ...parseStatementGrid(p.grid, p.guess), card: false };
 }
 
 /**

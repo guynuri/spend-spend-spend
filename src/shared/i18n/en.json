@@ -1061,6 +1061,8 @@
     "apply": "Apply selected",
     "applied_one": "{{count}} transaction categorized",
     "applied_other": "{{count}} transactions categorized",
+    "skippedGeneric_one": "{{count}} transfer or payment-app suggestion was skipped: categorize those one by one",
+    "skippedGeneric_other": "{{count}} transfer or payment-app suggestions were skipped: categorize those one by one",
     "times": "×{{count}}"
   },
   "security": {

@@ -16,14 +16,14 @@ import { FileError } from '../import/parseFile';
 import { readStatement, statementFlip, statementLines } from './statement';
 
 /** Card statement → split lines (input text in the transaction's direction) + skipped row count. */
-async function loadStatement(file: File, total: number, otherNote: (n: number) => string): Promise<{ lines: Line[]; count: number; skipped: number }> {
-  const { rows, errors } = await readStatement(file);
+async function loadStatement(file: File, total: number, otherNote: (n: number) => string): Promise<{ lines: Line[]; count: number; skipped: number; card: boolean }> {
+  const { rows, errors, card } = await readStatement(file);
   if (!rows.length) throw new FileError('no_rows');
   const flip = statementFlip(rows, total);
   const { categoryIds } = await post<{ categoryIds: (string | null)[] }>('/api/rules/match', { items: rows.map((r) => ({ description: r.description.slice(0, 300), amountMinor: r.amountMinor * flip })) });
   const sign = total < 0 ? -1 : 1;
   const lines = statementLines(rows, total, categoryIds, otherNote).map((l) => ({ categoryId: l.categoryId, note: l.note, amount: minorToInput(l.minor * sign) }));
-  return { lines, count: rows.length, skipped: errors.length };
+  return { lines, count: rows.length, skipped: errors.length, card };
 }
 
 interface Line {
@@ -41,7 +41,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const [lines, setLines] = useState<Line[]>(() => (tx.splits.length ? toLines(tx.splits, sign) : [{ categoryId: null, amount: '', note: '' }, { categoryId: null, amount: '', note: '' }]));
   const [from, setFrom] = useState<string | null>(null);
   const [noPrev, setNoPrev] = useState(false);
-  const [loaded, setLoaded] = useState<{ count: number; skipped: number } | null>(null);
+  const [loaded, setLoaded] = useState<{ count: number; skipped: number; card: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const parsed = lines.map((l) => parseMoneyInput(l.amount || '0'));
   const valid = parsed.every((p) => p !== null);
@@ -98,7 +98,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
         )}
         {noPrev && <span className="text-xs text-muted">{t('split.noPrevious')}</span>}
       </div>
-      <p className="text-xs text-muted" data-testid="split-loaded">
+      <p className="text-xs text-muted" data-testid="split-loaded" data-card={loaded?.card}>
         {loaded ? t('split.statementLoaded', { count: loaded.count }) : t('split.uploadHint')}
       </p>
       {!!loaded?.skipped && (
