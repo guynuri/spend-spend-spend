@@ -6,7 +6,7 @@ import type { Ctx } from '../types';
 import { requireOwner } from '../middleware/auth';
 import { AiError, getProvider, type AiProvider } from '../ai/provider';
 import { CATEGORIZE_SYSTEM, reviewSystem } from '../ai/prompts';
-import { buildCategorizePayload, buildReviewPayload } from '../../shared/ai/payloads';
+import { buildCategorizePayload, buildReviewPayload, isP2P } from '../../shared/ai/payloads';
 import { norm } from '../../shared/normalize';
 import { isGenericPayee } from '../../shared/domain/ledger';
 import { id, monthStr } from '../../shared/schemas/common';
@@ -72,8 +72,11 @@ const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(
 /** All-time count of what /categorize can look at (the nav badge only covers 60 days). */
 aiRoutes.get('/uncategorized', async (c) => {
   const { db } = tctx(c);
-  const r = await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm <> ''");
-  return c.json({ count: r?.n ?? 0 });
+  // Same eligibility as buildCategorizePayload: transfers / payment apps are never sent, so not counted.
+  const rows = await db.all<{ d: string; op: string | null; n: number }>(
+    "SELECT MIN(description) AS d, MIN(operation_type) AS op, COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm <> '' GROUP BY description_norm",
+  );
+  return c.json({ count: rows.reduce((a, r) => a + (isP2P(r.d, r.op) || isGenericPayee(r.d) ? 0 : r.n), 0) });
 });
 
 aiRoutes.post('/categorize', async (c) => {

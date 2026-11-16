@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_STATEMENT_LINES, parseStatementGrid, statementFlip, statementLines } from '../../src/client/features/ledger/statement';
+import { readFileSync } from 'node:fs';
+import { MAX_STATEMENT_LINES, dropUnbilledErrors, readStatement, parseStatementGrid, statementFlip, statementLines } from '../../src/client/features/ledger/statement';
 import { guessMapping } from '../../src/shared/import/generic';
 
 const sum = (ls: { minor: number }[]) => ls.reduce((a, l) => a + l.minor, 0);
@@ -56,5 +57,32 @@ describe('card statement columns', () => {
     const r = parseStatementGrid(grid, guessMapping(grid));
     expect(r.rows.map((x) => Math.abs(x.amountMinor))).toEqual([50000, 11050, 2000]);
     expect(r.errors.map((e) => e.code)).toEqual(['date_invalid']); // only real errors count as skipped
+  });
+});
+
+describe('card parser results', () => {
+  it('blank / 0 charge rows are not reported as skipped; unreadable amounts still are', () => {
+    const grid = [
+      ['פירוט עסקאות'],
+      ['תאריך רכישה', 'שם בית עסק', 'סכום עסקה', 'סכום חיוב'],
+      ['01/11/2026', 'PENDING', '80', ''],
+      ['02/11/2026', 'FOREIGN', '12', '0'],
+      ['03/11/2026', 'GARBAGE', '5', 'abc'],
+    ];
+    const r = { parserId: 'isracard', rows: [], warnings: [], errors: [3, 4, 5].map((row) => ({ row, code: 'amount_invalid' as const })) };
+    expect(dropUnbilledErrors(r, grid).errors).toEqual([{ row: 5, code: 'amount_invalid' }]);
+  });
+});
+
+describe('readStatement', () => {
+  const file = (path: string) => new File([readFileSync(path)], path.split('/').pop()!);
+  it('refuses a recognized bank statement (not a card statement)', async () => {
+    await expect(readStatement(file('fixtures/otsar-hahayal/synthetic/otsar_2026-10.xlsx'))).rejects.toMatchObject({ code: 'not_card' });
+  });
+  it('a card issuer layout goes through the card parser', async () => {
+    const csv = 'תאריך רכישה,שם בית עסק,סכום חיוב\n01/11/2026,שופרסל,400.00\n02/11/2026,קפה,20.00\n';
+    const r = await readStatement(new File([csv], 'card.csv', { type: 'text/csv' }));
+    expect(r.card).toBe(true);
+    expect(r.rows).toHaveLength(2);
   });
 });

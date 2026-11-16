@@ -1,7 +1,7 @@
 import { norm } from '../../../shared/normalize';
-import type { Grid, ParseResult } from '../../../shared/import/types';
+import type { Cell, Grid, ParseResult } from '../../../shared/import/types';
 import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
-import { parseAmount } from '../../../shared/import/values';
+import { cellText, parseAmount } from '../../../shared/import/values';
 import { FileError, parseCardStatement, parseFile } from '../import/parseFile';
 
 /** splitsPut allows 30 lines: one is left for an unassigned remainder. */
@@ -16,14 +16,29 @@ const CHARGE = /^(סכום (ה)?חיוב|charge amount|billing amount|amount cha
  */
 export async function readStatement(file: File): Promise<ParseResult & { card: boolean }> {
   try {
-    return { ...(await parseCardStatement(file)), card: true };
+    const r = await parseCardStatement(file);
+    // Rows without a charge (pending, not billed yet) are not errors: look them up in the sheet.
+    const grid = r.errors.some((e) => e.code === 'amount_invalid') ? (await parseFile(file)).grid : [];
+    return { ...dropUnbilledErrors(r, grid), card: true };
   } catch (e) {
     if (!(e instanceof FileError) || e.code !== 'not_card') throw e;
   }
   const p = await parseFile(file);
-  if (p.result) return { ...p.result, card: false };
+  // A recognized bank statement (salary, rent, the card payment itself) is not a card statement.
+  if (p.result) throw new FileError('not_card');
   if (!p.guess) throw new FileError('unsupported_file');
   return { ...parseStatementGrid(p.grid, p.guess), card: false };
+}
+
+const unbilled = (c: Cell | undefined) => c === null || c === undefined || cellText(c) === '' || parseAmount(c) === 0;
+const chargeColumn = (row: Cell[] | undefined) => (row ?? []).findIndex((c) => CHARGE.test(norm(c === null ? '' : String(c))));
+
+/** Drops `amount_invalid` errors for rows whose charge cell is blank or 0 (`row` is the 1-based sheet row). */
+export function dropUnbilledErrors<T extends ParseResult>(r: T, grid: Grid): T {
+  const h = grid.slice(0, 40).findIndex((row) => chargeColumn(row) >= 0);
+  if (h < 0) return r;
+  const col = chargeColumn(grid[h]);
+  return { ...r, errors: r.errors.filter((e) => e.code !== 'amount_invalid' || !unbilled(grid[e.row - 1]?.[col])) };
 }
 
 /**
@@ -31,10 +46,10 @@ export async function readStatement(file: File): Promise<ParseResult & { card: b
  * charge (pending, not billed yet) are not part of this payment and are left out without an error.
  */
 export function parseStatementGrid(grid: Grid, guess: Mapping): ParseResult {
-  const charge = (grid[guess.headerRow] ?? []).findIndex((c) => CHARGE.test(norm(c === null ? '' : String(c))));
+  const charge = chargeColumn(grid[guess.headerRow]);
   const m = charge >= 0 ? { ...guess, columns: { ...guess.columns, amount: charge, debit: undefined, credit: undefined } } : guess;
   if (!mappingValid(m)) throw new FileError('unsupported_file');
-  const billed = charge < 0 ? grid : grid.filter((r, i) => i <= m.headerRow || !!parseAmount(r[charge] ?? null));
+  const billed = charge < 0 ? grid : grid.filter((r, i) => i <= m.headerRow || !unbilled(r[charge]));
   return parseWithMapping(billed, m);
 }
 
