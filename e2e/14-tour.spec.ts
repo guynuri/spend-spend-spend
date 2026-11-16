@@ -67,6 +67,20 @@ for (const locale of ['en', 'he'] as const) {
     const tx = await (await p.request.get('/api/transactions?from=2000-01-01&to=2100-01-01')).json();
     expect(tx.summary.count).toBe(0);
     expect((await (await p.request.get('/api/accounts')).json()).accounts).toHaveLength(0);
+
+    if (locale === 'en') {
+      // The safety cushion is editable on the forecast; the warning follows it.
+      const r = await p.request.post('/api/household/sample-data', { headers: { 'X-MZ': '1', Origin: new URL(p.url()).origin }, data: {} });
+      expect(r.status()).toBe(201);
+      await p.goto('/forecast');
+      await expect(p.getByTestId('forecast-cushion')).toContainText('0');
+      await expect(p.getByText('below your safety cushion')).toHaveCount(0);
+      await p.getByTestId('cushion-edit').click();
+      await p.getByTestId('cushion-input').fill('999999');
+      await p.getByTestId('cushion-save').click();
+      await expect(p.getByTestId('cushion-edit')).toBeVisible();
+      await expect(p.getByText('below your safety cushion')).toBeVisible();
+    }
     await ctx.close();
   });
 }

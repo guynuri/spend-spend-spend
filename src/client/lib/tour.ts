@@ -43,6 +43,7 @@ export const TOUR_STEPS: TourStep[] = [
   { id: 'reviewFinal', path: '/review?month={month}&step=6', target: 'review-final' },
   { id: 'reviewAi', path: '/review?month={month}&step=6', target: 'review-ai' },
   { id: 'navBar', path: '/settings', target: 'navbar' },
+  { id: 'reminders', path: '/settings', target: 'reminders' },
 ];
 
 export const pathOf = (p: string) => p.split('?')[0]!;

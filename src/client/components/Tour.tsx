@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { pathOf, TourCtx, tourSteps, type TourApi, type TourStep } from '../lib/
 import type { MeResponse } from '../../shared/schemas/me';
 import { useToast } from './Toast';
 
-const TourOverlay = lazy(() => import('./TourOverlay'));
+type Overlay = typeof import('./TourOverlay').default;
 
 const LS_KEY = 'mz_tour_done';
 const seen = () => {
@@ -52,6 +52,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [run, setRun] = useState<Run | null>(null);
   const expected = useRef(pathname);
   const starting = useRef(false);
+  // Loaded before demo mode starts: if the chunk can't load, the tour never begins (no stuck inert page).
+  const overlay = useRef<Overlay | null>(null);
 
   const close = () => {
     setDemo(null);
@@ -71,6 +73,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     starting.current = true;
     const locale = i18n.language === 'he' ? 'he' : 'en';
     try {
+      overlay.current ??= (await import('./TourOverlay')).default;
       const d = await post<{ badges: MeResponse['badges']; reviewMonth: string; cardMonth: string }>('/api/demo', { locale });
       const steps = tourSteps({ canWrite, page, month: d.reviewMonth, cardMonth: d.cardMonth });
       if (!steps.length) return;
@@ -104,13 +107,16 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   // The page behind the spotlight is inert: focus and screen readers stay in the tour.
   useEffect(() => {
-    document.getElementById('root')?.toggleAttribute('inert', !!run);
+    const r = document.getElementById('root');
+    r?.toggleAttribute('inert', !!run);
+    return () => r?.removeAttribute('inert');
   }, [run]);
   useEffect(() => () => setDemo(null), []);
 
   const api: TourApi = { startPage: (p) => void start(p), startFull: () => void start() };
   const demoMe = run && me ? { ...me, active: me.active && { ...me.active, hasSampleData: false }, badges: run.badges } : null;
   const step = run?.steps[run.i];
+  const TourOverlay = overlay.current;
 
   return (
     <TourCtx.Provider value={api}>
@@ -121,19 +127,17 @@ export function TourProvider({ children }: { children: ReactNode }) {
       ) : (
         children
       )}
-      {run && step && (
-        <Suspense fallback={null}>
-          <TourOverlay
-            key={step.id}
-            step={step}
-            n={run.i + 1}
-            total={run.steps.length}
-            onNext={() => go(run, run.i + 1, 1)}
-            onBack={run.i > 0 ? () => go(run, run.i - 1, -1) : undefined}
-            onMissing={() => (run.dir === -1 && run.i === 0 ? go(run, 1, 1) : go(run, run.i + run.dir, run.dir))}
-            onClose={close}
-          />
-        </Suspense>
+      {run && step && TourOverlay && (
+        <TourOverlay
+          key={step.id}
+          step={step}
+          n={run.i + 1}
+          total={run.steps.length}
+          onNext={() => go(run, run.i + 1, 1)}
+          onBack={run.i > 0 ? () => go(run, run.i - 1, -1) : undefined}
+          onMissing={() => (run.dir === -1 && run.i === 0 ? go(run, 1, 1) : go(run, run.i + run.dir, run.dir))}
+          onClose={close}
+        />
       )}
     </TourCtx.Provider>
   );

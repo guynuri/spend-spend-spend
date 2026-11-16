@@ -1,15 +1,58 @@
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Info } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, Info, Pencil, X } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { get } from '../../api';
-import { Badge, Card, CardTitle, ErrorState, Spinner } from '../../components/ui';
+import { get, patch } from '../../api';
+import { Badge, Button, Card, CardTitle, ErrorState, IconButton, Spinner } from '../../components/ui';
+import { AmountInput } from '../../components/AmountInput';
+import { useApiMutation } from '../../lib/mutate';
+import { useCanWrite } from '../../lib/session';
+import { minorToInput, parseMoneyInput } from '../../../shared/money';
 import { Money } from '../../components/Money';
 import { DateText, useFormatDate } from '../../components/DateText';
 import { ExplainSheet } from '../../components/ExplainSheet';
 import { C, ChartBox, tooltipStyle, useCompactMoney, useMoneyFmt } from '../../components/charts';
 import type { ForecastView } from '../../../shared/domain/forecast';
+
+/** The safety cushion amount; owners and members can change it in place (household setting). */
+function CushionValue({ minor }: { minor: number }) {
+  const { t } = useTranslation();
+  const canWrite = useCanWrite();
+  const [text, setText] = useState<string | null>(null);
+  const v = text === null ? null : parseMoneyInput(text);
+  const save = useApiMutation((m: number) => patch('/api/household', { safetyBufferMinor: m }), { invalidate: [['forecast'], ['dashboard'], ['household']], onSuccess: () => setText(null), successKey: 'ledger.saved' });
+  if (text === null)
+    return (
+      <span className="flex items-center gap-2">
+        <Money minor={minor} decimals={0} />
+        {canWrite && (
+          <Button variant="ghost" size="sm" onClick={() => setText(minorToInput(minor))} data-testid="cushion-edit">
+            <Pencil className="size-4" aria-hidden />
+            {t('forecast.cushionEdit')}
+          </Button>
+        )}
+      </span>
+    );
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (v !== null && v >= 0) save.mutate(v);
+      }}
+    >
+      <AmountInput aria-label={t('forecast.cushionLabel')} className="max-w-36" value={text} onChange={(e) => setText(e.target.value)} autoFocus data-testid="cushion-input" />
+      <Button type="submit" size="sm" busy={save.isPending} disabled={v === null || v < 0} data-testid="cushion-save">
+        {t('forecast.cushionSave')}
+      </Button>
+      <IconButton label={t('common.cancel')} onClick={() => setText(null)}>
+        <X className="size-4" aria-hidden />
+      </IconButton>
+    </form>
+  );
+}
 
 export const useForecast = () => useQuery({ queryKey: ['forecast'], queryFn: () => get<ForecastView>('/api/forecast') });
 
@@ -124,7 +167,7 @@ export function ForecastCard({ withChart = true, link = true }: { withChart?: bo
             </details>
           </dt>
           <dd className="font-semibold">
-            <Money minor={f.safetyBuffer} decimals={0} />
+            <CushionValue minor={f.safetyBuffer} />
           </dd>
         </div>
       </dl>

@@ -376,7 +376,7 @@
     "opening": "Opening balance",
     "openingDate": "Opening balance date",
     "includeInForecast": "Include in the forecast",
-    "isLiquid": "Counts as available money (safety cushion)",
+    "isLiquid": "Counts as available money (emergency fund)",
     "archived": "Archived",
     "archive": "Archive",
     "unarchive": "Restore",
@@ -679,10 +679,13 @@
       "low": "Low confidence"
     },
     "belowZero": "Your balance is expected to go below zero.",
-    "belowBuffer": "Your balance is expected to drop below your safety buffer.",
+    "belowBuffer": "Your balance is expected to drop below your safety cushion.",
     "cushion": "Safety cushion",
     "cushionWhat": "What is this?",
-    "cushionHint": "The minimum balance you want to keep at all times. The forecast warns you when the projected lowest balance drops below it.",
+    "cushionHint": "The minimum balance you want to keep at all times. The forecast warns you when the projected lowest balance drops below it. At 0 it only warns below zero.",
+    "cushionEdit": "Edit",
+    "cushionSave": "Save",
+    "cushionLabel": "Safety cushion amount",
     "noAccount": "Mark an account as “Include in the forecast” to see a forecast.",
     "chart": "Projected balance to the end of next month",
     "today": "Today",
@@ -845,7 +848,7 @@
     "subs": {
       "savings": "Savings rate",
       "debt": "Debt load",
-      "cushion": "Safety cushion",
+      "cushion": "Emergency fund",
       "budget": "Budget adherence",
       "goals": "Goal progress"
     },
@@ -880,7 +883,7 @@
     "stale_data": "Your latest data is from {{date}}. Import a recent statement.",
     "no_forecast_account": "Mark your main account “Include in the forecast” to see where the month is heading.",
     "low_point_negative": "Your balance may drop to {{amount}} on {{date}}.",
-    "low_point_buffer": "Your balance may drop to {{amount}} on {{date}}, below your {{buffer}} buffer.",
+    "low_point_buffer": "Your balance may drop to {{amount}} on {{date}}, below your {{buffer}} safety cushion.",
     "uncategorized_one": "{{count}} transaction needs a category",
     "uncategorized_other": "{{count}} transactions need a category",
     "card_unsplit": "{{amount}} in card charges isn't split into categories",
@@ -1217,7 +1220,7 @@
       },
       "cushion": {
         "title": "Safety cushion",
-        "body": "The minimum balance you want to keep at all times. The forecast warns you when the projected lowest point drops below it."
+        "body": "The minimum balance you want to keep at all times. Set it here; the forecast warns you when the projected lowest point drops below it."
       },
       "trendsRange": {
         "title": "Choose a period",
@@ -1262,6 +1265,10 @@
       "navBar": {
         "title": "Choose your bottom bar",
         "body": "Pick the three pages that sit in the phone’s bottom bar. Everything else stays under More."
+      },
+      "reminders": {
+        "title": "Reminders",
+        "body": "Your own nudges, e.g. to import a fresh statement weekly or log today’s spending. They pop up here and, if you allow notifications, on this phone."
       }
     }
   }

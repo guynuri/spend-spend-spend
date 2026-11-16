@@ -10,6 +10,7 @@ import { tctx } from '../ctx';
 import { body, HttpError, notFound } from '../http';
 import { newId, nowIso } from '../lib/crypto';
 import { vapidKeys } from '../lib/webpush';
+import { isDemoHousehold } from '../seed/demoHousehold';
 import { pushMessage, sendAll } from '../db/reminders';
 import { endpointSchema, isDue, MAX_DEVICES, MAX_REMINDERS, reminderInputSchema, subscriptionSchema, type Reminder, type RemindersResponse } from '../../shared/reminders';
 
@@ -36,7 +37,8 @@ reminderRoutes.get('/', async (c) => {
   const res: RemindersResponse = {
     reminders: rows.map((r) => ({ id: r.id, kind: r.kind, freq: r.freq, day: r.day, weekdays: r.weekdays, hour: r.hour, accountId: r.account_id, enabled: r.enabled === 1, due: r.enabled === 1 && isDue(r, hh.timezone, now, r.seen_at) })),
     push: { available: !!keys, publicKey: keys?.publicKey ?? null },
-    devices: keys ? (await db.pushOf(userId).list()).map((d) => ({ id: d.id, endpoint: d.endpoint, label: d.label, createdAt: d.created_at })) : [],
+    // Tour demo mode reads the shared demo household: never show this user's real devices there.
+    devices: keys && !isDemoHousehold(hh.id) ? (await db.pushOf(userId).list()).map((d) => ({ id: d.id, endpoint: d.endpoint, label: d.label, createdAt: d.created_at })) : [],
   };
   return c.json(res);
 });
