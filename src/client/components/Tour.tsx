@@ -150,6 +150,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
                     const pages = restPages(run.seen);
                     go({ ...run, steps: more(run), seen: [...run.seen, ...pages], main: false, end: false }, 0, 1);
                   },
+                  back: () => go({ ...run, end: false }, run.i, -1),
                   finish: () => {
                     close();
                     if (run.main) toast({ title: t('tour.later') });

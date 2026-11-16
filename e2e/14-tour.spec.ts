@@ -74,6 +74,12 @@ for (const locale of ['en', 'he'] as const) {
     await expect(p.getByTestId('demo-badge')).toBeVisible();
     await expectNoHorizontalOverflow(p);
     await p.screenshot({ path: `e2e/screenshots/tour/${locale}-end.png` });
+    // Back returns to the last step (not the one before); Next brings the card again.
+    await p.getByTestId('tour-back').click();
+    await expect(pop).toHaveAttribute('data-step', MAIN.at(-1)!.id);
+    await expect(p.getByTestId('tour-progress')).toHaveText(`${MAIN.length}/${MAIN.length}`);
+    await p.getByTestId('tour-next').click();
+    await expect(p.getByTestId('tour-end-more')).toBeVisible();
     await p.getByTestId('tour-end-more').click();
     await walk(REST, 'rest-');
     // After the last page there is nothing left to offer: the tour simply ends.

@@ -13,7 +13,7 @@ const PAD = 6;
  * One tour step: dims the app, cuts a ringed hole around the target and puts the popover beside it.
  * The page behind is inert (Tour.tsx); clicks on the dim layer do nothing; Esc ends the tour.
  */
-export default function TourOverlay({ step, end, n, total, onNext, onBack, onClose, onMissing }: { step: TourStep; end?: { id: 'main' | 'page'; more: () => void; finish: () => void }; n: number; total: number; onNext: () => void; onBack?: () => void; onClose: () => void; onMissing: () => void }) {
+export default function TourOverlay({ step, end, n, total, onNext, onBack, onClose, onMissing }: { step: TourStep; end?: { id: 'main' | 'page'; more: () => void; back: () => void; finish: () => void }; n: number; total: number; onNext: () => void; onBack?: () => void; onClose: () => void; onMissing: () => void }) {
   const { t, i18n } = useTranslation();
   const [box, setBox] = useState<Box | null>(null);
   const [found, setFound] = useState(step.target === null);
@@ -118,6 +118,9 @@ export default function TourOverlay({ step, end, n, total, onNext, onBack, onClo
               </Button>
               <Button variant="secondary" size="sm" onClick={end.finish} data-testid="tour-end-finish">
                 {t(`tour.end.${end.id}.finish`)}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={end.back} data-testid="tour-back">
+                {t('tour.back')}
               </Button>
             </div>
           ) : (
