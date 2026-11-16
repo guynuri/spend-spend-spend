@@ -224,7 +224,7 @@ export function globalDb(db: D1Database) {
                     (SELECT MAX(i.created_at) FROM imports i WHERE i.household_id = h.id AND i.status = 'committed') AS last_import_at,
                     (SELECT json_group_array(json_object('id', u.id, 'name', u.display_name)) FROM memberships m JOIN users u ON u.id = m.user_id
                       WHERE m.household_id = h.id AND m.role = 'owner') AS owners_json
-               FROM households h ORDER BY h.created_at DESC`,
+               FROM households h WHERE h.id NOT LIKE '~demo-%' ORDER BY h.created_at DESC`,
           )
           .all<{ id: string; name: string; status: string; created_at: string; member_count: number; last_import_at: string | null; owners_json: string }>()
       ).results,

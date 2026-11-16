@@ -37,11 +37,11 @@ function Sidebar({ onAdd }: { onAdd?: () => void }) {
   const me = useMe();
   const items = me?.user.isSuperAdmin ? [...SIDEBAR_ITEMS, ADMIN_ITEM] : SIDEBAR_ITEMS;
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-border bg-surface px-3 py-4 lg:flex" data-testid="sidebar">
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-border bg-surface px-3 py-4 lg:flex" data-testid="sidebar" data-tour="nav">
       <div className="mb-4 px-3 text-xl font-bold text-accent">{t('app.name')}</div>
       {me?.active && <div className="mb-3 truncate px-3 text-sm text-muted">{me.active.name}</div>}
       {onAdd && (
-        <button type="button" onClick={onAdd} data-testid="side-add" className="mb-3 flex min-h-11 items-center gap-3 rounded-xl bg-accent px-3 text-sm font-semibold text-accent-fg hover:opacity-90">
+        <button type="button" onClick={onAdd} data-testid="side-add" data-tour="add" className="mb-3 flex min-h-11 items-center gap-3 rounded-xl bg-accent px-3 text-sm font-semibold text-accent-fg hover:opacity-90">
           <Plus className="size-5 shrink-0" aria-hidden />
           {t('ledger.add')}
         </button>
@@ -76,6 +76,7 @@ function TabBar({ onAdd }: { onAdd?: () => void }) {
     <nav
       aria-label={t('nav.main')}
       data-testid="tabbar"
+      data-tour="nav"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       <ul className="mx-auto flex max-w-xl [&>li]:min-w-0 [&>li]:flex-1">
@@ -83,7 +84,7 @@ function TabBar({ onAdd }: { onAdd?: () => void }) {
           it === 'add' ? (
             onAdd && (
               <li key="add" className="flex items-center justify-center">
-                <button type="button" onClick={onAdd} data-testid="tab-add" aria-label={t('ledger.add')} title={t('ledger.add')} className="-mt-5 inline-flex size-14 items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg ring-4 ring-bg active:scale-95">
+                <button type="button" onClick={onAdd} data-testid="tab-add" data-tour="add" aria-label={t('ledger.add')} title={t('ledger.add')} className="-mt-5 inline-flex size-14 items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg ring-4 ring-bg active:scale-95">
                   <Plus className="size-7" aria-hidden />
                 </button>
               </li>

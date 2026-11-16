@@ -73,7 +73,7 @@ function NavBarCard() {
     setTabs(next);
   };
   return (
-    <Card className="lg:hidden" data-testid="navbar-settings">
+    <Card className="lg:hidden" data-testid="navbar-settings" data-tour="navbar">
       <CardTitle action={<Button variant="ghost" size="sm" onClick={() => setTabs(null)} data-testid="navbar-reset">{t('settings.navReset')}</Button>}>{t('settings.navBar')}</CardTitle>
       <p className="mb-3 text-sm text-muted">{t('settings.navBarHint')}</p>
       <ol className="flex flex-col gap-2">

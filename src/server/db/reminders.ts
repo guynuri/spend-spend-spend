@@ -83,7 +83,7 @@ export async function runReminders(env: AppEnv, now = new Date(), fetchImpl: typ
         `SELECT r.id, r.household_id, r.user_id, r.kind, r.freq, r.day, r.weekdays, r.hour, r.account_id, r.last_sent_at, r.review_month, r.retry,
                 h.timezone AS tz, COALESCE(u.locale, h.locale) AS locale, a.bank_id AS bank_id
            FROM reminders r
-           JOIN households h ON h.id = r.household_id AND h.status = 'active'
+           JOIN households h ON h.id = r.household_id AND h.status = 'active' AND h.id NOT LIKE '~demo-%'
            JOIN memberships m ON m.household_id = r.household_id AND m.user_id = r.user_id
            JOIN users u ON u.id = r.user_id
            LEFT JOIN accounts a ON a.id = r.account_id AND a.household_id = r.household_id

@@ -200,7 +200,7 @@ export function Component() {
           </>
         }
       />
-      <Card>
+      <Card data-tour="recurring-totals">
         <div className="grid grid-cols-2 gap-3" data-testid="recurring-totals">
           <div>
             <div className="text-xs text-muted">{t('recurring.monthly')}</div>

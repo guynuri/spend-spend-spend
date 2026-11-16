@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ADMIN_ITEM, SIDEBAR_ITEMS } from '../lib/nav';
-import { useCanWrite, useMe } from '../lib/session';
-import { TourCtx, tourSlug } from '../lib/tour';
-import { Sheet } from './Sheet';
-import { Button } from './ui';
+import { errorKey, post, setDemo } from '../api';
+import { SessionCtx, useCanWrite, useMe } from '../lib/session';
+import { pathOf, TourCtx, tourSteps, type TourApi, type TourStep } from '../lib/tour';
+import type { MeResponse } from '../../shared/schemas/me';
+import { useToast } from './Toast';
+
+type Overlay = typeof import('./TourOverlay').default;
 
 const LS_KEY = 'mz_tour_done';
 const seen = () => {
@@ -23,123 +26,119 @@ const markSeen = () => {
   }
 };
 
-type State = { mode: 'full'; i: number } | { mode: 'page'; path: string } | null;
-
-function Points({ k }: { k: string }) {
-  const { t } = useTranslation();
-  return (
-    <ul className="mt-3 list-disc space-y-1.5 ps-5 text-sm">
-      {t(k).split('\n').map((p) => (
-        <li key={p}>{p}</li>
-      ))}
-    </ul>
-  );
-}
-
-function PageText({ path }: { path: string }) {
-  const { t } = useTranslation();
-  const canWrite = useCanWrite();
-  const s = tourSlug(path);
-  return (
-    <div data-testid={`tour-page-${s}`}>
-      <p className="text-sm">{t(`tour.pages.${s}.body`)}</p>
-      <Points k={`tour.pages.${s}.points`} />
-      {!canWrite && path !== '/admin' && <p className="mt-3 rounded-xl bg-surface-2 p-3 text-sm text-muted">{t('tour.viewerNote')}</p>}
-    </div>
-  );
+interface Run {
+  steps: TourStep[];
+  i: number;
+  dir: 1 | -1;
+  /** A throwaway cache for demo responses: the real cache is never touched while the tour runs. */
+  client: QueryClient;
+  badges: MeResponse['badges'];
 }
 
 /**
- * App tour in the current UI language (the one picked at sign-in). Runs once automatically
- * (step −1 is the welcome); the info icon in each PageHeader reopens that page's entry.
+ * Spotlight tour over generated demo data. While it runs, every GET reads the shared read-only demo
+ * household (api.ts setDemo) through a separate QueryClient, so real and demo data never share a screen;
+ * leaving the tour remounts the app on the real cache and refreshes it. Runs once automatically; the ⓘ
+ * in a page header runs that page's steps.
  */
 export function TourProvider({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const nav = useNavigate();
   const { pathname } = useLocation();
   const me = useMe();
-  // Without an active household only the admin page works (SessionGate lets /admin through).
-  const steps = !me?.active ? [ADMIN_ITEM] : me.user.isSuperAdmin ? [...SIDEBAR_ITEMS, ADMIN_ITEM] : SIDEBAR_ITEMS;
-  const [state, setState] = useState<State>(() => (seen() ? null : { mode: 'full', i: -1 }));
-  const tourPath = useRef(pathname);
+  const canWrite = useCanWrite();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [run, setRun] = useState<Run | null>(null);
+  const expected = useRef(pathname);
+  const starting = useRef(false);
+  // Loaded before demo mode starts: if the chunk can't load, the tour never begins (no stuck inert page).
+  const overlay = useRef<Overlay | null>(null);
 
   const close = () => {
+    setDemo(null);
+    setRun(null);
     markSeen();
-    setState(null);
+    void qc.invalidateQueries();
   };
-  const go = (i: number) => {
-    if (i >= steps.length) return close();
-    if (i >= 0) {
-      tourPath.current = steps[i]!.to;
-      nav(steps[i]!.to, { replace: true });
+  const go = (r: Run, i: number, dir: 1 | -1) => {
+    if (i >= r.steps.length) return close();
+    const step = r.steps[Math.max(0, i)]!;
+    expected.current = pathOf(step.path);
+    if (pathname + window.location.search !== step.path) nav(step.path, { replace: true });
+    setRun({ ...r, i: Math.max(0, i), dir });
+  };
+  const start = async (page?: string) => {
+    if (!me?.active || starting.current || run) return;
+    starting.current = true;
+    const locale = i18n.language === 'he' ? 'he' : 'en';
+    try {
+      overlay.current ??= (await import('./TourOverlay')).default;
+      const d = await post<{ badges: MeResponse['badges']; reviewMonth: string; cardMonth: string }>('/api/demo', { locale });
+      const steps = tourSteps({ canWrite, page, month: d.reviewMonth, cardMonth: d.cardMonth });
+      if (!steps.length) return;
+      setDemo(locale);
+      const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchOnWindowFocus: false } } });
+      go({ steps, i: 0, dir: 1, client, badges: me.role === 'viewer' ? { ...d.badges, reviewDue: null } : d.badges }, 0, 1);
+    } catch (e) {
+      toast({ title: t(errorKey(e), { defaultValue: t('errors.unknown') }), tone: 'bad' });
+    } finally {
+      starting.current = false;
     }
-    setState({ mode: 'full', i });
   };
-  // Leaving the page the tour put you on (Back, a link) ends the tour.
+
+  // First visit: the full tour, once the profile's language has been applied (so it runs in that language).
+  const auto = useRef(false);
+  const settled = !me?.user.locale || me.user.locale === i18n.language;
   useEffect(() => {
-    if (pathname === tourPath.current) return;
-    tourPath.current = pathname;
-    setState((s) => {
-      if (s?.mode !== 'full') return s;
-      markSeen();
-      return null;
-    });
+    if (auto.current || !settled || !me?.active || seen()) return;
+    auto.current = true;
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled, me?.active]);
+
+  // Leaving the page the tour put you on (browser Back) ends the tour.
+  useEffect(() => {
+    if (pathname === expected.current) return;
+    expected.current = pathname;
+    if (run) close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  let title: ReactNode = null;
-  let body: ReactNode = null;
-  let footer: ReactNode = null;
-  if (state?.mode === 'page') {
-    const item = [...SIDEBAR_ITEMS, ADMIN_ITEM].find((s) => s.to === state.path);
-    title = item ? t(item.key) : t('nav.more');
-    body = <PageText path={state.path} />;
-    footer = (
-      <>
-        <Button variant="secondary" data-testid="tour-full" onClick={() => go(-1)}>
-          {t('tour.fullTour')}
-        </Button>
-        <Button data-testid="tour-done" onClick={close}>
-          {t('tour.gotIt')}
-        </Button>
-      </>
-    );
-  } else if (state?.mode === 'full') {
-    const step = steps[state.i];
-    const last = state.i === steps.length - 1;
-    title = step ? t(step.key) : t('tour.welcomeTitle');
-    body = step ? (
-      <PageText path={step.to} />
-    ) : (
-      <div data-testid="tour-welcome">
-        <p className="text-sm">{t('tour.welcomeBody')}</p>
-        <Points k="tour.welcomePoints" />
-      </div>
-    );
-    footer = (
-      <>
-        <span className="me-auto self-center text-sm text-muted">{step && t('tour.progress', { n: state.i + 1, total: steps.length })}</span>
-        {state.i < 0 ? (
-          <Button variant="ghost" data-testid="tour-skip" onClick={close}>
-            {t('tour.skip')}
-          </Button>
-        ) : (
-          <Button variant="secondary" data-testid="tour-back" onClick={() => go(state.i - 1)}>
-            {t('tour.back')}
-          </Button>
-        )}
-        <Button data-testid="tour-next" onClick={() => go(state.i + 1)}>
-          {last ? t('tour.finish') : state.i < 0 ? t('tour.start') : t('tour.next')}
-        </Button>
-      </>
-    );
-  }
+  // The page behind the spotlight is inert: focus and screen readers stay in the tour.
+  useEffect(() => {
+    const r = document.getElementById('root');
+    r?.toggleAttribute('inert', !!run);
+    return () => r?.removeAttribute('inert');
+  }, [run]);
+  useEffect(() => () => setDemo(null), []);
+
+  const api: TourApi = { startPage: (p) => void start(p), startFull: () => void start() };
+  const demoMe = run && me ? { ...me, active: me.active && { ...me.active, hasSampleData: false }, badges: run.badges } : null;
+  const step = run?.steps[run.i];
+  const TourOverlay = overlay.current;
 
   return (
-    <TourCtx.Provider value={(path) => setState({ mode: 'page', path })}>
-      {children}
-      <Sheet open={state !== null} onOpenChange={(o) => !o && close()} title={title} footer={footer} testId="tour">
-        {body}
-      </Sheet>
+    <TourCtx.Provider value={api}>
+      {run && demoMe ? (
+        <QueryClientProvider client={run.client}>
+          <SessionCtx.Provider value={demoMe}>{children}</SessionCtx.Provider>
+        </QueryClientProvider>
+      ) : (
+        children
+      )}
+      {run && step && TourOverlay && (
+        <TourOverlay
+          key={step.id}
+          step={step}
+          n={run.i + 1}
+          total={run.steps.length}
+          onNext={() => go(run, run.i + 1, 1)}
+          onBack={run.i > 0 ? () => go(run, run.i - 1, -1) : undefined}
+          onMissing={() => (run.dir === -1 && run.i === 0 ? go(run, 1, 1) : go(run, run.i + run.dir, run.dir))}
+          onClose={close}
+        />
+      )}
     </TourCtx.Provider>
   );
 }

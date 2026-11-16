@@ -228,7 +228,7 @@ function Wrapup({ s }: { s: ReviewSnapshot }) {
     );
   return (
     <div className="flex flex-col gap-4" data-testid="review-final">
-      <p className="text-lg font-semibold" data-testid="review-headline">
+      <p className="text-lg font-semibold" data-testid="review-headline" data-tour="review-final">
         {t(s.wrapup.headline.key, pf(s.wrapup.headline.params))}
       </p>
       <div className="grid grid-cols-3 gap-2 rounded-xl bg-surface-2 p-3">

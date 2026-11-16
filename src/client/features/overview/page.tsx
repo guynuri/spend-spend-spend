@@ -1,13 +1,13 @@
+import { useContext } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { FlaskConical, Upload } from 'lucide-react';
-import { get, post } from '../../api';
+import { Compass, Upload } from 'lucide-react';
+import { get } from '../../api';
 import { Badge, Button, Card, CardTitle, ErrorState, PageHeader, ProgressBar, Spinner } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
-import { useApiMutation } from '../../lib/mutate';
-import { LEDGER_DEPENDENT } from '../../lib/queries';
+import { TourCtx } from '../../lib/tour';
 import { useIsOwner } from '../../lib/session';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
@@ -39,26 +39,26 @@ interface Dashboard {
 function Onboarding() {
   const { t } = useTranslation();
   const owner = useIsOwner();
-  const load = useApiMutation(() => post('/api/household/sample-data'), { invalidate: [...LEDGER_DEPENDENT, ['categories'], ['planned']] });
+  const tour = useContext(TourCtx);
   return (
     <Card data-testid="onboarding">
       <CardTitle>{t('onboarding.title')}</CardTitle>
       <p className="mb-4 text-sm text-muted">{t('onboarding.body')}</p>
-      {owner ? (
-        <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {owner && (
           <Link to="/import" className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-accent-fg" data-testid="onboarding-upload">
             <Upload className="size-5" aria-hidden />
             {t('onboarding.upload')}
           </Link>
-          <Button variant="secondary" className="flex-1" busy={load.isPending} onClick={() => load.mutate(undefined)} data-testid="onboarding-sample">
-            <FlaskConical className="size-5" aria-hidden />
-            {t('onboarding.sample')}
+        )}
+        {tour && (
+          <Button variant="secondary" className="flex-1" onClick={tour.startFull} data-testid="onboarding-tour">
+            <Compass className="size-5" aria-hidden />
+            {t('onboarding.tour')}
           </Button>
-        </div>
-      ) : (
-        <p className="text-sm">{t('onboarding.needOwner')}</p>
-      )}
-      {owner && <p className="mt-2 text-xs text-muted">{t('onboarding.sampleBody')}</p>}
+        )}
+      </div>
+      {!owner && <p className="mt-3 text-sm">{t('onboarding.needOwner')}</p>}
     </Card>
   );
 }
@@ -77,13 +77,15 @@ function ForecastSummary({ f }: { f: ForecastView }) {
       <CardTitle action={<Badge tone={f.confidence === 'high' ? 'good' : f.confidence === 'medium' ? 'warn' : 'bad'}>{t(`forecast.confidence.${f.confidence}`)}</Badge>}>
         <Link to="/forecast">{t('forecast.eom')}</Link>
       </CardTitle>
-      <Money minor={f.eom?.balance ?? 0} decimals={0} className="text-3xl font-bold" />
-      <span className="sr-only" data-testid="forecast-eom" data-minor={f.eom?.balance ?? 0} />
-      {f.low && (
-        <p className={f.low.balance < 0 ? 'mt-1 text-sm font-medium text-bad' : 'mt-1 text-sm text-muted'}>
-          {t('forecast.low')}: <Money minor={f.low.balance} decimals={0} /> · <DateText date={f.low.date} format="dayMonth" />
-        </p>
-      )}
+      <div data-tour="dash-forecast">
+        <Money minor={f.eom?.balance ?? 0} decimals={0} className="text-3xl font-bold" />
+        <span className="sr-only" data-testid="forecast-eom" data-minor={f.eom?.balance ?? 0} />
+        {f.low && (
+          <p className={f.low.balance < 0 ? 'mt-1 text-sm font-medium text-bad' : 'mt-1 text-sm text-muted'}>
+            {t('forecast.low')}: <Money minor={f.low.balance} decimals={0} /> · <DateText date={f.low.date} format="dayMonth" />
+          </p>
+        )}
+      </div>
       <div className="mt-2">
         <ForecastChart f={f} height={160} />
       </div>
@@ -124,7 +126,7 @@ export function Component() {
         </p>
       )}
       <ForecastSummary f={d.forecast} />
-      <Card data-testid="pnl-card">
+      <Card data-testid="pnl-card" data-tour="pnl">
         <CardTitle>{t('dashboard.pnl')}</CardTitle>
         <dl className="grid grid-cols-3 gap-2">
           {(

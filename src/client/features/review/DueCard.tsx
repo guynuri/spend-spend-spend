@@ -16,7 +16,7 @@ export function ReviewDueCard() {
   const dismiss = useApiMutation((m: string) => post(`/api/reviews/${m}/dismiss`), { invalidate: [['me'], ['reviews']] });
   if (!month) return null;
   return (
-    <Card data-testid="review-due">
+    <Card data-testid="review-due" data-tour="review-due">
       <div className="flex items-start gap-3">
         <ClipboardCheck className="mt-0.5 size-6 shrink-0 text-accent" aria-hidden />
         <div className="flex min-w-0 flex-1 flex-col gap-3">

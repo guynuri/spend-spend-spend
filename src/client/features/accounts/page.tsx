@@ -148,7 +148,7 @@ export function Component() {
         title={t('accounts.title')}
         actions={
           canWrite && (
-            <Button onClick={() => setEditing('new')} data-testid="account-add">
+            <Button onClick={() => setEditing('new')} data-testid="account-add" data-tour="account-add">
               <Plus className="size-5" aria-hidden />
               {t('accounts.add')}
             </Button>

@@ -35,7 +35,7 @@ householdRoutes.get('/', (c) => {
   });
 });
 
-householdRoutes.patch('/', requireOwner, async (c) => {
+householdRoutes.patch('/', async (c) => {
   const b = await body(
     c,
     z
@@ -48,7 +48,9 @@ householdRoutes.patch('/', requireOwner, async (c) => {
       })
       .strict(),
   );
-  const { db, userId } = tctx(c);
+  const { db, userId, role } = tctx(c);
+  // Forecast settings (safety cushion, daily estimate) are planning: members may change them. Name, currency, timezone: owners.
+  if ((b.name ?? b.currency ?? b.timezone) !== undefined && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
   await members(c).update({ ...b, clearDailyVariable: b.forecastDailyVariableMinor === null, forecastDailyVariableMinor: b.forecastDailyVariableMinor ?? undefined });
   await db.audit(userId, 'household.update', 'household', db.householdId).run();
   return c.json({ ok: true });

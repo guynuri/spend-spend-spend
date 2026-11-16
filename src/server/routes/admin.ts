@@ -10,6 +10,7 @@ import { requireSuperAdmin } from '../middleware/auth';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
 import { originOf } from '../ctx';
 import { sendInviteEmail } from '../lib/email';
+import { isDemoHousehold } from '../seed/demoHousehold';
 
 /** Super-admin: household METADATA only (PLAN §6.4, D-17). */
 export const adminRoutes = new Hono<AppCtx>();
@@ -57,7 +58,7 @@ adminRoutes.patch('/admin/households/:id', async (c) => {
   const b = await body(c, z.object({ status: z.enum(['active', 'disabled']).optional(), name: z.string().trim().min(1).max(60).optional() }).strict());
   const g = globalDb(c.env.DB);
   const id = c.req.param('id');
-  if (!(await g.getHousehold(id))) throw notFound();
+  if (isDemoHousehold(id) || !(await g.getHousehold(id))) throw notFound();
   if (b.status) await g.setHouseholdStatus(id, b.status);
   if (b.name) await g.updateHousehold(id, { name: b.name });
   await tenantDb(c.env.DB, id).audit(c.get('userId')!, 'admin.household.update', 'household', id, { status: b.status ?? null }).run();
@@ -66,7 +67,8 @@ adminRoutes.patch('/admin/households/:id', async (c) => {
 
 adminRoutes.post('/admin/households/:id/owner-invite', async (c) => {
   const id = c.req.param('id');
-  if (!(await globalDb(c.env.DB).getHousehold(id))) throw notFound();
+  // The tour's shared demo households never get owners (see also migration 0014).
+  if (isDemoHousehold(id) || !(await globalDb(c.env.DB).getHousehold(id))) throw notFound();
   return c.json({ invite: await ownerInvite(c, id) }, 201);
 });
 

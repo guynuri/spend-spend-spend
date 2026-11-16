@@ -229,7 +229,7 @@ export function RemindersCard() {
   if (!data) return null;
   const list = data.reminders;
   return (
-    <Card data-testid="reminders-card">
+    <Card data-testid="reminders-card" data-tour="reminders">
       <CardTitle>{t('settings.reminders.title')}</CardTitle>
       <p className="mb-3 text-sm text-muted">{t('settings.reminders.hint')}</p>
       <DeviceStatus data={data} state={state} onEnable={() => void ensurePush()} />

@@ -157,26 +157,28 @@ function TopList<T>({ id, title, items, render, ulClass = 'divide-y divide-borde
   };
   return (
     <Card data-testid={`budget-list-${id}`}>
-      <CardTitle
-        action={
-          items.length > 3 && (
-            <button
-              type="button"
-              className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-medium text-accent"
-              onClick={() => {
-                const n = new URLSearchParams(sp);
-                n.set('list', id);
-                setSp(n);
-              }}
-              data-testid="see-all"
-            >
-              {t('budget.seeAll', { count: items.length })}
-            </button>
-          )
-        }
-      >
-        {title}
-      </CardTitle>
+      <div data-tour="budget-top">
+        <CardTitle
+          action={
+            items.length > 3 && (
+              <button
+                type="button"
+                className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-medium text-accent"
+                onClick={() => {
+                  const n = new URLSearchParams(sp);
+                  n.set('list', id);
+                  setSp(n);
+                }}
+                data-testid="see-all"
+              >
+                {t('budget.seeAll', { count: items.length })}
+              </button>
+            )
+          }
+        >
+          {title}
+        </CardTitle>
+      </div>
       <ul className={ulClass}>{items.slice(0, 3).map(render)}</ul>
       <Sheet open={sp.get('list') === id} onOpenChange={(o) => !o && close()} title={title} testId="budget-list-sheet" wide>
         <ul className={ulClass}>{items.map(render)}</ul>
@@ -287,7 +289,7 @@ export function Component() {
   const row = (l: BudgetLine) => <LineRow key={l.categoryId} line={l} onOpen={() => setOpen(l)} onEdit={() => setEditing(l)} />;
   const ex = d.totals;
   const addButton = canWrite && (
-    <Button onClick={() => setEditing('new')} data-testid="budget-add">
+    <Button onClick={() => setEditing('new')} data-testid="budget-add" data-tour="budget-add">
       <Plus className="size-5" aria-hidden />
       {t('budget.add')}
     </Button>

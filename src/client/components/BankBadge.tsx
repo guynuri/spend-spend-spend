@@ -34,7 +34,7 @@ export function BankLink({ account, className }: { account: { bankId?: string | 
   const url = bankUrl(account);
   if (!url) return null;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className={cx('inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent underline-offset-2 hover:underline', className)} data-testid="bank-link">
+    <a href={url} target="_blank" rel="noopener noreferrer" className={cx('inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent underline-offset-2 hover:underline', className)} data-testid="bank-link" data-tour="bank-link">
       <ExternalLink className="size-4" aria-hidden />
       {t('accounts.openBank')}
     </a>

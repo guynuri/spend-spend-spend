@@ -49,7 +49,7 @@ function RangeControl({ range, today, onChange }: { range: Range; today: string;
   const sel = custom ? 'custom' : (presetOf(range, today) ?? 'custom');
   const max = MAX_RANGE_DAYS - 1;
   return (
-    <div className="flex flex-col gap-2" data-testid="trend-range">
+    <div className="flex flex-col gap-2" data-testid="trend-range" data-tour="trend-range">
       <Select
         aria-label={t('trends.range')}
         value={sel}

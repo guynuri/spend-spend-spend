@@ -54,7 +54,7 @@ export function TodoCard() {
   const row = 'flex min-h-11 items-center gap-2';
   const action = 'min-h-11 shrink-0 rounded-lg px-2 font-semibold text-accent';
   return (
-    <section className="flex flex-col gap-1 rounded-2xl border border-warn/30 bg-warn/5 p-3 text-sm" data-testid="todo-card">
+    <section className="flex flex-col gap-1 rounded-2xl border border-warn/30 bg-warn/5 p-3 text-sm" data-testid="todo-card" data-tour="todo">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-semibold">{t('ledger.todoTitle')}</h2>
         <IconButton className="-my-2 -me-2 size-9" label={t('ledger.todoDismiss')} onClick={dismiss} data-testid="todo-dismiss">
@@ -74,7 +74,7 @@ export function TodoCard() {
       )}
       {uncat > 0 && <AiSuggestButton />}
       {unsplit > 0 && (
-        <div className={row} data-testid="unsplit-banner" data-amount={unsplit}>
+        <div className={row} data-testid="unsplit-banner" data-tour="todo-unsplit" data-amount={unsplit}>
           <CreditCard className="size-4 shrink-0 text-accent" aria-hidden />
           <span className="min-w-0 flex-1">{t('budget.unsplitBanner', { amount: formatMoney(unsplit, { currency, locale: i18n.language as Locale, decimals: 0 }) })}</span>
           {f.kind !== 'card_lump' && (

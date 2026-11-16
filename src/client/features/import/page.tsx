@@ -318,7 +318,7 @@ export function Component() {
             <Card>
               <div className="flex flex-col gap-3">
                 <Field label={t('import.account')} htmlFor="imp-acc">
-                  <Select id="imp-acc" value={acc} onChange={(e) => setAccountId(e.target.value)} data-testid="import-account">
+                  <Select id="imp-acc" value={acc} onChange={(e) => setAccountId(e.target.value)} data-testid="import-account" data-tour="import-account">
                     <option value="">{t('import.autoDetect')}</option>
                     {accountOptions}
                   </Select>

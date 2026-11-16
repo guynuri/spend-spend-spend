@@ -62,7 +62,7 @@ export function CardTitle({ children, action }: { children: ReactNode; action?: 
 }
 
 export function PageHeader({ title, actions, subtitle }: { title: ReactNode; actions?: ReactNode; subtitle?: ReactNode }) {
-  const openTour = useContext(TourCtx);
+  const tour = useContext(TourCtx);
   const { pathname } = useLocation();
   const { t } = useTranslation();
   return (
@@ -70,8 +70,8 @@ export function PageHeader({ title, actions, subtitle }: { title: ReactNode; act
       <div className="min-w-0">
         <div className="flex items-center gap-1">
           <h1 className="truncate text-2xl font-bold text-text">{title}</h1>
-          {openTour && TOUR_PATHS.has(pathname) && (
-            <IconButton label={t('tour.pageInfo')} className="shrink-0" data-testid="page-tour" onClick={() => openTour(pathname)}>
+          {tour && TOUR_PATHS.has(pathname) && (
+            <IconButton label={t('tour.pageInfo')} className="shrink-0" data-testid="page-tour" onClick={() => tour.startPage(pathname)}>
               <Info className="size-5" aria-hidden />
             </IconButton>
           )}
