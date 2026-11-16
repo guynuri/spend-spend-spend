@@ -13,7 +13,9 @@ const EXPENSE_LINE = "(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount
 /** `from`+`to` (inclusive, < MAX_RANGE_DAYS) or a `month`; defaults to the display month. */
 const rangeQ = z
   .object({ month: monthStr.optional(), from: dateStr.optional(), to: dateStr.optional(), compare: z.enum(['prev', 'yoy']).default('prev') })
-  .refine((q) => !q.from === !q.to && (!q.from || (q.from <= q.to! && daysBetween(q.from, q.to!) < MAX_RANGE_DAYS)), { message: 'invalid range', path: ['from'] });
+  .refine((q) => !q.from === !q.to && (!q.from || (q.from <= q.to! && daysBetween(q.from, q.to!) < MAX_RANGE_DAYS)), { message: 'invalid range', path: ['from'] })
+  // a 12-month shift would overlap a longer range
+  .refine((q) => q.compare !== 'yoy' || !q.from || monthDiff(monthOf(q.from), monthOf(q.to!)) < 12, { message: 'yoy needs ≤ 12 months', path: ['compare'] });
 async function resolveRange(c: Parameters<typeof tctx>[0]) {
   const { db, hh } = tctx(c);
   const qv = query(c, rangeQ);

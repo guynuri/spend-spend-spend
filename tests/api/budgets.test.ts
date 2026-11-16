@@ -103,6 +103,8 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     expect(await prevOf('from=2026-01-01&to=2026-01-31')).toMatchObject({ prevFrom: '2025-12-01', prevTo: '2025-12-31' });
     expect(await prevOf('from=2026-01-01&to=2026-03-31')).toMatchObject({ prevFrom: '2025-10-01', prevTo: '2025-12-31' });
     expect((await json('GET', '/api/trends/daily?from=2026-01-01&to=2026-01-31&compare=x', { cookie: o.cookie })).status).toBe(400);
+    expect((await json('GET', '/api/trends/daily?from=2025-01-01&to=2026-01-31&compare=yoy', { cookie: o.cookie })).status).toBe(400);
+    expect((await json('GET', '/api/trends/daily?from=2025-12-01&to=2026-11-30&compare=yoy', { cookie: o.cookie })).status).toBe(200);
     // 40-day range from a Wednesday: previous-period weeks use the same weekday offset as the current ones
     const wed = addDays(monthStart(m1), (3 - dow(monthStart(m1)) + 7) % 7);
     const w40 = await prevOf(`from=${wed}&to=${addDays(wed, 39)}`);
