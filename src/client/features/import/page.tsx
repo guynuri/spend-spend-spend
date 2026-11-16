@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ExternalLink, FileSpreadsheet, Upload } from 'lucide-react';
 import { del, errorKey, get, post, put } from '../../api';
 import { Badge, Button, Card, CardTitle, cx, EmptyState, ErrorState, Field, Input, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
 import { BankBadge, BankLink, useBankName } from '../../components/BankBadge';
@@ -11,7 +11,7 @@ import { DateText } from '../../components/DateText';
 import { ConfirmSheet } from '../../components/Confirm';
 import { useToast } from '../../components/Toast';
 import { LEDGER_DEPENDENT, QK, useAccounts, useCategoryMap } from '../../lib/queries';
-import { inferAccount } from '../../../shared/banks';
+import { bankUrl, inferAccount } from '../../../shared/banks';
 import { useCanWrite } from '../../lib/session';
 import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { IMPORT_CHUNK, type ParseResult } from '../../../shared/import/types';
@@ -102,7 +102,9 @@ export function Component() {
   const accounts = (accountsQ.data?.accounts ?? []).filter((a) => !a.archived && a.type !== 'credit_card');
   const bankName = useBankName();
   // '' = detect from the file; ask only when it can't be inferred
-  const [accountId, setAccountId] = useState('');
+  // ?account=<id> preselects (reminder links); &openBank=1 offers the bank website prominently
+  const [sp] = useSearchParams();
+  const [accountId, setAccountId] = useState(() => sp.get('account') ?? '');
   const [autoPicked, setAutoPicked] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -313,7 +315,14 @@ export function Component() {
                     {accountOptions}
                   </Select>
                 </Field>
-                {accObj && <BankLink account={accObj} />}
+                {accObj && sp.get('openBank') === '1' && bankUrl(accObj) ? (
+                  <a href={bankUrl(accObj)!} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-accent-fg" data-testid="import-open-bank">
+                    <ExternalLink className="size-5" aria-hidden />
+                    {t('import.openBankNamed', { bank: bankName(accObj) })}
+                  </a>
+                ) : (
+                  accObj && <BankLink account={accObj} />
+                )}
                 <label
                   onDragOver={(e) => {
                     e.preventDefault();

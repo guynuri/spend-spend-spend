@@ -19,7 +19,7 @@
       "migrations_dir": "migrations"
     }
   ],
-  "triggers": { "crons": ["17 2 * * *"] },
+  "triggers": { "crons": ["17 2 * * *", "*/15 * * * *"] },
   "observability": { "enabled": true },
   "preview_urls": false,
   "vars": {
@@ -43,7 +43,7 @@
         }
       ],
       "ai": { "binding": "AI" },
-      "triggers": { "crons": ["17 2 * * *"] },
+      "triggers": { "crons": ["17 2 * * *", "*/15 * * * *"] },
       "vars": {
         "APP_HOST": "",
         "DEFAULT_LOCALE": "en",

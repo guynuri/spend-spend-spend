@@ -80,6 +80,19 @@ if ! grep -q '"BOOTSTRAP_TOKEN"' <<<"$EXISTING"; then
   if [[ "$DRY_RUN" == "1" ]]; then echo "[dry-run] wrangler secret put BOOTSTRAP_TOKEN"; else printf '%s' "$BOOTSTRAP_TOKEN" | npx wrangler secret put BOOTSTRAP_TOKEN --name "$WORKER" >/dev/null; fi
   FIRST_SETUP=1
 fi
+# Web Push (VAPID): generate one P-256 key pair on first deploy; never rotate it here (that would
+# invalidate every device subscription).
+if ! grep -q '"VAPID_PRIVATE_KEY"' <<<"$EXISTING"; then
+  VAPID="$(node -e '
+const { generateKeyPairSync } = require("crypto");
+const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const pub = publicKey.export({ format: "jwk" }); const priv = privateKey.export({ format: "jwk" });
+const raw = Buffer.concat([Buffer.from([4]), Buffer.from(pub.x, "base64url"), Buffer.from(pub.y, "base64url")]);
+process.stdout.write(raw.toString("base64url") + " " + priv.d);')"
+  for PAIR in "VAPID_PUBLIC_KEY ${VAPID% *}" "VAPID_PRIVATE_KEY ${VAPID#* }" "VAPID_SUBJECT ${VAPID_SUBJECT:-https://$HOST}"; do
+    if [[ "$DRY_RUN" == "1" ]]; then echo "[dry-run] wrangler secret put ${PAIR%% *}"; else printf '%s' "${PAIR#* }" | npx wrangler secret put "${PAIR%% *}" --name "$WORKER" >/dev/null; fi
+  done
+fi
 for NAME in AI_API_KEY RESEND_API_KEY EMAIL_FROM; do
   VAL="${!NAME:-}"
   if [[ -n "$VAL" ]] && ! grep -q "\"$NAME\"" <<<"$EXISTING"; then

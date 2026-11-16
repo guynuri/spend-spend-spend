@@ -2,6 +2,7 @@ import { HttpError } from '../http';
 import { newId, nowIso } from '../lib/crypto';
 import { isTenantTable } from './tables';
 import { householdMembers } from './members';
+import { pushSubs } from './push';
 
 type Param = string | number | null | ArrayBuffer;
 const SCOPED = /household_id\s*=\s*\?1\b/;
@@ -57,6 +58,8 @@ export function tenantDb(db: D1Database, householdId: string) {
     aiCallsToday: async (day: string) => (await db.prepare('SELECT COALESCE(SUM(calls), 0) AS n FROM ai_usage WHERE day = ?1').bind(day).first<{ n: number }>())?.n ?? 0,
     /** Membership/invite operations for THIS household only. */
     members: householdMembers(db, householdId),
+    /** Push subscriptions of one user (per device, not per household); routes pass the session user. */
+    pushOf: (userId: string) => pushSubs(db, userId),
     all: async <T = Record<string, unknown>>(sql: string, ...params: Param[]): Promise<T[]> => (await prep(sql, params).all<T>()).results,
     first: <T = Record<string, unknown>>(sql: string, ...params: Param[]): Promise<T | null> => prep(sql, params).first<T>(),
     run: (sql: string, ...params: Param[]) => prep(sql, params).run(),

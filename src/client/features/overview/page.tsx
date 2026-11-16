@@ -20,6 +20,7 @@ import { HealthCard, type HealthData } from '../health/HealthCard';
 import { InsightList } from './Insights';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { ReviewDueCard } from '../review/DueCard';
+import { ReminderCards } from './ReminderCards';
 
 interface Dashboard {
   month: string;
@@ -116,6 +117,7 @@ export function Component() {
     <div className="flex flex-col gap-4">
       <PageHeader title={t('dashboard.title')} subtitle={<DateText date={d.month} format="month" />} />
       <ReviewDueCard />
+      <ReminderCards />
       {d.isLatestData && (
         <p className="rounded-xl bg-warn/10 p-3 text-sm text-warn" data-testid="latest-data-banner">
           {t('dashboard.latestData', pf({ month: d.month }))}
