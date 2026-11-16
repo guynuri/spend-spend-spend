@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import en from '../../src/shared/i18n/en.json';
 import he from '../../src/shared/i18n/he.json';
-import { findTarget, placePopover, TOUR_PATHS, TOUR_STEPS, tourSteps } from '../../src/client/lib/tour';
+import { barPages, findTarget, placePopover, restPages, TOUR_PATHS, TOUR_STEPS, tourSteps } from '../../src/client/lib/tour';
 import { buildDemo } from '../../src/server/seed/demo';
 import { DEFAULT_CATEGORIES } from '../../src/server/seed/defaults';
 import { addDays, monthOf } from '../../src/shared/dates';
@@ -15,15 +15,29 @@ describe('tour steps', () => {
     for (const s of TOUR_STEPS) for (const cat of [en, he] as { tour: { steps: Record<string, { title: string; body: string }> } }[]) expect(cat.tour.steps[s.id]?.body, s.id).toBeTruthy();
   });
   it('drops write-only steps for viewers, keeps one page for the ⓘ, fills in the review month', () => {
-    const all = tourSteps({ canWrite: true, month: '2026-10', cardMonth: '2026-11' });
-    const viewer = tourSteps({ canWrite: false, month: '2026-10', cardMonth: '2026-11' });
+    const all = tourSteps({ canWrite: true, intro: true, pages: restPages([]), month: '2026-10', cardMonth: '2026-11' });
+    const viewer = tourSteps({ canWrite: false, intro: true, pages: restPages([]), month: '2026-10', cardMonth: '2026-11' });
     expect(viewer.length).toBeLessThan(all.length);
     expect(viewer.some((s) => s.id === 'budgetAdd')).toBe(false);
-    expect(tourSteps({ canWrite: true, page: '/budget', month: 'x', cardMonth: '2026-11' }).map((s) => s.id)).toEqual(['budgetAdd', 'budgetTop']);
+    expect(tourSteps({ canWrite: true, pages: ['/budget'], month: 'x', cardMonth: '2026-11' }).map((s) => s.id)).toEqual(['budgetAdd', 'budgetTop']);
     expect(all.find((s) => s.id === 'todo')!.path).toBe('/transactions?from=2026-11-01&to=2026-11-30');
     expect(all.find((s) => s.id === 'reviewFinal')!.path).toBe('/review?month=2026-10&step=6');
     expect(TOUR_PATHS.has('/forecast')).toBe(true);
     expect(TOUR_PATHS.has('/household')).toBe(false);
+  });
+  it('main tour = intro + bar pages in bar order; rest = other pages in sidebar order, minus seen', () => {
+    const o = { canWrite: true, month: 'x', cardMonth: '2026-11' };
+    const pageOf = (ids: string[]) => [...new Set(ids.map((id) => TOUR_STEPS.find((s) => s.id === id)!.path.split('?')[0]))];
+    const main = tourSteps({ ...o, intro: true, pages: barPages(['/budget', '/', '/forecast']) }).map((s) => s.id);
+    expect(main.slice(0, 3)).toEqual(['welcome', 'nav', 'add']);
+    expect(pageOf(main.slice(3))).toEqual(['/budget', '/', '/forecast']);
+    expect(barPages(['/household', '/budget', '/trends'])).toEqual(['/budget', '/trends']);
+    const rest = restPages(['/', '/transactions', '/budget']);
+    expect(rest).toEqual(['/upcoming', '/forecast', '/recurring', '/accounts', '/categories', '/goals', '/trends', '/review', '/import', '/settings']);
+    expect(restPages(['/forecast'])).not.toContain('/forecast');
+    expect(restPages(rest.concat(['/', '/transactions', '/budget']))).toEqual([]);
+    // every step belongs to the opening or to a page the rest list reaches
+    expect(new Set([...tourSteps({ ...o, intro: true, pages: restPages([]) })].map((s) => s.id))).toEqual(new Set(TOUR_STEPS.map((s) => s.id)));
   });
   it('a missing or unrendered target resolves to null (the step is skipped)', () => {
     expect(findTarget(root({}), 'budget-add')).toBeNull();
