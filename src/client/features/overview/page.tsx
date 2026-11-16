@@ -2,11 +2,13 @@ import { useContext } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Compass, Upload } from 'lucide-react';
-import { get } from '../../api';
+import { Compass, FlaskConical, Upload } from 'lucide-react';
+import { get, post } from '../../api';
 import { Badge, Button, Card, CardTitle, ErrorState, PageHeader, ProgressBar, Spinner } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
+import { useApiMutation } from '../../lib/mutate';
+import { LEDGER_DEPENDENT } from '../../lib/queries';
 import { TourCtx } from '../../lib/tour';
 import { useIsOwner } from '../../lib/session';
 import { useParamFormatter } from '../../lib/format';
@@ -40,6 +42,7 @@ function Onboarding() {
   const { t } = useTranslation();
   const owner = useIsOwner();
   const tour = useContext(TourCtx);
+  const load = useApiMutation(() => post('/api/household/sample-data'), { invalidate: [...LEDGER_DEPENDENT, ['categories'], ['planned']] });
   return (
     <Card data-testid="onboarding">
       <CardTitle>{t('onboarding.title')}</CardTitle>
@@ -51,6 +54,12 @@ function Onboarding() {
             {t('onboarding.upload')}
           </Link>
         )}
+        {owner && (
+          <Button variant="secondary" className="flex-1" busy={load.isPending} onClick={() => load.mutate(undefined)} data-testid="onboarding-sample">
+            <FlaskConical className="size-5" aria-hidden />
+            {t('onboarding.sample')}
+          </Button>
+        )}
         {tour && (
           <Button variant="secondary" className="flex-1" onClick={tour.startFull} data-testid="onboarding-tour">
             <Compass className="size-5" aria-hidden />
@@ -59,6 +68,7 @@ function Onboarding() {
         )}
       </div>
       {!owner && <p className="mt-3 text-sm">{t('onboarding.needOwner')}</p>}
+      {owner && <p className="mt-2 text-xs text-muted">{t('onboarding.sampleBody')}</p>}
     </Card>
   );
 }

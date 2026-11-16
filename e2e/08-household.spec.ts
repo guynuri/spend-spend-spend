@@ -54,13 +54,9 @@ test('super-admin creates a second household; its owner sees an empty, separate 
   expect((await tx.json()).summary.count).toBe(0);
   await p.goto('/household');
   await expect(p.getByTestId('member-row')).toHaveCount(1);
-  // Households that loaded sample data before the UI stopped offering it (API only now) can still
-  // clear it from the banner (AC14.1); the tour shows demo data instead of writing any.
+  // sample data fills every page; the banner offers to clear it (AC14.1)
   await p.goto('/');
-  await expect(p.getByTestId('onboarding-sample')).toHaveCount(0);
-  const r = await p.request.post('/api/household/sample-data', { headers: { 'X-MZ': '1', Origin: new URL(p.url()).origin }, data: {} });
-  expect(r.status()).toBe(201);
-  await p.reload();
+  await p.getByTestId('onboarding-sample').click();
   await expect(p.getByTestId('sample-banner')).toBeVisible();
   await expect(p.getByTestId('forecast-card')).toBeVisible();
   for (const r of ['/transactions', '/budget', '/upcoming', '/recurring', '/goals', '/trends']) {

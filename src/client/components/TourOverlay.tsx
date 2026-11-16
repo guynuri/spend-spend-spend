@@ -13,7 +13,7 @@ const PAD = 6;
  * One tour step: dims the app, cuts a ringed hole around the target and puts the popover beside it.
  * The page behind is inert (Tour.tsx); clicks on the dim layer do nothing; Esc ends the tour.
  */
-export default function TourOverlay({ step, n, total, onNext, onBack, onClose, onMissing }: { step: TourStep; n: number; total: number; onNext: () => void; onBack?: () => void; onClose: () => void; onMissing: () => void }) {
+export default function TourOverlay({ step, end, n, total, onNext, onBack, onClose, onMissing }: { step: TourStep; end?: { id: 'main' | 'page'; more: () => void; finish: () => void }; n: number; total: number; onNext: () => void; onBack?: () => void; onClose: () => void; onMissing: () => void }) {
   const { t, i18n } = useTranslation();
   const [box, setBox] = useState<Box | null>(null);
   const [found, setFound] = useState(step.target === null);
@@ -105,30 +105,41 @@ export default function TourOverlay({ step, n, total, onNext, onBack, onClose, o
           </span>
           <div aria-live="polite" aria-atomic="true">
             <h2 id="tour-title" className="font-semibold">
-              {t(`tour.steps.${step.id}.title`)}
+              {end ? t(`tour.end.${end.id}.title`) : t(`tour.steps.${step.id}.title`)}
             </h2>
             <p id="tour-body" className="mt-1 text-sm text-muted" data-testid="tour-text">
-              {t(`tour.steps.${step.id}.body`)}
+              {end ? t(`tour.end.${end.id}.body`) : t(`tour.steps.${step.id}.body`)}
             </p>
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <span className="me-auto text-sm text-muted" data-testid="tour-progress" aria-label={t('tour.progress', { n, total })}>
-              {n}/{total}
-            </span>
-            {!last && (
-              <Button variant="ghost" size="sm" onClick={onClose} data-testid="tour-skip">
-                {t('tour.skip')}
+          {end ? (
+            <div className="mt-3 flex flex-col gap-2">
+              <Button ref={next} size="sm" onClick={end.more} data-testid="tour-end-more">
+                {t(`tour.end.${end.id}.more`)}
               </Button>
-            )}
-            {onBack && (
-              <Button variant="secondary" size="sm" onClick={onBack} data-testid="tour-back">
-                {t('tour.back')}
+              <Button variant="secondary" size="sm" onClick={end.finish} data-testid="tour-end-finish">
+                {t(`tour.end.${end.id}.finish`)}
               </Button>
-            )}
-            <Button ref={next} size="sm" onClick={onNext} data-testid="tour-next">
-              {last ? t('tour.finish') : t('tour.next')}
-            </Button>
-          </div>
+            </div>
+          ) : (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="me-auto text-sm text-muted" data-testid="tour-progress" aria-label={t('tour.progress', { n, total })}>
+                {n}/{total}
+              </span>
+              {!last && (
+                <Button variant="ghost" size="sm" onClick={onClose} data-testid="tour-skip">
+                  {t('tour.skip')}
+                </Button>
+              )}
+              {onBack && (
+                <Button variant="secondary" size="sm" onClick={onBack} data-testid="tour-back">
+                  {t('tour.back')}
+                </Button>
+              )}
+              <Button ref={next} size="sm" onClick={onNext} data-testid="tour-next">
+                {last ? t('tour.finish') : t('tour.next')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>,

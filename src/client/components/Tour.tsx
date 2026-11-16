@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { errorKey, post, setDemo } from '../api';
 import { SessionCtx, useCanWrite, useMe } from '../lib/session';
-import { pathOf, TourCtx, tourSteps, type TourApi, type TourStep } from '../lib/tour';
+import { useNavTabs } from '../lib/prefs';
+import { barPages, pathOf, restPages, TourCtx, tourSteps, type TourApi, type TourStep } from '../lib/tour';
 import type { MeResponse } from '../../shared/schemas/me';
 import { useToast } from './Toast';
 
@@ -33,6 +34,12 @@ interface Run {
   /** A throwaway cache for demo responses: the real cache is never touched while the tour runs. */
   client: QueryClient;
   badges: MeResponse['badges'];
+  /** Pages walked so far (the rest are offered at the end). */
+  seen: string[];
+  main: boolean;
+  o: { canWrite: boolean; month: string; cardMonth: string };
+  /** Showing the end card (after the last step) instead of a step. */
+  end?: boolean;
 }
 
 /**
@@ -49,6 +56,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const canWrite = useCanWrite();
   const qc = useQueryClient();
   const toast = useToast();
+  const [tabs] = useNavTabs();
   const [run, setRun] = useState<Run | null>(null);
   const expected = useRef(pathname);
   const starting = useRef(false);
@@ -61,8 +69,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
     markSeen();
     void qc.invalidateQueries();
   };
+  const more = (r: Run) => tourSteps({ ...r.o, pages: restPages(r.seen) });
   const go = (r: Run, i: number, dir: 1 | -1) => {
-    if (i >= r.steps.length) return close();
+    if (i >= r.steps.length) return more(r).length ? setRun({ ...r, i: r.steps.length - 1, dir, end: true }) : close();
     const step = r.steps[Math.max(0, i)]!;
     expected.current = pathOf(step.path);
     if (pathname + window.location.search !== step.path) nav(step.path, { replace: true });
@@ -75,11 +84,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
     try {
       overlay.current ??= (await import('./TourOverlay')).default;
       const d = await post<{ badges: MeResponse['badges']; reviewMonth: string; cardMonth: string }>('/api/demo', { locale });
-      const steps = tourSteps({ canWrite, page, month: d.reviewMonth, cardMonth: d.cardMonth });
+      const o = { canWrite, month: d.reviewMonth, cardMonth: d.cardMonth };
+      const pages = page ? [page] : barPages(tabs);
+      const steps = tourSteps({ ...o, intro: !page, pages });
       if (!steps.length) return;
       setDemo(locale);
       const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchOnWindowFocus: false } } });
-      go({ steps, i: 0, dir: 1, client, badges: me.role === 'viewer' ? { ...d.badges, reviewDue: null } : d.badges }, 0, 1);
+      go({ steps, i: 0, dir: 1, client, badges: me.role === 'viewer' ? { ...d.badges, reviewDue: null } : d.badges, seen: pages, main: !page, o }, 0, 1);
     } catch (e) {
       toast({ title: t(errorKey(e), { defaultValue: t('errors.unknown') }), tone: 'bad' });
     } finally {
@@ -129,8 +140,23 @@ export function TourProvider({ children }: { children: ReactNode }) {
       )}
       {run && step && TourOverlay && (
         <TourOverlay
-          key={step.id}
-          step={step}
+          key={run.end ? 'end' : step.id}
+          step={run.end ? { id: 'end', path: step.path, target: null } : step}
+          end={
+            run.end
+              ? {
+                  id: run.main ? 'main' : 'page',
+                  more: () => {
+                    const pages = restPages(run.seen);
+                    go({ ...run, steps: more(run), seen: [...run.seen, ...pages], main: false, end: false }, 0, 1);
+                  },
+                  finish: () => {
+                    close();
+                    if (run.main) toast({ title: t('tour.later') });
+                  },
+                }
+              : undefined
+          }
           n={run.i + 1}
           total={run.steps.length}
           onNext={() => go(run, run.i + 1, 1)}
