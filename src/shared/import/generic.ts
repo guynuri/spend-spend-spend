@@ -12,16 +12,18 @@ export interface Mapping {
   negate: boolean;
 }
 
+/** Header names per field, in priority order (first match wins). Covers the bank layouts in formats.ts. */
 const SYN: Record<MapField, string[]> = {
-  date: ['תאריך', 'תאריך עסקה', 'תאריך פעולה', 'date', 'transaction date'],
-  valueDate: ['תאריך ערך', 'value date'],
-  description: ['תיאור', 'פרטים', 'תיאור פעולה', 'שם בית עסק', 'שם בית העסק', 'description', 'details', 'payee', 'merchant'],
-  debit: ['חובה', 'debit', 'withdrawal', 'withdrawals'],
-  credit: ['זכות', 'credit', 'deposit', 'deposits'],
-  amount: ['סכום', 'amount', 'סכום חיוב', 'סכום העסקה', 'סכום פעולה'],
-  balance: ['יתרה', 'balance', 'יתרה בש"ח'],
-  reference: ['אסמכתא', 'reference', 'ref', 'מספר אסמכתא'],
-  type: ['סוג פעולה', 'סוג', 'type', 'סוג עסקה'],
+  date: ['תאריך', 'תאריך עסקה', 'תאריך רכישה', 'תאריך פעולה', 'תאריך תנועה', 'date', 'transaction date'],
+  valueDate: ['תאריך ערך', 'יום ערך', 'value date'],
+  description: ['תיאור', 'תיאור התנועה', 'תיאור פעולה', 'תיאור הפעולה', 'הפעולה', 'שם בית עסק', 'שם בית העסק', 'בית עסק', 'פרטים', 'תאור', 'description', 'details', 'payee', 'merchant'],
+  debit: ['חובה', 'בחובה', 'debit', 'withdrawal', 'withdrawals'],
+  credit: ['זכות', 'בזכות', 'credit', 'deposit', 'deposits'],
+  // Cards: the charged ILS amount beats the original (possibly foreign-currency) amount.
+  amount: ['סכום חיוב', 'סכום החיוב', '₪ זכות/חובה', 'זכות/חובה', 'סכום', 'amount', 'סכום העסקה', 'סכום עסקה', 'סכום פעולה'],
+  balance: ['יתרה', '₪ יתרה', 'היתרה בש"ח', 'יתרה בש"ח', 'balance'],
+  reference: ['אסמכתא', 'אסמכתה', 'מספר אסמכתא', "מס' שובר", 'מספר שובר', 'reference', 'ref'],
+  type: ['סוג פעולה', 'סוג תנועה', 'סוג עסקה', 'סוג', 'type'],
 };
 const SYN_N = Object.fromEntries(Object.entries(SYN).map(([k, v]) => [k, v.map(norm)])) as Record<MapField, string[]>;
 export const MAP_FIELDS: MapField[] = ['date', 'description', 'amount', 'debit', 'credit', 'balance', 'reference', 'type', 'valueDate'];
@@ -46,21 +48,32 @@ export function guessColumns(header: (string | number | null)[]): Partial<Record
   const cols: Partial<Record<MapField, number>> = {};
   const used = new Set<number>();
   const cells = header.map((c) => norm(c === null ? '' : String(c)));
-  // exact matches first (so "תאריך ערך" never steals "תאריך"), then prefix matches
+  // exact matches first (so "תאריך ערך" never steals "תאריך"), then prefix matches; synonyms in priority order
   for (const pass of ['exact', 'prefix'] as const)
-    for (const f of MAP_FIELDS) {
-      if (cols[f] !== undefined) continue;
-      const j = cells.findIndex((c, idx) => !used.has(idx) && c && SYN_N[f].some((s) => (pass === 'exact' ? c === s : c.startsWith(s + ' '))));
-      if (j >= 0) {
-        cols[f] = j;
-        used.add(j);
+    for (const f of MAP_FIELDS)
+      for (const s of SYN_N[f]) {
+        if (cols[f] !== undefined) break;
+        const j = cells.findIndex((c, idx) => !used.has(idx) && c && (pass === 'exact' ? c === s : c.startsWith(s + ' ')));
+        if (j >= 0) {
+          cols[f] = j;
+          used.add(j);
+        }
       }
-    }
   return cols;
 }
 
 export function headerSignature(grid: Grid, headerRow: number): string {
   return (grid[headerRow] ?? []).map((c) => norm(c === null ? '' : String(c))).join('|');
+}
+
+/** A saved mapping whose header signature appears in the first 40 rows, re-anchored at that row. */
+export function findProfile(grid: Grid, profiles: Map<string, Mapping>): { mapping: Mapping; signature: string } | null {
+  for (let i = 0; i < Math.min(40, grid.length); i++) {
+    const signature = headerSignature(grid, i);
+    const saved = profiles.get(signature);
+    if (saved) return { mapping: { ...saved, headerRow: i }, signature };
+  }
+  return null;
 }
 
 export function guessMapping(grid: Grid): Mapping {
@@ -73,17 +86,24 @@ export function guessMapping(grid: Grid): Mapping {
 export const mappingValid = (m: Mapping) => m.columns.date !== undefined && m.columns.description !== undefined && (m.columns.amount !== undefined || (m.columns.debit !== undefined && m.columns.credit !== undefined));
 
 export function parseWithMapping(grid: Grid, m: Mapping): ParseResult {
+  const { raw, errors } = rawRows(grid, m);
+  return finalizeRows('generic', raw, errors, {});
+}
+
+/** Rows below the header (up to `end`) → raw rows + row errors. Totals / section titles are skipped. */
+export function rawRows(grid: Grid, m: Mapping, end = grid.length) {
   const c = m.columns;
   const raw: RawRow[] = [];
   const errors: RowError[] = [];
-  for (let i = m.headerRow + 1; i < grid.length; i++) {
+  for (let i = m.headerRow + 1; i < end; i++) {
     const r = grid[i] ?? [];
     if (isEmptyRow(r)) continue;
     const get = (k: MapField) => (c[k] === undefined ? null : (r[c[k]!] ?? null));
     const date = parseDateCell(get('date'), m.dateFormat === 'serial' ? 'dmy' : m.dateFormat);
     const reference = cellText(get('reference')) || null;
     if (!date) {
-      if ((get('date') === null || get('date') === '') && !reference) continue;
+      // empty or digit-less date cell (total, section title such as "עסקאות בחו״ל") without a reference
+      if (!/\d/.test(cellText(get('date'))) && !reference) continue;
       errors.push({ row: i + 1, code: 'date_invalid' });
       continue;
     }
@@ -113,5 +133,5 @@ export function parseWithMapping(grid: Grid, m: Mapping): ParseResult {
     const bal = get('balance');
     raw.push({ row: i + 1, date, valueDate: parseDateCell(get('valueDate'), m.dateFormat === 'serial' ? 'dmy' : m.dateFormat), amountMinor: amount, description: description || operationType!, reference, operationType, balanceMinor: bal === null || bal === '' ? null : parseAmount(bal) });
   }
-  return finalizeRows('generic', raw, errors, {});
+  return { raw, errors };
 }

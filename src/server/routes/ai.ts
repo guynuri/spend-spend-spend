@@ -6,8 +6,9 @@ import type { Ctx } from '../types';
 import { requireOwner } from '../middleware/auth';
 import { AiError, getProvider, type AiProvider } from '../ai/provider';
 import { CATEGORIZE_SYSTEM, reviewSystem } from '../ai/prompts';
-import { buildCategorizePayload, buildReviewPayload } from '../../shared/ai/payloads';
+import { buildCategorizePayload, buildReviewPayload, isP2P } from '../../shared/ai/payloads';
 import { norm } from '../../shared/normalize';
+import { isGenericPayee } from '../../shared/domain/ledger';
 import { id, monthStr } from '../../shared/schemas/common';
 import { newId, nowIso } from '../lib/crypto';
 import { AI_LIMITS, recordTokensStmt, reserveStmt, usageToday } from '../db/sql/aiUsage';
@@ -66,7 +67,17 @@ aiRoutes.post('/consent', requireOwner, async (c) => {
   return c.json({ ok: true });
 });
 
-const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional() }));
+const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional(), reason: z.string().transform((x) => x.slice(0, 120)).optional() }));
+
+/** All-time count of what /categorize can look at (the nav badge only covers 60 days). */
+aiRoutes.get('/uncategorized', async (c) => {
+  const { db } = tctx(c);
+  // Same eligibility as buildCategorizePayload: transfers / payment apps are never sent, so not counted.
+  const rows = await db.all<{ d: string; op: string | null; n: number }>(
+    "SELECT MIN(description) AS d, MIN(operation_type) AS op, COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm <> '' GROUP BY description_norm",
+  );
+  return c.json({ count: rows.reduce((a, r) => a + (isP2P(r.d, r.op) || isGenericPayee(r.d) ? 0 : r.n), 0) });
+});
 
 aiRoutes.post('/categorize', async (c) => {
   const { db } = tctx(c);
@@ -81,16 +92,32 @@ aiRoutes.post('/categorize', async (c) => {
   ]);
   const { payload, keys } = buildCategorizePayload(rows, cats.map((x) => x.name));
   if (!payload.items.length) return c.json({ suggestions: [] });
-  const p = await gate(c, 'categorize');
-  const res = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload }), schema: catOut, maxTokens: 700, temperature: 0 }));
-  await recordTokensStmt(db, 'categorize', res.tokensIn, res.tokensOut).run();
+  // Batches of 20 keep each reply (with reasons) inside maxTokens. Every provider call is gated, reserved and
+  // its tokens recorded; a failing later batch keeps the earlier suggestions (partial: true).
+  const data: z.infer<typeof catOut> = [];
+  let partial = false;
+  for (let k = 0; k < payload.items.length; k += 20) {
+    try {
+      const p = await gate(c, 'categorize');
+      const part = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload, items: payload.items.slice(k, k + 20) }), schema: catOut, maxTokens: 1600, temperature: 0 }));
+      await recordTokensStmt(db, 'categorize', part.tokensIn, part.tokensOut).run();
+      data.push(...part.data);
+    } catch (e) {
+      if (k === 0) throw e;
+      partial = true;
+      break;
+    }
+  }
   const byName = new Map(cats.map((x) => [norm(x.name), x.id]));
   const byKey = new Map(rows.map((r) => [r.key, r]));
-  const suggestions = res.data
-    .map((o) => ({ key: keys[o.i], categoryId: byName.get(norm(o.category)), confidence: o.confidence ?? null }))
-    .filter((s): s is { key: string; categoryId: string; confidence: number | null } => !!s.key && !!s.categoryId)
-    .map((s) => ({ ...s, description: byKey.get(s.key)!.description, count: byKey.get(s.key)!.n, direction: byKey.get(s.key)!.amountMinor >= 0 ? 'in' : 'out' }));
-  return c.json({ suggestions });
+  const suggestions = data
+    .map((o) => ({ key: keys[o.i], categoryId: byName.get(norm(o.category)), confidence: o.confidence ?? null, reason: o.reason?.trim() || null }))
+    .filter((s): s is { key: string; categoryId: string; confidence: number | null; reason: string | null } => !!s.key && !!s.categoryId)
+    .map((s) => {
+      const r = byKey.get(s.key)!;
+      return { ...s, description: r.description, count: r.n, amountMinor: r.amountMinor, direction: r.amountMinor >= 0 ? 'in' : 'out' };
+    });
+  return c.json({ suggestions, partial });
 });
 
 /** Applies accepted suggestions: category_source='ai' and an `ai` rule per merchant (D-16). */
@@ -99,8 +126,12 @@ aiRoutes.post('/categorize/apply', async (c) => {
   const { db } = tctx(c);
   await db.assertOwned({ categories: b.items.map((i) => i.categoryId) });
   const now = nowIso();
+  // Payment apps / transfers / checks / ATM: one category must not spread to every such row or become a rule.
+  const items = b.items.filter((i) => !isGenericPayee(i.key));
+  const skipped = b.items.length - items.length;
+  if (!items.length) return c.json({ updated: 0, skipped });
   const res = await db.batch(
-    b.items.flatMap((i) => [
+    items.flatMap((i) => [
       db.stmt(
         `UPDATE transactions SET category_id = ?2, category_source = 'ai', updated_at = ?3
           WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND ((?5 = 'in' AND amount_minor > 0) OR (?5 = 'out' AND amount_minor < 0))`,
@@ -121,7 +152,7 @@ aiRoutes.post('/categorize/apply', async (c) => {
       ),
     ]),
   );
-  return c.json({ updated: res.filter((_, k) => k % 2 === 0).reduce((s, r) => s + (r.meta.changes ?? 0), 0) });
+  return c.json({ updated: res.filter((_, k) => k % 2 === 0).reduce((s, r) => s + (r.meta.changes ?? 0), 0), skipped });
 });
 
 const reviewOut = z.object({

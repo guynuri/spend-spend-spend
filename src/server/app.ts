@@ -20,6 +20,7 @@ import { reviewRoutes } from './routes/reviews';
 import { aiRoutes } from './routes/ai';
 import { goalRoutes, healthRoutes } from './routes/goals';
 import { forecastRoutes, plannedRoutes, recurringRoutes, upcomingRoutes } from './routes/recurring';
+import { reminderRoutes } from './routes/reminders';
 import './ai/register';
 
 /** Mounted tenant route groups: prefix → router. Each is behind household + role middleware. */
@@ -64,6 +65,8 @@ export function createApp() {
   app.route('/api', authRoutes);
   app.route('/api', adminRoutes);
   for (const [prefix, r] of Object.entries(TENANT_GROUPS)) app.route(prefix, r);
+  // per-user, behind the household middleware (any role manages their own reminders)
+  app.route('/api/reminders', reminderRoutes);
 
   app.all('/api/*', (c) => c.json(errorBody('not_found', 'No such API route'), 404));
   return app;

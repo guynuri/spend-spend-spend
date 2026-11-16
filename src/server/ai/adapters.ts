@@ -66,8 +66,9 @@ registerProvider('mock', (env: AppEnv) => ({
     generateValidated(async () => {
       const u = JSON.parse(req.user) as { task: string; language?: string; categories?: string[]; items?: { i: number; text: string; dir: string }[]; data?: { month: string } };
       if (u.task === 'categorize') {
+        if (u.items?.some((it) => it.text.includes('MOCK_FAIL'))) throw new AiError('ai_unavailable');
         const cats = u.categories ?? [];
-        return { text: JSON.stringify((u.items ?? []).map((it) => ({ i: it.i, category: cats[(it.text.length + it.i) % Math.max(1, cats.length)] ?? 'none', confidence: 0.8 }))), tokensIn: 10, tokensOut: 10 };
+        return { text: JSON.stringify((u.items ?? []).map((it) => ({ i: it.i, category: cats[(it.text.length + it.i) % Math.max(1, cats.length)] ?? 'none', confidence: it.i % 2 ? 0.5 : 0.9, reason: 'Mock guess' }))), tokensIn: 10, tokensOut: 10 };
       }
       const he = u.language === 'he';
       const w = (en: string, h: string) => (he ? h : en);

@@ -22,6 +22,25 @@ for (const locale of ['en', 'he'] as const) {
   });
 }
 
+for (const locale of ['en', 'he'] as const) {
+  test(`month navigation: "previous" on the start side, chevrons point outward (${locale})`, async ({ page }) => {
+    await signIn(page, 'admin', locale);
+    for (const route of ['/trends?from=2026-10-01&to=2026-10-31', '/trends?tab=day&from=2026-10-01&to=2026-10-31', '/budget', '/transactions']) {
+      await page.goto(route);
+      const prev = page.getByTestId('month-prev');
+      const next = page.getByTestId('month-next');
+      await expect(prev).toBeVisible();
+      const [p, n] = [(await prev.boundingBox())!, (await next.boundingBox())!];
+      expect(locale === 'he' ? p.x > n.x : p.x < n.x, `${route} prev on start side`).toBe(true);
+      // the left-pointing chevron is mirrored in RTL so "previous" points right, towards the start
+      expect(await prev.locator('svg').evaluate((s) => getComputedStyle(s).scale)).toBe(locale === 'he' ? '-1 1' : 'none');
+    }
+    await page.goto('/trends?from=2026-10-01&to=2026-10-31');
+    await page.getByTestId('month-prev').click();
+    await expect(page).toHaveURL(/from=2026-09-01&to=2026-09-30/);
+  });
+}
+
 test('Hebrew label and switching locale from settings', async ({ page }) => {
   await signIn(page, 'admin', 'en');
   await page.goto('/settings');
@@ -66,19 +85,24 @@ test('safe-area padding and 16px inputs', async ({ page }) => {
 });
 
 test('tour runs in the sign-in language and each page reopens its entry', async ({ page }) => {
+  // signIn settles the profile language first (it used to race the profile and flip to English)
   await signIn(page, 'admin', 'he');
   // runs after prepPage's init script, so the tour counts as not seen on every full load
   await page.addInitScript(() => localStorage.removeItem('mz_tour_done'));
   await page.goto('/');
-  await expect(page.getByTestId('tour-welcome')).toContainText('סיור');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'he');
+  const pop = page.getByTestId('tour-popover');
+  await expect(pop).toHaveAttribute('data-step', 'welcome');
+  await expect(pop).toContainText('סיור');
   await page.getByTestId('tour-next').click();
-  await expect(page.getByTestId('tour-page-overview')).toBeVisible();
-  await page.getByTestId('tour-next').click();
-  await expect(page).toHaveURL(/\/transactions$/);
-  await expect(page.getByTestId('tour-page-transactions')).toBeVisible();
+  await expect(pop).toHaveAttribute('data-step', 'nav');
+  await expect(pop).toContainText('העמודים הראשיים');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('tour')).toHaveCount(0);
   await page.getByTestId('tab-budget').click();
   await page.getByTestId('page-tour').click();
-  await expect(page.getByTestId('tour-page-budget')).toContainText('תקציב');
+  await expect(pop).toHaveAttribute('data-step', 'budgetAdd');
+  await expect(pop).toContainText('תקציב');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('tour')).toHaveCount(0);
 });

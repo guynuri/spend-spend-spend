@@ -50,33 +50,55 @@ const s=fs.readFileSync(p,"utf8").replace(/"database_id": "[0-9a-f-]+"/g, `"data
 fs.writeFileSync(p,s);' "$DB_ID"
 echo "  database_id = $DB_ID"
 
-# 4) migrations
-echo "→ migrations"
-run npx wrangler d1 migrations apply "$DB_NAME" --remote --env "$ENVNAME"
-
-deploy_once() {
-  run env CLOUDFLARE_ENV="$ENVNAME" npm run build
+build() { run env CLOUDFLARE_ENV="$ENVNAME" npm run build; }
+publish() {
   if [[ "$DRY_RUN" == "1" ]]; then URL="https://$WORKER.example.workers.dev"; return; fi
   local out
   out="$(npx wrangler deploy 2>&1 | tee /dev/stderr)"
   URL="$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' <<<"$out" | head -1)"
   if [[ -z "$URL" ]]; then echo "✗ could not find the workers.dev URL in the deploy output" >&2; exit 1; fi
 }
+deploy_once() { build; publish; }
 
-# 5) build + deploy
-echo "→ build and deploy"
-deploy_once
+# 4-5) build first (the step that can fail), then migrations, then deploy right away, so the live
+#    worker runs against a migrated schema only for the few seconds between the two.
+echo "→ build"
+build
+echo "→ migrations"
+run npx wrangler d1 migrations apply "$DB_NAME" --remote --env "$ENVNAME"
+echo "→ deploy"
+publish
 HOST="${URL#https://}"
 
 # 6) secrets (only those not set yet)
 echo "→ secrets"
 EXISTING=""
-if [[ "$DRY_RUN" != "1" ]]; then EXISTING="$(npx wrangler secret list --name "$WORKER" 2>/dev/null || true)"; fi
+# A failed listing must stop the deploy: treating it as "no secrets" would regenerate BOOTSTRAP_TOKEN
+# and the VAPID pair, breaking every push subscription.
+if [[ "$DRY_RUN" != "1" ]]; then
+  if ! EXISTING="$(npx wrangler secret list --name "$WORKER")"; then
+    echo "✗ could not list the Worker's secrets; aborting before touching them" >&2
+    exit 1
+  fi
+fi
 FIRST_SETUP=0
 if ! grep -q '"BOOTSTRAP_TOKEN"' <<<"$EXISTING"; then
   BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN:-$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')}"
   if [[ "$DRY_RUN" == "1" ]]; then echo "[dry-run] wrangler secret put BOOTSTRAP_TOKEN"; else printf '%s' "$BOOTSTRAP_TOKEN" | npx wrangler secret put BOOTSTRAP_TOKEN --name "$WORKER" >/dev/null; fi
   FIRST_SETUP=1
+fi
+# Web Push (VAPID): generate one P-256 key pair on first deploy; never rotate it here (that would
+# invalidate every device subscription).
+if ! grep -q '"VAPID_PRIVATE_KEY"' <<<"$EXISTING"; then
+  VAPID="$(node -e '
+const { generateKeyPairSync } = require("crypto");
+const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const pub = publicKey.export({ format: "jwk" }); const priv = privateKey.export({ format: "jwk" });
+const raw = Buffer.concat([Buffer.from([4]), Buffer.from(pub.x, "base64url"), Buffer.from(pub.y, "base64url")]);
+process.stdout.write(raw.toString("base64url") + " " + priv.d);')"
+  for PAIR in "VAPID_PUBLIC_KEY ${VAPID% *}" "VAPID_PRIVATE_KEY ${VAPID#* }" "VAPID_SUBJECT ${VAPID_SUBJECT:-https://$HOST}"; do
+    if [[ "$DRY_RUN" == "1" ]]; then echo "[dry-run] wrangler secret put ${PAIR%% *}"; else printf '%s' "${PAIR#* }" | npx wrangler secret put "${PAIR%% *}" --name "$WORKER" >/dev/null; fi
+  done
 fi
 for NAME in AI_API_KEY RESEND_API_KEY EMAIL_FROM; do
   VAL="${!NAME:-}"

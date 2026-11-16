@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isValidDate } from '../dates';
 import { dateStr, id, text } from './common';
 import type { NormRow } from '../import/types';
+import { PARSER_IDS } from '../import/formats';
 
 export interface WireRow {
   row: number;
@@ -66,7 +67,7 @@ export function validateRows(input: unknown, max = 250): { ok: true; rows: WireR
 export const importCreate = z
   .object({
     accountId: id,
-    parserId: z.enum(['otsar-hahayal', 'generic']),
+    parserId: z.enum(PARSER_IDS),
     fileName: text(120),
     fileHash: z.string().regex(/^[0-9a-f]{64}$/),
     period: z.object({ from: dateStr, to: dateStr }).nullable(),

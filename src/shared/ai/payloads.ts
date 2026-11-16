@@ -3,6 +3,7 @@
  * merchant text, direction, a rounded amount and category names; review sends aggregates only.
  */
 import { norm } from '../normalize';
+import { isGenericPayee } from '../domain/ledger';
 import type { ReviewSnapshot } from '../domain/review';
 
 const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g;
@@ -45,7 +46,8 @@ export function buildCategorizePayload(rows: CategorizeSource[], categoryNames: 
   const keys: string[] = [];
   for (const r of rows) {
     if (items.length >= 40) break;
-    if (!r.key || seen.has(r.key) || isP2P(r.description, r.operationType)) continue;
+    // Payment apps, transfers, checks, ATM: the payee differs every time, so a merchant category makes no sense.
+    if (!r.key || seen.has(r.key) || isP2P(r.description, r.operationType) || isGenericPayee(r.description)) continue;
     const text = scrubText(r.description);
     if (!text) continue;
     seen.add(r.key);

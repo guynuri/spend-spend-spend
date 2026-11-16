@@ -7,11 +7,19 @@ test('manifest has required fields', async ({ request }) => {
   const res = await request.get('/manifest.webmanifest');
   expect(res.status()).toBe(200);
   const m = await res.json();
-  expect(m).toMatchObject({ name: 'spend-spend-spend', display: 'standalone', start_url: '/', scope: '/' });
+  expect(m).toMatchObject({ name: 'Money Money Money', display: 'standalone', start_url: '/', scope: '/' });
   const sizes = m.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes}:${i.purpose}`);
   expect(sizes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']));
   for (const i of m.icons) expect((await request.get(i.src)).status()).toBe(200);
   expect((await request.get('/icons/apple-touch-icon.png')).status()).toBe(200);
+});
+
+test('app is named Money Money Money (title, manifest, iOS home screen)', async ({ page, request }) => {
+  const m = await (await request.get('/manifest.webmanifest')).json();
+  expect(m.short_name).toBe('Money Money Money');
+  await page.goto('/signin');
+  await expect(page).toHaveTitle(/Money Money Money/);
+  await expect(page.locator('meta[name=apple-mobile-web-app-title]')).toHaveAttribute('content', 'Money Money Money');
 });
 
 test('service worker registers; /api is never cached', async ({ page }) => {

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, Plus } from 'lucide-react';
+import { CalendarClock, Plus, Repeat } from 'lucide-react';
+import { Link } from 'react-router';
 import { get, put } from '../../api';
 import { Badge, Button, Card, EmptyState, ErrorState, Field, PageHeader, Spinner } from '../../components/ui';
 import { Money } from '../../components/Money';
@@ -71,12 +72,18 @@ export function Component() {
         title={t('upcoming.title')}
         subtitle={t('upcoming.subtitle')}
         actions={
-          canWrite && (
-            <Button onClick={() => setPlanning(true)} data-testid="upcoming-plan">
-              <Plus className="size-5" aria-hidden />
-              {t('upcoming.addPlanned')}
-            </Button>
-          )
+          <>
+            <Link to="/recurring" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-surface-2 px-3 text-sm font-medium" data-testid="upcoming-recurring" data-tour="upcoming-recurring">
+              <Repeat className="size-4" aria-hidden />
+              {t('upcoming.recurringLink')}
+            </Link>
+            {canWrite && (
+              <Button onClick={() => setPlanning(true)} data-testid="upcoming-plan" data-tour="upcoming-plan">
+                <Plus className="size-5" aria-hidden />
+                {t('upcoming.addPlanned')}
+              </Button>
+            )}
+          </>
         }
       />
       {q.isPending ? (
@@ -119,7 +126,7 @@ export function Component() {
                             {i.late && <Badge tone="warn">{t('upcoming.late')}</Badge>}
                           </div>
                         </div>
-                        <Money minor={i.amountMinor} className={i.amountMinor > 0 ? 'font-semibold text-good' : 'font-semibold'} />
+                        <Money minor={i.amountMinor} className="font-semibold" tone />
                       </button>
                     </li>
                   ))}

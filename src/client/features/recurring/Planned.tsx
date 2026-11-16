@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { Plus } from 'lucide-react';
 import { del, get, patch, post } from '../../api';
 import { Badge, Button, Card, CardTitle, Field, Input, Segmented, Select } from '../../components/ui';
@@ -14,6 +15,7 @@ import { useAccounts } from '../../lib/queries';
 import { useCanWrite, useMe } from '../../lib/session';
 import { parseMoneyInput } from '../../../shared/money';
 import type { PlannedDto, RecurringDto } from '../../../shared/schemas/plan';
+import { recurringTwin } from '../../../shared/domain/forecast';
 
 const PLAN_KEYS = [['planned'], ['forecast'], ['upcoming'], ['dashboard']];
 
@@ -21,7 +23,8 @@ export function PlannedSheet({ open, onOpenChange }: { open: boolean; onOpenChan
   const { t } = useTranslation();
   const today = useMe()?.active?.today ?? '';
   const accounts = (useAccounts().data?.accounts ?? []).filter((a) => !a.archived);
-  const cards = (useQuery({ queryKey: ['recurring'], queryFn: () => get<{ items: RecurringDto[] }>('/api/recurring') }).data?.items ?? []).filter((r) => r.kind === 'card_charge' && r.status === 'active');
+  const recurring = useQuery({ queryKey: ['recurring'], queryFn: () => get<{ items: RecurringDto[] }>('/api/recurring') }).data?.items ?? [];
+  const cards = recurring.filter((r) => r.kind === 'card_charge' && r.status === 'active');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(today);
@@ -29,6 +32,7 @@ export function PlannedSheet({ open, onOpenChange }: { open: boolean; onOpenChan
   const [payFrom, setPayFrom] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const minor = parseMoneyInput(amount);
+  const twin = name.trim() && minor ? recurringTwin({ name, amountMinor: minor, income: dir === 'in' }, recurring) : null;
   const from = payFrom || (accounts.find((a) => a.includeInForecast)?.id ? `acc:${accounts.find((a) => a.includeInForecast)!.id}` : '');
   const save = useApiMutation(
     () =>
@@ -55,6 +59,7 @@ export function PlannedSheet({ open, onOpenChange }: { open: boolean; onOpenChan
       open={open}
       onOpenChange={onOpenChange}
       title={t('planned.add')}
+      description={t('planned.oneTimeHint')}
       testId="planned-sheet"
       footer={
         <Button disabled={!name.trim() || !minor || minor <= 0 || !date} busy={save.isPending} onClick={() => save.mutate(undefined)} data-testid="planned-save">
@@ -92,6 +97,14 @@ export function PlannedSheet({ open, onOpenChange }: { open: boolean; onOpenChan
         <Field label={t('ledger.category')} htmlFor="pl-cat">
           <CategorySelect id="pl-cat" value={categoryId} onChange={setCategoryId} />
         </Field>
+        {twin && (
+          <p className="rounded-xl bg-warn/10 p-3 text-sm" role="status" data-testid="planned-twin">
+            {t('planned.twin', { name: twin.name })}{' '}
+            <Link to="/recurring" className="font-medium text-accent underline">
+              {t('forecast.manageRecurring')}
+            </Link>
+          </p>
+        )}
       </div>
     </Sheet>
   );
@@ -119,6 +132,7 @@ export function PlannedList() {
       >
         {t('planned.title')}
       </CardTitle>
+      <p className="mb-2 text-xs text-muted">{t('planned.oneTimeHint')}</p>
       {items.length === 0 ? (
         <p className="text-sm text-muted">{t('planned.empty')}</p>
       ) : (
@@ -133,7 +147,7 @@ export function PlannedList() {
                   <DateText date={p.date} /> · <Badge tone={p.status === 'planned' ? 'accent' : 'neutral'}>{t(`planned.status.${p.status}`)}</Badge>
                 </div>
               </div>
-              <Money minor={p.amountMinor} />
+              <Money minor={p.amountMinor} tone />
               {canWrite && p.status === 'planned' && (
                 <div className="flex w-full justify-end gap-1">
                   <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: p.id, status: 'done' })}>

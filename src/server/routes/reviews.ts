@@ -4,7 +4,7 @@ import { HttpError } from '../http';
 import { monthStr } from '../../shared/schemas/common';
 import { newId, nowIso } from '../lib/crypto';
 import { loadBase } from '../db/sql/facts';
-import { buildReviewFor, defaultReviewMonth } from '../db/sql/review';
+import { availableReviewMonths, buildReviewFor, defaultReviewMonth, reviewDue } from '../db/sql/review';
 
 export const reviewRoutes = tenantGroup();
 
@@ -20,7 +20,7 @@ reviewRoutes.get('/', async (c) => {
   const rows = await db.all<{ month: string; status: string; health_score: number | null; completed_at: string | null }>(
     "SELECT month, status, health_score, completed_at FROM reviews WHERE household_id = ?1 AND status = 'completed' ORDER BY month DESC",
   );
-  return c.json({ defaultMonth: defaultReviewMonth(base), reviews: rows.map((r) => ({ month: r.month, status: r.status, healthScore: r.health_score, completedAt: r.completed_at })) });
+  return c.json({ defaultMonth: defaultReviewMonth(base), due: await reviewDue(db, base), available: availableReviewMonths(base).slice(0, 24), reviews: rows.map((r) => ({ month: r.month, status: r.status, healthScore: r.health_score, completedAt: r.completed_at })) });
 });
 
 /** A completed review reopens from its immutable snapshot; otherwise a draft is built on the fly. */
@@ -34,6 +34,23 @@ reviewRoutes.get('/:month', async (c) => {
   const ai = row?.ai_json ? JSON.parse(row.ai_json) : null;
   if (row?.status === 'completed' && row.snapshot_json) return c.json({ status: 'completed', completedAt: row.completed_at, snapshot: JSON.parse(row.snapshot_json), ai });
   return c.json({ status: 'draft', completedAt: null, snapshot: await buildReviewFor(db, hh, month), ai });
+});
+
+/** Hides the "review ready" card and nav badge for this month; the review itself stays available. */
+reviewRoutes.post('/:month/dismiss', async (c) => {
+  const { db, userId } = tctx(c);
+  const month = monthParam(c.req.param('month'));
+  await db.batch([
+    db.stmt(
+      `INSERT INTO reviews (id, household_id, month, status, dismissed_at) VALUES (?2, ?1, ?3, 'draft', ?4)
+       ON CONFLICT(household_id, month) DO UPDATE SET dismissed_at = excluded.dismissed_at WHERE reviews.household_id = ?1`,
+      newId(),
+      month,
+      nowIso(),
+    ),
+    db.audit(userId, 'review.dismiss', 'review', month),
+  ]);
+  return c.json({ ok: true });
 });
 
 reviewRoutes.post('/:month/complete', async (c) => {

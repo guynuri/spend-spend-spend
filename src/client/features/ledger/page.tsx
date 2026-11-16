@@ -17,8 +17,8 @@ import type { Tx, TxList } from '../../../shared/schemas/ledger';
 import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
-import { UnsplitCardBanner } from './UnsplitCardBanner';
-import { AiSuggestButton } from '../ai/AiSuggest';
+import { TodoCard } from './TodoCard';
+import { TxTitle, useTxTitle } from '../../components/TxTitle';
 
 function CategoryLabel({ tx }: { tx: Tx }) {
   const { t } = useTranslation();
@@ -72,7 +72,9 @@ export function Component() {
   const fmt = useFormatDate();
   const { f, set, isMonth, shiftMonth, apiQuery, activeCount } = useLedgerFilters();
   const accounts = useAccounts();
+  const title = useTxTitle();
   const accMap = new Map((accounts.data?.accounts ?? []).map((a) => [a.id, a.name]));
+  const cats = useCategoryMap(); // transfers between own accounts stay uncoloured
   const [search, setSearch] = useState(f.q);
   const [open, setOpen] = useState<Tx | null>(null);
   const [adding, setAdding] = useState(false);
@@ -124,7 +126,8 @@ export function Component() {
   const noAccounts = accounts.data && accounts.data.accounts.length === 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    // While selecting, room at the bottom so the last rows can scroll above the fixed bulk bar.
+    <div className={cx('flex flex-col gap-3', selecting && 'pb-24')}>
       <PageHeader
         title={t('ledger.title')}
         actions={
@@ -157,12 +160,13 @@ export function Component() {
           <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
       </div>
+      <TodoCard />
       <div className="flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1" data-tour="ledger-search">
           <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
           <Input type="search" dir="auto" className="ps-9" placeholder={t('ledger.searchPlaceholder')} aria-label={t('common.search')} value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ledger-search" />
         </div>
-        <Button variant="secondary" onClick={() => setFiltersOpen(true)} data-testid="ledger-filters" aria-label={t('ledger.filters')}>
+        <Button variant="secondary" onClick={() => setFiltersOpen(true)} data-testid="ledger-filters" data-tour="ledger-filters" aria-label={t('ledger.filters')}>
           <SlidersHorizontal className="size-5" aria-hidden />
           {activeCount > 0 && <span className="rounded-full bg-accent px-1.5 text-xs text-accent-fg">{activeCount}</span>}
         </Button>
@@ -175,17 +179,15 @@ export function Component() {
           </button>
         </div>
       )}
-      <UnsplitCardBanner month={f.from.slice(0, 7)} />
-      {f.uncategorized && <AiSuggestButton />}
       {summary && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted" data-testid="ledger-summary">
           <span data-count={summary.count}>{t('ledger.summary', { count: summary.count })}</span>
           <span className="flex gap-3">
             <span>
-              {t('ledger.in')} <Money minor={summary.inMinor} className="text-good" />
+              {t('ledger.in')} <Money minor={summary.inMinor} tone="in" />
             </span>
             <span>
-              {t('ledger.out')} <Money minor={-summary.outMinor} className="text-text" />
+              {t('ledger.out')} <Money minor={-summary.outMinor} tone />
             </span>
           </span>
         </div>
@@ -217,17 +219,17 @@ export function Component() {
                 <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
                   {txs.map((tx) => (
                     <li key={tx.id}>
-                      <button type="button" onClick={() => onRow(tx)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-start active:bg-surface-2" data-testid="tx-row" data-tx={tx.id}>
-                        {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={tx.description} />}
+                      <button type="button" onClick={() => onRow(tx)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-start active:bg-surface-2" data-testid="tx-row" data-tour="tx-row" data-tx={tx.id}>
+                        {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={title(tx)} />}
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
-                            <bdi>{tx.description}</bdi>
+                            <TxTitle tx={tx} />
                           </div>
                           <div className="flex min-w-0 items-center gap-2">
                             <CategoryLabel tx={tx} />
                           </div>
                         </div>
-                        <Money minor={tx.amountMinor} className={cx('text-sm font-semibold', tx.amountMinor > 0 && 'text-good')} />
+                        <Money minor={tx.amountMinor} className="text-sm font-semibold" tone={cats.get(tx.categoryId ?? '')?.kind !== 'transfer'} />
                       </button>
                     </li>
                   ))}
@@ -253,21 +255,21 @@ export function Component() {
                   <tr key={tx.id} onClick={() => onRow(tx)} className="cursor-pointer hover:bg-surface-2">
                     {selecting && (
                       <td className="px-3">
-                        <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-4" aria-label={tx.description} />
+                        <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-4" aria-label={title(tx)} />
                       </td>
                     )}
                     <td className="whitespace-nowrap px-3 py-2">
                       <DateText date={tx.date} />
                     </td>
                     <td className="max-w-80 truncate px-3 py-2">
-                      <bdi>{tx.description}</bdi>
+                      <TxTitle tx={tx} />
                     </td>
                     <td className="px-3 py-2">
                       <CategoryLabel tx={tx} />
                     </td>
                     <td className="truncate px-3 py-2 text-muted">{accMap.get(tx.accountId)}</td>
                     <td className="px-3 py-2 text-end">
-                      <Money minor={tx.amountMinor} className={cx('font-medium', tx.amountMinor > 0 && 'text-good')} />
+                      <Money minor={tx.amountMinor} className="font-medium" tone={cats.get(tx.categoryId ?? '')?.kind !== 'transfer'} />
                     </td>
                   </tr>
                 ))}

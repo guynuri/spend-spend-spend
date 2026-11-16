@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { bool01, dateStr, id, minor, posMinor, text } from './common';
+import { BANK_IDS } from '../banks';
 
 export const accountType = z.enum(['checking', 'savings', 'cash', 'credit_card']);
 export const accountCreate = z
@@ -7,6 +8,7 @@ export const accountCreate = z
     name: text(60).min(1),
     type: accountType,
     institution: text(60).optional(),
+    bankId: z.enum(BANK_IDS).nullable().optional(),
     accountMask: z.string().regex(/^\d{0,4}$/).optional(),
     openingBalanceMinor: minor.optional(),
     openingDate: dateStr.nullable().optional(),
@@ -24,6 +26,8 @@ export const categoryPatch = z.object({ name: text(40).min(1).optional(), grp: z
 export const ruleField = z.enum(['description', 'operation_type']);
 export const ruleMatch = z.enum(['contains', 'equals', 'starts_with']);
 export const ruleSign = z.enum(['any', 'in', 'out']);
+/** Rows (e.g. a card statement) to look up the winning rule's category for. */
+export const ruleLookup = z.object({ items: z.array(z.object({ description: text(300), amountMinor: minor }).strict()).max(5000) }).strict();
 export const ruleCreate = z.object({ field: ruleField, match: ruleMatch, pattern: text(100).min(1), sign: ruleSign, categoryId: id }).strict();
 export const rulePatch = z.object({ match: ruleMatch.optional(), pattern: text(100).min(1).optional(), sign: ruleSign.optional(), categoryId: id.optional() }).strict();
 
@@ -32,7 +36,7 @@ export const txCreate = z
     date: dateStr,
     amountMinor: posMinor.refine((v) => v > 0, 'must be positive'),
     direction: z.enum(['in', 'out']),
-    description: text(300).min(1),
+    description: text(300).default(''),
     accountId: id,
     categoryId: id.nullable().optional(),
     notes: text(500).optional(),
@@ -42,7 +46,7 @@ export const txPatch = z
   .object({
     categoryId: id.nullable().optional(),
     notes: text(500).nullable().optional(),
-    description: text(300).min(1).optional(),
+    description: text(300).optional(),
     date: dateStr.optional(),
     amountMinor: posMinor.refine((v) => v > 0).optional(),
     direction: z.enum(['in', 'out']).optional(),
@@ -75,6 +79,7 @@ export interface Account {
   name: string;
   type: z.infer<typeof accountType>;
   institution: string | null;
+  bankId: string | null;
   accountMask: string | null;
   openingBalanceMinor: number;
   openingDate: string | null;

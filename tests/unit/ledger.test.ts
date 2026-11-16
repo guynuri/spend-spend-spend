@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { csvCell, isCardLump, learnedRuleFor, matchRule, scaleSplit, type RuleLike } from '../../src/shared/domain/ledger';
+import { csvCell, isCardLump, isGenericPayee, learnedRuleFor, matchRule, scaleSplit, type RuleLike } from '../../src/shared/domain/ledger';
 import { CARD_ISSUER_PATTERNS } from '../../src/shared/domain/constants';
 import { norm } from '../../src/shared/normalize';
 
 const r = (id: string, source: RuleLike['source'], pattern: string, cat: string, extra: Partial<RuleLike> = {}): RuleLike => ({ id, field: 'description', match: 'contains', pattern_norm: pattern, sign: 'any', category_id: cat, source, ...extra });
+
+describe('isGenericPayee', () => {
+  it('flags payment apps, transfers, checks and ATM; not merchants', () => {
+    for (const d of ['BIT transfer 0501234567', 'ביט', 'העברה בביט', 'PAYBOX', 'Venmo *John', 'PAYPAL *EBAY', 'העברת זה"ב', 'העברה לחשבון 12345', "צ'ק 1234", 'משיכת מזומן כספומט', 'ATM WITHDRAWAL', "העב' לאחר-נייד", 'העב. לחשבון', 'העברות שוטפות'])
+      expect(isGenericPayee(d), d).toBe(true);
+    for (const d of ['שופרסל דיל', 'ביטוח ישיר', 'Bitter Cafe', 'Pizza Napoli', 'checkpoint market', 'ISRACARD', 'CHECK POINT SOFTWARE', 'האוניברסיטה העברית', 'ספרים העברי', ''])
+      expect(isGenericPayee(d), d).toBe(false);
+  });
+});
 
 describe('rule precedence (PLAN §9.6)', () => {
   const rules = [r('1', 'seed', 'שופרסל', 'groc'), r('2', 'learned', 'שופרסל דיל', 'home'), r('3', 'user', 'דיל', 'kids'), r('4', 'ai', 'שופרסל דיל סניף', 'ai')];

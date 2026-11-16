@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "spend-spend-spend",
+    "name": "Money Money Money",
     "tagline": "Household money, calmly balanced"
   },
   "nav": {
@@ -22,7 +22,9 @@
     "main": "Main navigation",
     "uncategorizedBadge_one": "{{count}} uncategorized transaction",
     "uncategorizedBadge_other": "{{count}} uncategorized transactions",
+    "moreBadge": "Something under More needs attention",
     "overBudgetBadge": "Over budget",
+    "reviewBadge": "Monthly review ready",
     "upcomingTab": "Upcoming",
     "categories": "Categories"
   },
@@ -74,7 +76,62 @@
   },
   "settings": {
     "title": "Settings",
-    "appearance": "Appearance"
+    "appearance": "Appearance",
+    "navBar": "Bottom bar",
+    "navBarHint": "Choose the pages shown around the + button on your phone. Everything else is under More. Saved on this device.",
+    "navSlot": "Position {{n}}",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "navReset": "Reset to default",
+    "reminders": {
+      "title": "Reminders",
+      "hint": "Your own reminders (not shared with the household). Times are Israel time.",
+      "new": "Add a reminder",
+      "add": "Save reminder",
+      "added": "Reminder saved",
+      "delete": "Delete reminder",
+      "empty": "No reminders yet.",
+      "kind": "Remind me to",
+      "kindImport": "Import new data",
+      "kindDaily": "Add today's transactions",
+      "kindReview": "Monthly review is ready",
+      "freq": "How often",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "weekday": "Day",
+      "monthDay": "Day of month",
+      "clampHint": "Shorter months use their last day.",
+      "hour": "Time",
+      "account": "Account (optional)",
+      "anyAccount": "Any account",
+      "days": "Days",
+      "reviewHint": "You get one notice when last month’s review becomes available.",
+      "everyDay": "Every day",
+      "weeklyWhen": "Every {{day}} at {{time}}",
+      "monthlyWhen": "Every month on day {{day}} at {{time}}",
+      "dailyWhen": "{{days}} at {{time}}",
+      "reviewWhen": "Once a month, when it is ready",
+      "pushUnavailable": "Notifications are not set up on this server, so reminders appear in the app only (on the Overview page).",
+      "enablePush": "Turn on notifications on this device",
+      "sendTest": "Send a test notification",
+      "testSent": "Test notification sent",
+      "testNone": "No device received it. Turn notifications on first.",
+      "devices": "Devices with notifications",
+      "thisDevice": "this device",
+      "device": {
+        "on": "Notifications are on for this device.",
+        "off": "Notifications are off on this device. Reminders still appear on the Overview page.",
+        "blocked": "Notifications are blocked for this site. Allow them in the browser or phone settings.",
+        "install": "On iPhone, add the app to the Home Screen first (Share → Add to Home Screen), open it from there, then turn notifications on.",
+        "unsupported": "This browser can't show notifications. Reminders appear on the Overview page."
+      },
+      "cardImport": "Time to import new data",
+      "cardImportBody": "Download the latest statement from your bank and import it.",
+      "cardImportOpen": "Import",
+      "cardDaily": "Add today's transactions",
+      "cardDailyBody": "Anything you paid today? It takes a few seconds.",
+      "cardDailyOpen": "Add a transaction"
+    }
   },
   "pwa": {
     "updateAvailable": "An update is available.",
@@ -113,6 +170,8 @@
     "split_min_lines": "A split needs at least two lines.",
     "imported_readonly": "Imported details can't be changed; you can set the category and notes.",
     "name_taken": "That name is already used.",
+    "name_taken_hidden": "A hidden category of another type already has this name. Restore it from “Show hidden” or choose another name.",
+    "no_history": "Hiding unused categories needs transactions from at least two months.",
     "system_category": "This built-in category can't be removed.",
     "rule_exists": "An identical rule already exists.",
     "date_in_future": "The date can't be in the future.",
@@ -128,8 +187,12 @@
     "ai_bad_output": "The AI reply couldn't be used.",
     "ai_timeout": "The AI took too long to answer.",
     "review_completed": "This review is already completed.",
-    "recovery_needs_admin": "This person also uses spend-spend-spend elsewhere (or is the administrator). Ask the administrator for a recovery link.",
-    "registration_failed": "The account couldn't be created. Please try again with the same link."
+    "recovery_needs_admin": "This person also uses Money Money Money elsewhere (or is the administrator). Ask the administrator for a recovery link.",
+    "registration_failed": "The account couldn't be created. Please try again with the same link.",
+    "demo_read_only": "The tour shows demo data, which can’t be changed.",
+    "too_many_reminders": "You have reached the maximum number of reminders.",
+    "too_many_devices": "Too many devices have notifications on. Remove one first.",
+    "push_unavailable": "Notifications are not set up on this server."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -239,7 +302,6 @@
     "bulkDone_other": "{{count}} transactions updated",
     "learned_one": "{{count}} more categorized",
     "learned_other": "{{count}} more categorized",
-    "learnedNone": "Category saved. Similar transactions will be categorized automatically.",
     "split": "Split",
     "splitBadge": "Split",
     "manual": "Manual",
@@ -251,6 +313,7 @@
     "expense": "Expense",
     "income": "Income",
     "description": "Description",
+    "noDescription": "No description",
     "category": "Category",
     "notes": "Notes",
     "reference": "Reference",
@@ -266,7 +329,18 @@
     "goAccounts": "Go to accounts",
     "byRule": "by a rule",
     "byAi": "by AI suggestion",
-    "byYou": "by you"
+    "byYou": "by you",
+    "similarPrompt_one": "{{count}} more uncategorized transaction has the same description. Categorize it too?",
+    "similarPrompt_other": "{{count}} more uncategorized transactions have the same description. Categorize them too?",
+    "similarApply_one": "Apply to {{count}}",
+    "similarApply_other": "Apply to all {{count}}",
+    "similarAlways": "Always for this merchant",
+    "similarNo": "Only this one",
+    "todoTitle": "Needs attention",
+    "todoUncategorized_one": "{{count}} transaction without a category",
+    "todoUncategorized_other": "{{count}} transactions without a category",
+    "todoShow": "Show",
+    "todoDismiss": "Hide until something new comes up"
   },
   "split": {
     "title": "Split transaction",
@@ -279,19 +353,30 @@
     "mustMatch": "Lines must add up exactly to the transaction amount.",
     "line": "Line",
     "fromLast": "Copied from the split of",
-    "noPrevious": "No earlier split to copy."
+    "noPrevious": "No earlier split to copy.",
+    "upload": "Upload card statement",
+    "uploadHint": "Excel or CSV from the card company. Its charges become the split lines.",
+    "statementLoaded_one": "{{count}} charge loaded from the statement.",
+    "statementLoaded_other": "{{count}} charges loaded from the statement.",
+    "statementSkipped_one": "{{count}} row in the file couldn't be read and is not included. Check the file or add it by hand.",
+    "statementSkipped_other": "{{count}} rows in the file couldn't be read and are not included. Check the file or add them by hand.",
+    "unassigned": "Unassigned",
+    "keepRemainder": "Keep the difference as unassigned",
+    "otherRows": "{{count}} more charges"
   },
   "accounts": {
     "title": "Accounts",
     "add": "Add account",
     "name": "Name",
     "type": "Type",
+    "openBank": "Open the bank website",
+    "otherBank": "Other",
     "institution": "Bank / issuer",
     "mask": "Last 4 digits",
     "opening": "Opening balance",
     "openingDate": "Opening balance date",
     "includeInForecast": "Include in the forecast",
-    "isLiquid": "Counts as available money (safety cushion)",
+    "isLiquid": "Counts as available money (emergency fund)",
     "archived": "Archived",
     "archive": "Archive",
     "unarchive": "Restore",
@@ -318,10 +403,19 @@
   "categories": {
     "title": "Categories & rules",
     "add": "Add category",
+    "addOption": "+ Add category…",
+    "suggested": "Suggested — tap to add",
+    "custom": "Or create your own",
+    "hideUnused": "Hide unused categories",
+    "hideUnusedBody": "These categories have no transactions, budgets, plans or rules of your own. Untick any you want to keep. Hidden categories are no longer assigned automatically on import or offered in pickers. Nothing is deleted; use “Show hidden” to restore one.",
+    "hiddenToast_one": "{{count}} unused category hidden",
+    "hiddenToast_other": "{{count}} unused categories hidden",
+    "showHidden": "Show hidden ({{count}})",
     "name": "Name",
     "kind": "Kind",
     "group": "Group",
-    "isDebt": "Debt repayment",
+    "isDebt": "Loan or mortgage repayment",
+    "isDebtHint": "Tick for loan and mortgage payments. They count toward the debt load in the health score.",
     "fixed": "Fixed",
     "variable": "Variable",
     "kinds": {
@@ -371,6 +465,14 @@
   "import": {
     "title": "Import",
     "subtitle": "Upload the statement you downloaded from your bank. The file is read on this device; only the transactions are sent.",
+    "autoDetect": "Detect from the file",
+    "accountDetected": "Account (detected from the file)",
+    "whichAccount": "Which account is this file from?",
+    "whichAccountBody": "We couldn't tell the account from the file. Pick it, or create a new one.",
+    "whichAccountBank": "This looks like a {{bank}} file, but we couldn't tell which account. Pick it, or create a new one.",
+    "pickAccount": "Choose an account",
+    "orCreate": "Or create a new checking account",
+    "create": "Create",
     "account": "Into account",
     "newAccount": "Add an account first",
     "choose": "Choose a file",
@@ -453,12 +555,15 @@
     "undoConfirm": "Remove the {{count}} transactions added by this import? Manual entries that were merged return to how they were.",
     "undone": "Undone",
     "fileErrors": {
+      "not_card": "This isn't a card statement we recognize (Isracard, American Express, Max or Cal).",
+      "card_file": "This is a credit-card statement. Card imports aren't supported yet: import your bank account file, where the monthly card charge appears.",
       "file_too_large": "The file is larger than 5 MB.",
       "file_type": "Choose an .xlsx, .xls or .csv file.",
       "unsupported_file": "This file can't be read. Export it again from the bank as Excel or CSV.",
       "file_empty": "The file is empty.",
       "no_rows": "No transactions were found in the file."
-    }
+    },
+    "openBankNamed": "Open the {{bank}} website"
   },
   "budget": {
     "title": "Budget",
@@ -501,6 +606,21 @@
     "explainStatusBody": "Over: spent more than the limit. Watch (variable categories): used ≥ 90 % of the limit, or ≥ 50 % while ahead of the month by more than 10 points. Otherwise on pace.",
     "explainTotals": "Budgeted = sum of limits. Spent = spending in budgeted categories (refunds reduce it). Pace compares % of budget spent with % of the month elapsed (± 5 points).",
     "removeLimit": "Remove budget",
+    "add": "Add budget",
+    "edit": "Edit budget",
+    "category": "Category",
+    "pickCategory": "Choose a category",
+    "amount": "Amount",
+    "when": "Applies to",
+    "every": "Every month",
+    "once": "Only {{month}}",
+    "onceHint": "Only for {{month}}; other months keep their usual budget.",
+    "monthly": "Monthly",
+    "oneTime": "One-time",
+    "removeOneTime": "Remove this month's budget",
+    "seeAll": "See all ({{count}})",
+    "noBudgets": "No budgets yet",
+    "howItWorks": "Pick a category and an amount. “Every month” repeats from this month on until you change it; “Only this month” is a one-off limit (holidays, a big purchase) that replaces the usual one for that month. Spending is tracked against it as transactions come in.",
     "empty": "No expense categories yet."
   },
   "trends": {
@@ -511,18 +631,43 @@
     "total": "Total spending",
     "share": "Share",
     "daily": "Daily spending",
-    "cumulative": "This month, cumulative",
-    "prevCumulative": "Last month, cumulative",
+    "cumulative": "This period, cumulative",
+    "prevCumulative": "Previous period, cumulative",
+    "prevYearCumulative": "Same months last year, cumulative",
     "income": "Income",
     "expenses": "Spending",
     "net": "Left over",
     "category": "Category",
     "allCategories": "Income, spending and left over",
     "empty": "No spending in this period.",
+    "range": "Period",
+    "presets": {
+      "month": "This month",
+      "lastMonth": "Last month",
+      "3m": "Last 3 months",
+      "6m": "Last 6 months",
+      "year": "This year",
+      "12m": "Last 12 months",
+      "custom": "Custom dates"
+    },
+    "from": "From",
+    "to": "To",
+    "prevPeriod": "Previous period",
+    "nextPeriod": "Next period",
+    "perDay": "Spending per day",
+    "perWeek": "Spending per week",
+    "perMonth": "Spending per month",
+    "cumulativeTitle": "Cumulative spending",
+    "partial": "(partial)",
     "uncategorized": "Uncategorized"
   },
   "forecast": {
     "title": "Forecast",
+    "recurringTitle": "Recurring payments",
+    "recurringHint_one": "1 active recurring payment is counted automatically. Next due:",
+    "recurringHint_other": "{{count}} active recurring payments are counted automatically. Next due:",
+    "recurringEmpty": "No recurring payments yet. Add them under Recurring and they are included automatically.",
+    "manageRecurring": "Manage recurring",
     "eom": "Expected at month end",
     "low": "Lowest point this month",
     "afterCard": "After the next card charge",
@@ -534,7 +679,13 @@
       "low": "Low confidence"
     },
     "belowZero": "Your balance is expected to go below zero.",
-    "belowBuffer": "Your balance is expected to drop below your safety buffer.",
+    "belowBuffer": "Your balance is expected to drop below your safety cushion.",
+    "cushion": "Safety cushion",
+    "cushionWhat": "What is this?",
+    "cushionHint": "The minimum balance you want to keep at all times. The forecast warns you when the projected lowest balance drops below it. At 0 it only warns below zero.",
+    "cushionEdit": "Edit",
+    "cushionSave": "Save",
+    "cushionLabel": "Safety cushion amount",
     "noAccount": "Mark an account as “Include in the forecast” to see a forecast.",
     "chart": "Projected balance to the end of next month",
     "today": "Today",
@@ -568,7 +719,8 @@
     "overridden": "Your amount",
     "late": "Expected, not yet seen",
     "empty": "Nothing expected in the next 45 days.",
-    "addPlanned": "Plan an expense",
+    "addPlanned": "Add one-time item",
+    "recurringLink": "Recurring payments",
     "types": {
       "income": "Income",
       "recurring": "Recurring",
@@ -580,6 +732,7 @@
   },
   "recurring": {
     "title": "Recurring",
+    "upcomingLink": "Upcoming",
     "add": "Add recurring item",
     "monthly": "Monthly cost",
     "yearly": "Yearly cost",
@@ -631,8 +784,8 @@
     "deleteConfirm": "Delete this recurring item? Linked transactions stay."
   },
   "planned": {
-    "title": "Planned expenses",
-    "add": "Plan an expense",
+    "title": "One-time planned items",
+    "add": "Add one-time item",
     "name": "What",
     "amount": "Amount",
     "date": "Date",
@@ -643,6 +796,8 @@
       "done": "Done",
       "cancelled": "Cancelled"
     },
+    "oneTimeHint": "A single expected income or expense (a gift, a refund). Regular payments are managed under Recurring and are already in the forecast.",
+    "twin": "This looks like the recurring payment “{{name}}”, which the forecast already counts. Add it only if it is an extra payment.",
     "markDone": "Mark done",
     "cancel": "Cancel it",
     "empty": "No planned expenses.",
@@ -671,10 +826,9 @@
   },
   "onboarding": {
     "title": "Let's get started",
-    "body": "Upload your bank statement, or explore the app with realistic sample data first.",
+    "body": "Upload your bank statement, or first take a quick tour of the app on demo data.",
     "upload": "Upload a statement",
-    "sample": "Load sample data",
-    "sampleBody": "A fictional household with 6 months of data. You can clear it in one tap.",
+    "tour": "Take the tour",
     "banner": "You're looking at sample data.",
     "clear": "Clear sample data",
     "clearConfirm": "Remove all sample data? Your categories and settings are kept.",
@@ -694,7 +848,7 @@
     "subs": {
       "savings": "Savings rate",
       "debt": "Debt load",
-      "cushion": "Safety cushion",
+      "cushion": "Emergency fund",
       "budget": "Budget adherence",
       "goals": "Goal progress"
     },
@@ -729,7 +883,7 @@
     "stale_data": "Your latest data is from {{date}}. Import a recent statement.",
     "no_forecast_account": "Mark your main account “Include in the forecast” to see where the month is heading.",
     "low_point_negative": "Your balance may drop to {{amount}} on {{date}}.",
-    "low_point_buffer": "Your balance may drop to {{amount}} on {{date}}, below your {{buffer}} buffer.",
+    "low_point_buffer": "Your balance may drop to {{amount}} on {{date}}, below your {{buffer}} safety cushion.",
     "uncategorized_one": "{{count}} transaction needs a category",
     "uncategorized_other": "{{count}} transactions need a category",
     "card_unsplit": "{{amount}} in card charges isn't split into categories",
@@ -792,6 +946,8 @@
   "review": {
     "title": "Monthly review",
     "history": "Past reviews",
+    "ready": "Ready to review",
+    "notReviewed": "Not reviewed",
     "none": "No completed reviews yet.",
     "start": "Review {{month}}",
     "draft": "Draft",
@@ -800,9 +956,13 @@
     "step": "Step {{n}} of {{total}}",
     "back": "Back",
     "next": "Next",
-    "toWrapup": "Skip to wrap-up",
+    "toWrapup": "Skip to final summary",
     "complete": "Complete review",
     "completeDone": "Review saved.",
+    "dueTitle": "Your {{month}} review is ready",
+    "dueBody": "The month has ended. Take a few minutes to see how it went and what to do next.",
+    "dueOpen": "Open review",
+    "dueDismiss": "Not now",
     "open": "Open",
     "chapters": {
       "summary": "Summary",
@@ -811,7 +971,7 @@
       "budget": "Budget",
       "goals": "Goals",
       "cashflow": "Cash flow & upcoming",
-      "wrapup": "Wrap-up"
+      "wrapup": "Final summary"
     },
     "chips": {
       "score_up": "Health score up",
@@ -823,9 +983,11 @@
     "byCategory": "By category",
     "adherence": "{{ok}} of {{total}} budgeted categories within limit",
     "savingsRate": "Savings rate",
+    "score": "Health score",
     "forecastNow": "Forecast for this month",
     "wins": "Wins",
     "watch": "Watch list",
+    "focus": "Areas to focus on",
     "nextSteps": "Next steps",
     "ruleBased": "Written by rules from your numbers.",
     "noItems": "Nothing here this month.",
@@ -879,6 +1041,31 @@
       "needs_attention_up": "Needs attention ({{score}}), but improving.",
       "needs_attention_down": "Needs attention ({{score}}) — a harder month.",
       "needs_attention_flat": "Needs attention ({{score}})."
+    },
+    "fin": {
+      "win": {
+        "net": "You ended the month {{net}} ahead.",
+        "savings": "You saved {{pct}} of your income.",
+        "score_up": "Your health score rose {{change}} points.",
+        "spending_down": "Spending dropped {{pct}} from the month before.",
+        "budgets": "Every budgeted category stayed within its limit.",
+        "milestone": "{{name}} reached {{pct}} of its target.",
+        "income_up": "Income grew {{pct}}."
+      },
+      "focus": {
+        "net": "Spending exceeded income by {{net}}.",
+        "over": "{{name}} went {{over}} over budget.",
+        "spending_up": "Spending rose {{pct}} from the month before.",
+        "goal": "{{name}} is behind schedule.",
+        "low_savings": "You kept only {{pct}} of your income.",
+        "top_cat": "{{name}} was your biggest expense ({{pct}} of spending)."
+      },
+      "act": {
+        "over": "Plan {{name}} to stay under {{limit}} next month.",
+        "goal": "Set aside {{amount}} a month for {{name}}.",
+        "set_budget": "Set budgets for your top spending categories.",
+        "next_review": "Import next month's statements and review it when the month ends."
+      }
     }
   },
   "ai": {
@@ -910,20 +1097,31 @@
     "agree": "Turn on",
     "consentedOn": "Turned on {{date}}",
     "usage": "Used today: {{categorize}} / {{cLimit}} categorization, {{review}} / {{rLimit}} reviews",
-    "writeReview": "Write commentary with AI",
+    "writeReview": "Interpret with AI",
+    "rewriteReview": "Interpret again with AI",
     "writing": "Writing…",
     "aiTag": "AI-written",
+    "interpretation": "AI interpretation",
     "disclaimer": "General information only, not financial advice.",
     "failed": "AI couldn't write commentary right now; the rule-based text is shown.",
     "enableHint": "Enable AI in Settings to get written commentary.",
     "enableHintLink": "Open Settings",
     "suggest": "Suggest categories with AI",
     "suggestTitle": "AI category suggestions",
-    "suggestBody": "Review the suggestions and apply the ones you agree with. Applied merchants are remembered.",
+    "suggestBody": "Nothing is saved until you approve. Unsure guesses start unticked. Approved merchants are remembered.",
+    "suggestCount_one": "Let AI suggest a category for {{count}} uncategorized transaction",
+    "suggestCount_other": "Let AI suggest categories for {{count}} uncategorized transactions",
+    "approveAll": "Approve all",
+    "partial": "AI answered only part of the list. Try again later for the rest.",
+    "applyCount": "Save approved ({{count}})",
+    "sure": "Confidence {{pct}}%",
+    "unsure": "Not sure ({{pct}}%), please check",
     "noSuggestions": "No suggestions — nothing eligible to categorize.",
     "apply": "Apply selected",
     "applied_one": "{{count}} transaction categorized",
     "applied_other": "{{count}} transactions categorized",
+    "skippedGeneric_one": "{{count}} transfer or payment-app suggestion was skipped: categorize those one by one",
+    "skippedGeneric_other": "{{count}} transfer or payment-app suggestions were skipped: categorize those one by one",
     "times": "×{{count}}"
   },
   "security": {
@@ -944,84 +1142,134 @@
     "more_other": "and {{count}} more devices"
   },
   "tour": {
-    "pageInfo": "About this page",
-    "welcomeTitle": "Welcome! A quick tour",
-    "welcomeBody": "This short tour walks through every page of the app and what you can see and do on each one. It runs in the language you chose when signing in.",
-    "welcomePoints": "On a computer, pages are listed in the sidebar. On a phone, the four main pages are in the bottom bar and the rest are under “More”.\nEach step opens the page it describes, so you can see it behind the tour.\nTap the ⓘ icon next to any page title to see that page’s explanation again.\nYou can change the language and theme any time in Settings.",
-    "start": "Start the tour",
+    "pageInfo": "Tour of this page",
+    "demoBadge": "Demo data",
     "next": "Next",
     "back": "Back",
-    "skip": "Not now",
+    "skip": "End tour",
     "finish": "Finish",
-    "progress": "Page {{n}} of {{total}}",
-    "fullTour": "Take the full tour",
-    "gotIt": "Got it",
-    "pages": {
-      "overview": {
-        "body": "Your home screen: the state of the current month at a glance.",
-        "points": "This month: income, spending and what’s left over, with what to expect by month end.\nWhat needs attention: uncategorized transactions, categories over budget, unusual spending and payments coming soon.\nHealth score (0–100) built from savings rate, debt load, safety cushion, budget adherence and goal progress. Open it to see how it’s calculated and what would raise it.\nShort summaries of the budget, the next payments and your goals, each linking to its full page.\nWith no data yet, you can upload a statement or load sample data to explore."
+    "progress": "Step {{n}} of {{total}}",
+    "steps": {
+      "welcome": {
+        "title": "A quick tour",
+        "body": "We’ll point at the buttons and cards you’ll use most, on demo data — your own data isn’t touched. Next and Back move; Esc leaves."
       },
-      "transactions": {
-        "body": "Every transaction from your imported statements and the ones you added by hand.",
-        "points": "Search and filter by month, account, category, date range or “uncategorized only”.\nTap a transaction to change its category, add notes or split it across several categories (useful for a monthly credit-card charge).\nSelect several transactions to set a category for all of them at once. Similar transactions are then categorized automatically.\nAdd a transaction by hand or export the list to CSV.\nThe number on the menu item shows how many transactions still need a category."
+      "nav": {
+        "title": "Main pages",
+        "body": "Switch between your main pages here. On a phone you choose which pages sit in this bar (Settings); the rest are under More."
       },
-      "budget": {
-        "body": "Monthly spending limits per category, and how the current month is tracking against them.",
-        "points": "Totals: budgeted, spent and left, plus the pace — the share of the budget spent versus the share of the month that has passed.\nEach category shows its limit, what was spent, its 3-month average and a status: on pace, watch or over.\nSet or change a limit from any category. Changes apply from that month onward.\nAllocation check: total budgets compared with your average monthly income.\nCharts of the last 6 months and of where the money went."
+      "add": {
+        "title": "Add a transaction",
+        "body": "Record cash or anything not in a bank file yet: amount, description, date and category. Add it right after paying so the month stays accurate."
       },
-      "upcoming": {
-        "body": "Everything expected in the next 45 days, with the projected balance after each item.",
-        "points": "Income, recurring payments, credit-card charges and planned expenses in date order.\nSkip a payment this time or change its amount for just this occurrence.\nItems that were expected but haven’t shown up yet are marked.\nPlan a one-off expense (and choose whether it’s paid by card) so it’s included in the forecast."
+      "reviewDue": {
+        "title": "Monthly review is ready",
+        "body": "When a month ends, this card invites you to a short guided review of it. Open it now, or dismiss it."
       },
-      "forecast": {
-        "body": "Where your balance is heading by the end of the month.",
-        "points": "Expected month-end balance, the lowest point this month and the balance after the next card charge.\nA chart of the projected balance to the end of next month.\nWarnings if the balance may go below zero or below your safety buffer.\n“How is this calculated?” shows every input: start balance, income, recurring payments, card charges, planned items and the day-to-day estimate.\nOnly accounts marked “Include in the forecast” are counted."
+      "monthSummary": {
+        "title": "This month so far",
+        "body": "Income, expenses and what’s left this month, with what to expect by month end. A quick check that the month is on track."
+      },
+      "forecastCard": {
+        "title": "Month-end forecast",
+        "body": "Where your balance should land at month end, and its lowest point on the way. Tap the title for the full forecast."
+      },
+      "search": {
+        "title": "Search",
+        "body": "Find transactions by shop, a word from the description, a note — or a category name, such as “Groceries”."
+      },
+      "filters": {
+        "title": "Filters",
+        "body": "Narrow the list by dates, account, category or “uncategorized only”. The number shows how many filters are on."
+      },
+      "todo": {
+        "title": "Needs attention",
+        "body": "Transactions without a category collect here. “Show” lists them so you can sort them; with AI turned on, “Suggest categories with AI” does it in one go."
+      },
+      "unsplit": {
+        "title": "Unsplit card payment",
+        "body": "A credit-card bill arrives as one big payment. Split it into categories — by hand, or upload the card statement to split it automatically — so the budget sees the real spending."
+      },
+      "txRow": {
+        "title": "Change a category",
+        "body": "Tap a transaction to fix its category, add a note or split it. After a change you’re offered to apply it to similar transactions too, or always."
+      },
+      "budgetAdd": {
+        "title": "Add a budget",
+        "body": "Set a spending limit for a category. Monthly repeats every month; one-time covers a single month, like a holiday."
+      },
+      "budgetTop": {
+        "title": "Your budgets",
+        "body": "Each card shows the 3 categories most worth a look. “See all” opens the full list."
+      },
+      "upcomingRecurring": {
+        "title": "Upcoming and Recurring",
+        "body": "Upcoming lists the next payments and income by date. This button jumps to Recurring, where you manage the fixed items behind them."
+      },
+      "plan": {
+        "title": "Plan an expense",
+        "body": "Add a one-off future expense, like the car’s annual test, so the forecast counts it before it happens."
       },
       "recurring": {
-        "body": "Fixed and repeating payments and income: salary, rent, subscriptions, card charges.",
-        "points": "Monthly and yearly cost of everything recurring.\n“Look for recurring payments” scans your history and suggests items to confirm or dismiss.\nAdd an item with its amount (fixed or estimated from recent charges), how often it repeats and the bank text that recognizes it.\nPause, resume or delete items. The next date and last charges are shown for each one."
+        "title": "Recurring totals",
+        "body": "What all your fixed payments cost per month and per year. Add, pause or edit items below; Upcoming shows when each one is due."
       },
-      "accounts": {
-        "body": "Your bank accounts, savings, cash and credit cards.",
-        "points": "Add an account with its opening balance, bank and last 4 digits.\nSet the current balance from your bank; a difference versus your transactions means something is missing or extra.\nChoose which accounts count in the forecast and which count as available money for the safety cushion.\nArchive accounts you no longer use without losing their history."
+      "forecastEom": {
+        "title": "Expected month end",
+        "body": "The balance expected at month end and the lowest point before it. Use it to see whether a big expense fits this month."
       },
-      "categories": {
-        "body": "The categories your money is sorted into, and the rules that sort it automatically.",
-        "points": "Income, expense and transfer categories, grouped, and marked fixed or variable.\nMark a category as debt repayment so it counts toward the debt load in the health score.\nRules: “if the description contains X, use category Y”. They run on every import.\nYour own rules win over learned, AI and built-in ones. “Apply rules now” re-categorizes existing transactions."
+      "cushion": {
+        "title": "Safety cushion",
+        "body": "The minimum balance you want to keep at all times. Set it here; the forecast warns you when the projected lowest point drops below it."
+      },
+      "trendsRange": {
+        "title": "Choose a period",
+        "body": "One control sets the period for every chart on this page: a preset, your own dates, or step back and forward."
       },
       "goals": {
-        "body": "Savings goals and how you are progressing toward them.",
-        "points": "Each goal shows its target, saved so far, what remains and how much is needed per month to reach it on time.\nStatus: on track, behind, no deadline or completed — plus a projected finish date at your recent pace.\nAdd contributions as you save, and see milestones along the way.\nCommitted to goals: monthly goal amounts compared with what you typically have left over."
+        "title": "A savings goal",
+        "body": "Each goal shows what’s saved, what’s left and the monthly amount needed to reach it on time."
       },
-      "trends": {
-        "body": "How your spending changes over time.",
-        "points": "By category: how much each category took and its share of the total.\nBy day: daily spending and this month’s running total compared with last month.\nOver months: income, spending and what was left over, month by month."
+      "categoryAdd": {
+        "title": "Add a category",
+        "body": "Pick a ready-made category from the list, or create your own with any name."
       },
-      "review": {
-        "body": "A guided walk through the past month, one short chapter at a time.",
-        "points": "Chapters: summary, income, spending, budget, goals, and cash flow & upcoming.\nThe wrap-up lists wins, a watch list and next steps, written from your numbers (with optional AI commentary).\nComplete the review to save it. Past reviews stay available to reopen."
+      "hideUnused": {
+        "title": "Hide unused",
+        "body": "Hides categories you’ve never used so pickers stay short. You can show them again any time."
       },
-      "import": {
-        "body": "Bring in the statements you download from your bank.",
-        "points": "Choose the account, then upload an Excel (.xlsx, .xls) or CSV file.\nKnown bank formats are detected automatically. For others, you match the columns once and it is remembered.\nBefore importing you see new rows, ones already imported and rows that will be skipped.\nImport history lets you undo an import."
+      "accountAdd": {
+        "title": "Add an account",
+        "body": "Add a bank account, savings or a credit card. Pick its bank from the list so imports and the bank link work."
       },
-      "household": {
-        "body": "The people who share this household’s finances.",
-        "points": "Members and their roles. Owners can change roles or remove members.\nInvite someone with a single-use link (valid 7 days), and see pending invites.\nCreate a recovery link for a member who lost their passkey.\nHousehold settings, and for owners: reset all data or delete the household."
+      "bankLink": {
+        "title": "Open your bank",
+        "body": "Opens the bank’s website, to download the latest statement for import."
       },
-      "settings": {
-        "body": "Your personal preferences.",
-        "points": "Language (English / Hebrew) and theme (light, dark or system).\nAI assistance (optional, off by default): category suggestions and review commentary. Only an owner can turn it on.\nSecurity: your passkeys and signed-in devices."
+      "importAccount": {
+        "title": "Which account?",
+        "body": "Leave it on “Detect from the file”: the account is recognized from the file. Pick one yourself only if a file isn’t matched."
       },
-      "more": {
-        "body": "On a phone, every page that doesn’t fit in the bottom bar is listed here.",
-        "points": "Tap any item to open that page."
+      "reviewStart": {
+        "title": "Start a review",
+        "body": "Walk through last month in a few short chapters: income, spending, budget, goals and cash flow."
       },
-      "admin": {
-        "body": "Site administration, visible only to administrators.",
-        "points": "Create households and send owner invite links.\nEnable or disable households and create owner recovery links.\nYou see household metadata only — never their transactions or amounts."
+      "reviewFinal": {
+        "title": "Final summary",
+        "body": "The wrap-up: the month in one line, the key numbers, wins, a watch list and next steps."
+      },
+      "reviewAi": {
+        "title": "AI interpretation",
+        "body": "This text is rule-based. With AI turned on in Settings, “Interpret with AI” adds a separate, clearly labelled interpretation."
+      },
+      "navBar": {
+        "title": "Choose your bottom bar",
+        "body": "Pick the three pages that sit in the phone’s bottom bar. Everything else stays under More."
+      },
+      "reminders": {
+        "title": "Reminders",
+        "body": "Your own nudges, e.g. to import a fresh statement weekly or log today’s spending. They pop up here and, if you allow notifications, on this phone."
       }
-    },
-    "viewerNote": "You have view-only access, so changes on this page can only be made by owners and members."
+    }
   }
 }

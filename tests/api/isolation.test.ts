@@ -26,6 +26,7 @@ export const ROUTES: Record<string, Cls> = {
   'POST /api/auth/passkeys': 'auth',
   'DELETE /api/auth/passkeys/:id': 'auth',
   'GET /api/me': 'auth',
+  'POST /api/demo': 'auth',
   'PATCH /api/me': 'auth',
   'POST /api/session/household': 'auth',
   'POST /api/invites/accept': 'auth',
@@ -53,11 +54,17 @@ export const ROUTES: Record<string, Cls> = {
   'POST /api/categories': 'tenant',
   'PATCH /api/categories/:id': 'tenant',
   'DELETE /api/categories/:id': 'tenant',
+  'GET /api/categories/suggestions': 'tenant',
+  'POST /api/categories/suggestions/:key': 'tenant',
+  'GET /api/categories/hide-unused': 'tenant',
+  'POST /api/categories/hide-unused': 'tenant',
+  'GET /api/ai/uncategorized': 'tenant',
   'GET /api/rules': 'tenant',
   'POST /api/rules': 'tenant',
   'PATCH /api/rules/:id': 'tenant',
   'DELETE /api/rules/:id': 'tenant',
   'POST /api/rules/apply': 'tenant',
+  'POST /api/rules/match': 'tenant',
   'GET /api/transactions': 'tenant',
   'GET /api/transactions/export.csv': 'tenant',
   'POST /api/transactions': 'tenant',
@@ -105,11 +112,21 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/reviews': 'tenant',
   'GET /api/reviews/:month': 'tenant',
   'POST /api/reviews/:month/complete': 'tenant',
+  'POST /api/reviews/:month/dismiss': 'tenant',
   'GET /api/ai/status': 'tenant',
   'POST /api/ai/consent': 'tenant',
   'POST /api/ai/categorize': 'tenant',
   'POST /api/ai/categorize/apply': 'tenant',
   'POST /api/ai/review/:month': 'tenant',
+  'GET /api/reminders': 'tenant',
+  'POST /api/reminders': 'tenant',
+  'PATCH /api/reminders/:id': 'tenant',
+  'DELETE /api/reminders/:id': 'tenant',
+  'POST /api/reminders/:id/seen': 'tenant',
+  'POST /api/reminders/devices': 'tenant',
+  'POST /api/reminders/devices/unsubscribe': 'tenant',
+  'DELETE /api/reminders/devices/:id': 'tenant',
+  'POST /api/reminders/test': 'tenant',
 };
 
 const CANARY = 'ZZ-B-CANARY';
@@ -228,6 +245,39 @@ describe('no leakage in GET responses', () => {
     const s = JSON.stringify(r.body);
     expect(s).not.toContain(CANARY);
     expect(s).not.toMatch(/amount|description|balance/i);
+  });
+});
+
+describe('tour demo mode (X-MZ-Demo)', () => {
+  it('GETs read only the generated demo household, writes are refused, real households unchanged', async () => {
+    const before = await snapshotB();
+    const aTx = async () => (await DB.prepare('SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1').bind(fx.a.householdId).first<{ n: number }>())!.n;
+    const aBefore = await aTx();
+    expect((await json('POST', '/api/demo', { cookie: fx.a.ownerCookie, body: { locale: 'en' } })).status).toBe(200);
+    const headers = { 'x-mz-demo': 'en' };
+    const aIds = Object.values(fx.a.ids);
+    const failures: string[] = [];
+    for (const [key, cls] of Object.entries(ROUTES)) {
+      if (cls !== 'tenant') continue;
+      const [method, pattern] = key.split(' ') as [string, string];
+      if (method !== 'GET') {
+        // Refused before any handler runs, so the path params don't matter.
+        const r = await call(method, pattern.replace(/:(\w+)/g, 'x'), { cookie: fx.a.ownerCookie, headers, body: fx.bodyFor(key, 'A') });
+        if (r.status !== 403) failures.push(`${key} → ${r.status}`);
+        continue;
+      }
+      // Real ids (A's own) never resolve in demo mode; id-less GETs return demo content only.
+      const path = pattern.replace(/:(\w+)/g, (_, p: string) => fx.idForA(pattern, p));
+      const res = await call(method, path, { cookie: fx.a.ownerCookie, headers });
+      const text = await res.text();
+      if (res.status >= 500) failures.push(`${key} → ${res.status}`);
+      if (text.includes(CANARY) || text.includes('ZZ-B-META') || aIds.some((id) => text.includes(id))) failures.push(`${key} leaked real data`);
+    }
+    expect(failures).toEqual([]);
+    const acc = await json<{ accounts: { name: string }[] }>('GET', '/api/accounts', { cookie: fx.a.ownerCookie, headers });
+    expect(acc.body.accounts.map((a) => a.name)).toContain('Family checking');
+    expect(await snapshotB()).toEqual(before);
+    expect(await aTx()).toBe(aBefore);
   });
 });
 

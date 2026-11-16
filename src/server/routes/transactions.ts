@@ -2,10 +2,10 @@ import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { HttpError, body, notFound, query } from '../http';
 import { bulkCategorize, splitsPut, txCreate, txPatch, txQuery, undoLearn, type SplitLine, type TxList } from '../../shared/schemas/ledger';
-import { csvCell, isCardLump, learnedRuleFor, scaleSplit, splitSumOk } from '../../shared/domain/ledger';
+import { csvCell, isCardLump, isGenericPayee, learnedRuleFor, scaleSplit, splitSumOk } from '../../shared/domain/ledger';
 import { norm, normKey } from '../../shared/normalize';
 import { monthEnd, monthOf, monthStart } from '../../shared/dates';
-import { CARD_ISSUER_PATTERNS } from '../seed/defaults';
+import { CARD_ISSUER_PATTERNS, DEFAULT_CATEGORIES } from '../seed/defaults';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
 import { applyRulesStmt } from '../db/sql/rules';
@@ -17,13 +17,13 @@ import type { Ctx } from '../types';
 export const transactionRoutes = tenantGroup();
 const PAGE = 50;
 
-function encodeCursor(date: string, id: string) {
-  return btoa(JSON.stringify([date, id])).replace(/=+$/, '');
+function encodeCursor(date: string, rowid: number) {
+  return btoa(JSON.stringify([date, rowid])).replace(/=+$/, '');
 }
-function decodeCursor(s: string): [string, string] | null {
+function decodeCursor(s: string): [string, number] | null {
   try {
     const v = JSON.parse(atob(s));
-    return Array.isArray(v) && typeof v[0] === 'string' && typeof v[1] === 'string' ? [v[0], v[1]] : null;
+    return Array.isArray(v) && typeof v[0] === 'string' && Number.isInteger(v[1]) ? [v[0], v[1]] : null;
   } catch {
     return null;
   }
@@ -55,10 +55,16 @@ function filterSql(c: Ctx) {
   if (qn) {
     const esc = (x: string) => `%${x.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     const n = params.length;
+    // Category names match too (the transaction's or any split line's); a default category also
+    // matches by its name in the other language ("groceries" finds "מזון וצריכה").
+    const defaults = DEFAULT_CATEGORIES.filter((d) => norm(d.he).includes(qn) || norm(d.en).includes(qn)).flatMap((d) => [d.he, d.en]);
     where.push(
-      `(t.description_norm LIKE ?${n + 2} ESCAPE '\\' OR lower(t.description) LIKE ?${n + 3} ESCAPE '\\' OR lower(COALESCE(t.notes, '')) LIKE ?${n + 3} ESCAPE '\\' OR COALESCE(t.reference, '') LIKE ?${n + 3} ESCAPE '\\')`,
+      `(t.description_norm LIKE ?${n + 2} ESCAPE '\\' OR lower(t.description) LIKE ?${n + 3} ESCAPE '\\' OR lower(COALESCE(t.notes, '')) LIKE ?${n + 3} ESCAPE '\\' OR COALESCE(t.reference, '') LIKE ?${n + 3} ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM categories c WHERE c.household_id = ?1
+          AND ((t.has_splits = 0 AND c.id = t.category_id) OR c.id IN (SELECT s.category_id FROM transaction_splits s WHERE s.household_id = ?1 AND s.transaction_id = t.id))
+          AND (lower(c.name) LIKE ?${n + 3} ESCAPE '\\' OR c.name IN (SELECT value FROM json_each(?${n + 4})))))`,
     );
-    params.push(esc(normKey(f.q!) || qn), esc(qn));
+    params.push(esc(normKey(f.q!) || qn), esc(qn), JSON.stringify(defaults));
   }
   return { where: where.join(' AND '), params, from, to, cursor: f.cursor };
 }
@@ -86,11 +92,13 @@ transactionRoutes.get('/', async (c) => {
   if (f.cursor) {
     const cur = decodeCursor(f.cursor);
     if (!cur) throw new HttpError(400, 'validation', 'Bad cursor');
-    where += ` AND (t.date < ?${params.length + 2} OR (t.date = ?${params.length + 2} AND t.id < ?${params.length + 3}))`;
+    where += ` AND (t.date < ?${params.length + 2} OR (t.date = ?${params.length + 2} AND t.rowid < ?${params.length + 3}))`;
     params.push(cur[0], cur[1]);
   }
   const [rows, sum] = await Promise.all([
-    db.all(`SELECT ${TX_COLS} FROM transactions t WHERE ${where} ORDER BY t.date DESC, t.id DESC LIMIT ${PAGE + 1}`, ...params),
+    // Newest-entered first within a day (rowid = insertion order). Ids are random, so ordering by id
+    // dropped a just-added row at a random spot among that day's rows, often off-screen.
+    db.all(`SELECT ${TX_COLS}, t.rowid AS _rowid FROM transactions t WHERE ${where} ORDER BY t.date DESC, t.rowid DESC LIMIT ${PAGE + 1}`, ...params),
     db.first<{ n: number; i: number; o: number }>(
       `SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN t.amount_minor > 0 THEN t.amount_minor END), 0) AS i, COALESCE(SUM(CASE WHEN t.amount_minor < 0 THEN -t.amount_minor END), 0) AS o FROM transactions t WHERE ${f.where}`,
       ...f.params,
@@ -101,7 +109,7 @@ transactionRoutes.get('/', async (c) => {
   const last = page[page.length - 1];
   const res: TxList = {
     items: page.map((r) => mapTx(r, splits.get(r.id as string) ?? [])),
-    nextCursor: rows.length > PAGE && last ? encodeCursor(last.date as string, last.id as string) : null,
+    nextCursor: rows.length > PAGE && last ? encodeCursor(last.date as string, last._rowid as number) : null,
     summary: { count: sum?.n ?? 0, inMinor: sum?.i ?? 0, outMinor: sum?.o ?? 0 },
     range: { from: f.from, to: f.to },
   };
@@ -218,11 +226,23 @@ transactionRoutes.patch('/:id', async (c) => {
     now,
   );
 
-  // Learn from a manual categorization and apply to the other uncategorized matches (AC3.5).
+  // A categorization changes only this transaction. Similar uncategorized ones are offered (`similar`);
+  // learning a rule and applying it to them is opt-in (`learn: true`, "always for this merchant").
+  // Payment apps / transfers / checks / ATM are never offered: the counterparty differs each time.
   let learned: { ruleId: string; count: number; txIds: string[]; previous: { categoryId: string; source: 'user' | 'learned' | 'ai' | 'seed' } | null } | null = null;
-  if (setCat && b.categoryId && b.learn !== false && !tx.has_splits) {
-    const key = learnedRuleFor({ description, amountMinor: amount });
-    if (key.pattern_norm) {
+  let similar: { count: number; txIds: string[] } | null = null;
+  const key = learnedRuleFor({ description, amountMinor: amount });
+  if (setCat && b.categoryId && !tx.has_splits && key.pattern_norm && !isGenericPayee(description)) {
+    if (!b.learn) {
+      const rows = await db.all<{ id: string }>(
+        `SELECT id FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?2 AND id <> ?3
+           AND ((?4 = 'in' AND amount_minor > 0) OR (?4 = 'out' AND amount_minor < 0)) LIMIT 500`,
+        key.pattern_norm,
+        id,
+        key.sign,
+      );
+      if (rows.length) similar = { count: rows.length, txIds: rows.map((r) => r.id) };
+    } else {
       const prev = await db.first<{ category_id: string; source: 'user' | 'learned' | 'ai' | 'seed' }>(
         'SELECT category_id, source FROM category_rules WHERE household_id = ?1 AND field = ?2 AND match = ?3 AND pattern_norm = ?4 AND sign = ?5',
         key.field,
@@ -230,38 +250,40 @@ transactionRoutes.patch('/:id', async (c) => {
         key.pattern_norm,
         key.sign,
       );
-      const rule = await db.first<{ id: string }>(
-        `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
-         SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, 'learned', ?8 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
-         ON CONFLICT(household_id, field, match, pattern_norm, sign) DO UPDATE SET category_id = excluded.category_id,
-           source = CASE WHEN category_rules.source = 'user' THEN 'user' ELSE 'learned' END
-         RETURNING id`,
-        newId(),
-        key.field,
-        key.match,
-        key.pattern_norm,
-        key.sign,
-        b.categoryId,
-        now,
-      );
-      const applied = await db.all<{ id: string }>(
-        `UPDATE transactions SET category_id = ?2, category_source = 'rule', updated_at = ?3
-          WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND id <> ?5
-            AND ((?6 = 'in' AND amount_minor > 0) OR (?6 = 'out' AND amount_minor < 0))
-          RETURNING id`,
-        b.categoryId,
-        now,
-        key.pattern_norm,
-        id,
-        key.sign,
-      );
-      learned = { ruleId: rule!.id, count: applied.length, txIds: applied.map((r) => r.id), previous: prev ? { categoryId: prev.category_id, source: prev.source } : null };
+      // An explicit user rule for this merchant wins: a single choice never re-points it.
+      if (prev?.source !== 'user') {
+        const rule = await db.first<{ id: string }>(
+          `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
+           SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, 'learned', ?8 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
+           ON CONFLICT(household_id, field, match, pattern_norm, sign) DO UPDATE SET category_id = excluded.category_id, source = 'learned'
+           RETURNING id`,
+          newId(),
+          key.field,
+          key.match,
+          key.pattern_norm,
+          key.sign,
+          b.categoryId,
+          now,
+        );
+        const applied = await db.all<{ id: string }>(
+          `UPDATE transactions SET category_id = ?2, category_source = 'rule', updated_at = ?3
+            WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND description_norm = ?4 AND id <> ?5
+              AND ((?6 = 'in' AND amount_minor > 0) OR (?6 = 'out' AND amount_minor < 0))
+            RETURNING id`,
+          b.categoryId,
+          now,
+          key.pattern_norm,
+          id,
+          key.sign,
+        );
+        learned = { ruleId: rule!.id, count: applied.length, txIds: applied.map((r) => r.id), previous: prev ? { categoryId: prev.category_id, source: prev.source } : null };
+      }
     }
   }
   if (editingCore) await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));
   const row = await db.first(`SELECT ${TX_COLS} FROM transactions t WHERE t.household_id = ?1 AND t.id = ?2`, id);
   const splits = await loadSplits(db, [id]);
-  return c.json({ tx: mapTx(row!, splits.get(id) ?? []), learned });
+  return c.json({ tx: mapTx(row!, splits.get(id) ?? []), learned, similar });
 });
 
 transactionRoutes.post('/undo-learn', async (c) => {
@@ -329,6 +351,8 @@ transactionRoutes.get('/:id/split-suggestion', async (c) => {
     id,
   );
   if (!tx) throw notFound();
+  // No payee to match on: an empty description would match every other description-less split.
+  if (tx.kind !== 'card_lump' && !tx.description_norm) return c.json({ suggestion: null });
   const prev = await db.first<{ id: string; date: string; amount_minor: number }>(
     `SELECT id, date, amount_minor FROM transactions WHERE household_id = ?1 AND has_splits = 1 AND id <> ?2
        AND (CASE WHEN ?3 = 'card_lump' THEN kind = 'card_lump' ELSE description_norm = ?4 END)

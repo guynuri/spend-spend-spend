@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
-import { del, patch, post } from '../../api';
+import { del, get, patch, post } from '../../api';
 import { Badge, Button, Card, CardTitle, Checkbox, cx, ErrorState, Field, IconButton, Input, PageHeader, Select, Spinner } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
+import { useQuery } from '@tanstack/react-query';
+import { AddCategorySheet } from '../../components/AddCategorySheet';
+import { ConfirmSheet } from '../../components/Confirm';
 import { CategorySelect } from '../../components/CategorySelect';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
@@ -15,25 +18,26 @@ const KINDS: Category['kind'][] = ['expense', 'income', 'transfer'];
 const MATCHES: Rule['match'][] = ['contains', 'equals', 'starts_with'];
 const SIGNS: Rule['sign'][] = ['any', 'in', 'out'];
 
-function CategoryForm({ cat, onDone }: { cat: Category | null; onDone: () => void }) {
+function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
   const { t } = useTranslation();
   const toast = useToast();
-  const [name, setName] = useState(cat?.name ?? '');
-  const [kind, setKind] = useState<Category['kind']>(cat?.kind ?? 'expense');
-  const [grp, setGrp] = useState<'fixed' | 'variable'>(cat?.grp ?? 'variable');
-  const [isDebt, setIsDebt] = useState(cat?.isDebt ?? false);
-  const save = useApiMutation(
-    () => (cat ? patch(`/api/categories/${cat.id}`, { name: name.trim(), ...(kind === 'expense' ? { grp, isDebt } : {}) }) : post('/api/categories', { name: name.trim(), kind, ...(kind === 'expense' ? { grp, isDebt } : {}) })),
-    { invalidate: [['categories'], ...LEDGER_DEPENDENT], onSuccess: onDone, successKey: 'ledger.saved' },
-  );
-  const remove = useApiMutation(() => del<{ archived?: boolean }>(`/api/categories/${cat!.id}`), {
+  const [name, setName] = useState(cat.name);
+  const kind = cat.kind;
+  const [grp, setGrp] = useState<'fixed' | 'variable'>(cat.grp ?? 'variable');
+  const [isDebt, setIsDebt] = useState(cat.isDebt);
+  const save = useApiMutation(() => patch(`/api/categories/${cat.id}`, { name: name.trim(), ...(kind === 'expense' ? { grp, isDebt } : {}) }), {
+    invalidate: [['categories'], ...LEDGER_DEPENDENT],
+    onSuccess: onDone,
+    successKey: 'ledger.saved',
+  });
+  const remove = useApiMutation(() => del<{ archived?: boolean }>(`/api/categories/${cat.id}`), {
     invalidate: [['categories']],
     onSuccess: (r) => {
       toast({ title: t(r.archived ? 'categories.archivedToast' : 'categories.deleted') });
       onDone();
     },
   });
-  const restore = useApiMutation(() => patch(`/api/categories/${cat!.id}`, { archived: false }), { invalidate: [['categories']], onSuccess: onDone });
+  const restore = useApiMutation(() => patch(`/api/categories/${cat.id}`, { archived: false }), { invalidate: [['categories']], onSuccess: onDone });
   return (
     <form
       className="flex flex-col gap-3"
@@ -45,17 +49,6 @@ function CategoryForm({ cat, onDone }: { cat: Category | null; onDone: () => voi
       <Field label={t('categories.name')} htmlFor="cat-name">
         <Input id="cat-name" dir="auto" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} data-testid="category-name" />
       </Field>
-      {!cat && (
-        <Field label={t('categories.kind')} htmlFor="cat-kind">
-          <Select id="cat-kind" value={kind} onChange={(e) => setKind(e.target.value as Category['kind'])}>
-            {KINDS.map((k) => (
-              <option key={k} value={k}>
-                {t(`categories.kinds.${k}`)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      )}
       {kind === 'expense' && (
         <>
           <Field label={t('categories.group')} htmlFor="cat-grp">
@@ -64,11 +57,14 @@ function CategoryForm({ cat, onDone }: { cat: Category | null; onDone: () => voi
               <option value="variable">{t('categories.variable')}</option>
             </Select>
           </Field>
-          <Checkbox label={t('categories.isDebt')} checked={isDebt} onChange={setIsDebt} />
+          <div>
+            <Checkbox label={t('categories.isDebt')} checked={isDebt} onChange={setIsDebt} />
+            <p className="ps-8 text-xs text-muted">{t('categories.isDebtHint')}</p>
+          </div>
         </>
       )}
       <div className="flex flex-wrap justify-between gap-2">
-        {cat && !cat.systemKey ? (
+        {!cat.systemKey ? (
           cat.archived ? (
             <Button variant="ghost" onClick={() => restore.mutate(undefined)}>
               {t('categories.restore')}
@@ -147,12 +143,24 @@ export function Component() {
   const cq = useCategories();
   const rq = useRules();
   const cmap = useCategoryMap();
-  const [editing, setEditing] = useState<Category | 'new' | null>(null);
+  const [editing, setEditing] = useState<Category | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const [confirmHide, setConfirmHide] = useState(false);
+  const [keep, setKeep] = useState<Set<string>>(new Set());
+  const hq = useQuery({ queryKey: ['categories', 'hide-unused'], queryFn: () => get<{ eligible: boolean; candidates: { id: string; name: string }[] }>('/api/categories/hide-unused'), enabled: canWrite });
+  const candidates = hq.data?.candidates ?? [];
   const [addingRule, setAddingRule] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
   const delRule = useApiMutation((id: string) => del(`/api/rules/${id}`), { invalidate: [['rules']] });
   const apply = useApiMutation(() => post<{ applied: number }>('/api/rules/apply'), { invalidate: [...LEDGER_DEPENDENT], onSuccess: (r) => toast({ title: t('categories.applied', { count: r.applied }), tone: 'good' }) });
-  const cats = cq.data?.categories ?? [];
+  const hideUnused = useApiMutation((ids: string[]) => post<{ hidden: number }>('/api/categories/hide-unused', { ids }), {
+    invalidate: [['categories']],
+    onSuccess: (r) => toast({ title: t('categories.hiddenToast', { count: r.hidden }), tone: 'good' }),
+  });
+  const all = cq.data?.categories ?? [];
+  const hiddenCount = all.filter((c) => c.archived).length;
+  const cats = all.filter((c) => showHidden || !c.archived);
   const rules = (rq.data?.rules ?? []).filter((r) => showSeed || r.source !== 'seed');
   return (
     <div className="flex flex-col gap-4">
@@ -160,13 +168,31 @@ export function Component() {
         title={t('categories.title')}
         actions={
           canWrite && (
-            <Button onClick={() => setEditing('new')} data-testid="category-add">
+            <Button onClick={() => setAdding(true)} data-testid="category-add" data-tour="category-add">
               <Plus className="size-5" aria-hidden />
               {t('categories.add')}
             </Button>
           )
         }
       />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {hiddenCount > 0 ? <Checkbox label={t('categories.showHidden', { count: hiddenCount })} checked={showHidden} onChange={setShowHidden} testId="show-hidden" /> : <span />}
+        {canWrite && candidates.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            busy={hideUnused.isPending}
+            onClick={() => {
+              setKeep(new Set());
+              setConfirmHide(true);
+            }}
+            data-testid="hide-unused"
+            data-tour="hide-unused"
+          >
+            {t('categories.hideUnused')}
+          </Button>
+        )}
+      </div>
       {cq.isPending ? (
         <Spinner />
       ) : cq.error ? (
@@ -246,9 +272,34 @@ export function Component() {
           ))}
         </ul>
       </Card>
-      <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title={editing === 'new' ? t('categories.add') : t('common.edit')}>
-        {editing && <CategoryForm cat={editing === 'new' ? null : editing} onDone={() => setEditing(null)} />}
+      <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title={t('common.edit')}>
+        {editing && <CategoryForm cat={editing} onDone={() => setEditing(null)} />}
       </Sheet>
+      <AddCategorySheet open={adding} onOpenChange={setAdding} />
+      <ConfirmSheet
+        open={confirmHide}
+        onOpenChange={setConfirmHide}
+        title={t('categories.hideUnused')}
+        body={
+          <>
+            <p className="mb-2">{t('categories.hideUnusedBody')}</p>
+            <ul data-testid="hide-unused-list">
+              {candidates.map((c) => (
+                <li key={c.id}>
+                  <Checkbox label={<bdi>{c.name}</bdi>} checked={!keep.has(c.id)} onChange={(v) => setKeep((k) => { const n = new Set(k); if (v) n.delete(c.id); else n.add(c.id); return n; })} />
+                </li>
+              ))}
+            </ul>
+          </>
+        }
+        confirmLabel={t('categories.hideUnused')}
+        danger={false}
+        testId="hide-unused-confirm"
+        onConfirm={async () => {
+          const ids = candidates.filter((c) => !keep.has(c.id)).map((c) => c.id);
+          if (ids.length) await hideUnused.mutateAsync(ids);
+        }}
+      />
       <Sheet open={addingRule} onOpenChange={setAddingRule} title={t('categories.addRule')}>
         {addingRule && <RuleForm onDone={() => setAddingRule(false)} />}
       </Sheet>

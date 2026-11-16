@@ -83,12 +83,12 @@ describe('review fixes — server', () => {
     const s = await withAccount();
     const add = async (d: string) => (await json<Tx>('POST', '/api/transactions', { cookie: s.cookie, body: { date: d, amountMinor: 100, direction: 'out', description: 'Corner Shop', accountId: s.acc } })).body;
     const a = await add('2026-10-01');
-    await json('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Groceries') } });
+    await json('PATCH', `/api/transactions/${a.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Groceries'), learn: true } });
     const b = await add('2026-10-02');
     expect(b.categoryId).toBe(s.cat('Groceries'));
     await add('2026-10-03');
     await json('PATCH', `/api/transactions/${b.id}`, { cookie: s.cookie, body: { categoryId: null } });
-    const r = await json<{ learned: { ruleId: string; txIds: string[]; previous: { categoryId: string; source: string } | null } }>('PATCH', `/api/transactions/${b.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Home') } });
+    const r = await json<{ learned: { ruleId: string; txIds: string[]; previous: { categoryId: string; source: string } | null } }>('PATCH', `/api/transactions/${b.id}`, { cookie: s.cookie, body: { categoryId: s.cat('Home'), learn: true } });
     expect(r.body.learned.previous).toEqual({ categoryId: s.cat('Groceries'), source: 'learned' });
     await json('POST', '/api/transactions/undo-learn', { cookie: s.cookie, body: { ruleId: r.body.learned.ruleId, txIds: r.body.learned.txIds, previous: r.body.learned.previous } });
     const rule = await DB.prepare('SELECT category_id FROM category_rules WHERE id = ?1').bind(r.body.learned.ruleId).first<{ category_id: string }>();

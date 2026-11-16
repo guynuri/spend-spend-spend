@@ -92,10 +92,13 @@ export async function signIn(page: Page, who: string, locale: 'en' | 'he' = 'en'
   await page.getByTestId('signin-button').click();
   await expect(page.getByTestId('app-root')).toBeVisible();
   await persistCred(auth, who);
-  if ((await page.locator('html').getAttribute('lang')) !== locale) {
+  // The profile's language wins once /api/me is applied, so decide from the profile, not the current <html lang>.
+  const me = (await (await page.request.get('/api/me')).json()) as { user: { locale: string | null } };
+  if (me.user.locale && me.user.locale !== locale) {
     await setUiLocale(page, locale);
     await page.goto(next);
   }
+  await expect(page.locator('html')).toHaveAttribute('lang', locale);
 }
 
 /** Saves the authenticator's credential again so the next sign-in continues the sign counter. */

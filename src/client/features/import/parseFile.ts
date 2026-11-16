@@ -1,13 +1,17 @@
 import { sniffFile } from '../../../shared/import/sniff';
 import type { FileKind, Grid, ParseResult } from '../../../shared/import/types';
-import type { Mapping } from '../../../shared/import/generic';
+import { findProfile, headerSignature, type Mapping } from '../../../shared/import/generic';
 
 export interface Parsed {
   fileName: string;
   fileHash: string;
   kind: FileKind;
   grid: Grid;
-  parserId: 'otsar-hahayal' | 'generic';
+  parserId: string;
+  /** Catalog banks that export this layout (empty for generic). */
+  bankIds: readonly string[];
+  /** Card-issuer statement. The import page refuses these (PLAN D-10); parseCardStatement accepts only these. */
+  card: boolean;
   result: ParseResult | null;
   guess: Mapping | null;
   signature: string | null;
@@ -42,10 +46,33 @@ export async function parseFile(file: File): Promise<Parsed> {
   if (p) {
     const result = p.parse(grid);
     if (!result.rows.length && !result.errors.length) throw new FileError('no_rows');
-    return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'otsar-hahayal', result, guess: null, signature: null };
+    return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: p.id, bankIds: p.bankIds ?? [], card: !!p.card, result, guess: null, signature: null };
   }
   const guess = generic.guessMapping(grid);
-  return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'generic', result: null, guess, signature: generic.headerSignature(grid, guess.headerRow) };
+  return { fileName: file.name, fileHash, kind: s.kind, grid, parserId: 'generic', bankIds: [], card: false, result: null, guess, signature: generic.headerSignature(grid, guess.headerRow) };
+}
+
+/**
+ * Card-issuer statement (Isracard/Amex, Max, Cal) → rows, charges negative, refunds positive.
+ * Throws FileError: sniff codes, 'unsupported_file', 'no_rows', or 'not_card' for any other file.
+ */
+export async function parseCardStatement(file: File): Promise<ParseResult & { bankIds: readonly string[] }> {
+  const p = await parseFile(file);
+  if (!p.card || !p.result) throw new FileError('not_card');
+  return { ...p.result, bankIds: p.bankIds };
+}
+
+/**
+ * The one place that decides how a parsed file continues for an account: a saved mapping for its
+ * header wins over format detection (same description column ⇒ same dedupe keys on re-import).
+ */
+export function decideParse(p: Parsed, profiles: Map<string, Mapping>, current?: Mapping | null): { result: ParseResult } | { mapping: Mapping; signature: string | null; profileUsed: boolean } {
+  const prof = findProfile(p.grid, profiles);
+  if (!prof && p.result) return { result: p.result };
+  if (prof) return { mapping: prof.mapping, signature: prof.signature, profileUsed: true };
+  // no saved mapping for this account: keep what the user mapped so far, else the guess
+  const m = current ?? p.guess!;
+  return { mapping: m, signature: headerSignature(p.grid, m.headerRow), profileUsed: false };
 }
 
 export function errorReportCsv(errors: { row: number; code: string }[], label: (code: string) => string) {
