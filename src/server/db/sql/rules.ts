@@ -10,6 +10,7 @@ const fieldMatch = (col: string) => `(
 export function winningRuleSql(o: { hh: string; amount: string; dn: string; op: string; select: 'r.id' | 'r.category_id' }) {
   return `(SELECT ${o.select} FROM category_rules r
    WHERE r.household_id = ${o.hh}
+     AND NOT EXISTS (SELECT 1 FROM categories hc WHERE hc.id = r.category_id AND hc.archived = 1)
      AND (r.sign = 'any' OR (r.sign = 'in' AND ${o.amount} > 0) OR (r.sign = 'out' AND ${o.amount} < 0))
      AND ((r.field = 'description' AND ${o.dn} <> '' AND ${fieldMatch(o.dn)})
        OR (r.field = 'operation_type' AND ${o.op} IS NOT NULL AND ${o.op} <> '' AND ${fieldMatch(o.op)}))
