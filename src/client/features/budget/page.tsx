@@ -315,7 +315,7 @@ export function Component() {
           </div>
           <div>
             <div className="text-xs text-muted">{t('budget.spent')}</div>
-            <Money minor={ex.spentBudgetedMinor} decimals={0} className="text-xl font-bold" />
+            <Money minor={ex.spentBudgetedMinor} decimals={0} className="text-xl font-bold" tone="out" />
           </div>
         </div>
         {d.f === null ? (
@@ -349,7 +349,7 @@ export function Component() {
             rows={[
               { label: t('budget.budgeted'), value: <Money minor={d.allocation.budgetedMinor} /> },
               ...d.allocation.months.map((m) => ({ label: <DateText date={m} format="month" />, value: '' })),
-              { label: t('trends.income'), value: <Money minor={d.allocation.avgIncomeMinor} /> },
+              { label: t('trends.income'), value: <Money minor={d.allocation.avgIncomeMinor} tone="in" /> },
             ]}
           >
             <p className="mt-3 text-xs text-muted">{t('budget.howItWorks')}</p>

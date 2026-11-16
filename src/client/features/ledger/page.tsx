@@ -75,6 +75,7 @@ export function Component() {
   const accounts = useAccounts();
   const title = useTxTitle();
   const accMap = new Map((accounts.data?.accounts ?? []).map((a) => [a.id, a.name]));
+  const cats = useCategoryMap(); // transfers between own accounts stay uncoloured
   const [search, setSearch] = useState(f.q);
   const [open, setOpen] = useState<Tx | null>(null);
   const [adding, setAdding] = useState(false);
@@ -184,10 +185,10 @@ export function Component() {
           <span data-count={summary.count}>{t('ledger.summary', { count: summary.count })}</span>
           <span className="flex gap-3">
             <span>
-              {t('ledger.in')} <Money minor={summary.inMinor} className="text-good" />
+              {t('ledger.in')} <Money minor={summary.inMinor} tone="in" />
             </span>
             <span>
-              {t('ledger.out')} <Money minor={-summary.outMinor} className="text-text" />
+              {t('ledger.out')} <Money minor={-summary.outMinor} tone />
             </span>
           </span>
         </div>
@@ -229,7 +230,7 @@ export function Component() {
                             <CategoryLabel tx={tx} />
                           </div>
                         </div>
-                        <Money minor={tx.amountMinor} className={cx('text-sm font-semibold', tx.amountMinor > 0 && 'text-good')} />
+                        <Money minor={tx.amountMinor} className="text-sm font-semibold" tone={cats.get(tx.categoryId ?? '')?.kind !== 'transfer'} />
                       </button>
                     </li>
                   ))}
@@ -269,7 +270,7 @@ export function Component() {
                     </td>
                     <td className="truncate px-3 py-2 text-muted">{accMap.get(tx.accountId)}</td>
                     <td className="px-3 py-2 text-end">
-                      <Money minor={tx.amountMinor} className={cx('font-medium', tx.amountMinor > 0 && 'text-good')} />
+                      <Money minor={tx.amountMinor} className="font-medium" tone={cats.get(tx.categoryId ?? '')?.kind !== 'transfer'} />
                     </td>
                   </tr>
                 ))}

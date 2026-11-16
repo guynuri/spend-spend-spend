@@ -135,7 +135,7 @@ export function Component() {
             <div key={k} data-testid={`pnl-${k}`}>
               <dt className="text-xs text-muted">{t(`dashboard.${k}`)}</dt>
               <dd className="text-lg font-semibold">
-                <Money minor={actual} decimals={0} />
+                <Money minor={actual} decimals={0} tone={k === 'income' ? 'in' : k === 'expenses' ? 'out' : true} />
               </dd>
               {expected !== null && (
                 <dd className="text-xs text-muted">
@@ -193,7 +193,7 @@ export function Component() {
                 <span className="min-w-0 truncate">
                   <DateText date={e.date} format="dayMonth" className="text-muted" /> · <bdi>{e.label}</bdi>
                 </span>
-                <Money minor={e.amountMinor} decimals={0} className={e.amountMinor > 0 ? 'text-good' : ''} />
+                <Money minor={e.amountMinor} decimals={0} tone />
               </li>
             ))}
           </ul>

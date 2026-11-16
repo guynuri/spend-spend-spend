@@ -50,13 +50,14 @@ export async function loadBase(q: TenantDb, hh: HouseholdRow, now = new Date()):
 export const PNL_SELECT = `SUM(CASE WHEN c.kind = 'income' OR (l.category_id IS NULL AND l.amount_minor > 0) THEN l.amount_minor ELSE 0 END) AS income,
   -SUM(CASE WHEN c.kind = 'expense' OR (l.category_id IS NULL AND l.amount_minor < 0) THEN l.amount_minor ELSE 0 END) AS expenses`;
 
-export function pnlByMonthStmt(q: TenantDb, fromMonth: MonthStr, toMonth: MonthStr) {
+/** `fromDate` / `toDate` clip the edge months (defaults: whole months). */
+export function pnlByMonthStmt(q: TenantDb, fromMonth: MonthStr, toMonth: MonthStr, fromDate = monthStart(fromMonth), toDate = monthEnd(toMonth)) {
   return q.stmt(
     `SELECT substr(l.date, 1, 7) AS m, ${PNL_SELECT}
        FROM v_lines l LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
       WHERE l.household_id = ?1 AND l.date >= ?2 AND l.date <= ?3 GROUP BY m`,
-    monthStart(fromMonth),
-    monthEnd(toMonth),
+    fromDate,
+    toDate,
   );
 }
 export const toPnlMap = (r: D1Result | undefined) => new Map(((r?.results ?? []) as { m: string; income: number; expenses: number }[]).map((x) => [x.m, { income: x.income ?? 0, expenses: x.expenses ?? 0 }]));

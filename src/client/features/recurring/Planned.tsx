@@ -147,7 +147,7 @@ export function PlannedList() {
                   <DateText date={p.date} /> · <Badge tone={p.status === 'planned' ? 'accent' : 'neutral'}>{t(`planned.status.${p.status}`)}</Badge>
                 </div>
               </div>
-              <Money minor={p.amountMinor} />
+              <Money minor={p.amountMinor} tone />
               {canWrite && p.status === 'planned' && (
                 <div className="flex w-full justify-end gap-1">
                   <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: p.id, status: 'done' })}>

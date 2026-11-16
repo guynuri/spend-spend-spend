@@ -76,7 +76,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
               {tx0.splits.map((s, i) => (
                 <li key={s.id ?? i} className="flex justify-between gap-2 px-3 py-2 text-sm">
                   <span>{s.categoryId ? cats.get(s.categoryId)?.name : t('ledger.uncategorized')}</span>
-                  <Money minor={s.amountMinor} />
+                  <Money minor={s.amountMinor} tone />
                 </li>
               ))}
             </ul>
