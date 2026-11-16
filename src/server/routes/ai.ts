@@ -88,26 +88,32 @@ aiRoutes.post('/categorize', async (c) => {
   ]);
   const { payload, keys } = buildCategorizePayload(rows, cats.map((x) => x.name));
   if (!payload.items.length) return c.json({ suggestions: [] });
-  const p = await gate(c, 'categorize');
-  // Batches of 20 keep each reply (with reasons) well inside maxTokens; one reserved call per request.
-  const res = { data: [] as z.infer<typeof catOut>, tokensIn: 0, tokensOut: 0 };
+  // Batches of 20 keep each reply (with reasons) inside maxTokens. Every provider call is gated, reserved and
+  // its tokens recorded; a failing later batch keeps the earlier suggestions (partial: true).
+  const data: z.infer<typeof catOut> = [];
+  let partial = false;
   for (let k = 0; k < payload.items.length; k += 20) {
-    const part = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload, items: payload.items.slice(k, k + 20) }), schema: catOut, maxTokens: 1600, temperature: 0 }));
-    res.data.push(...part.data);
-    res.tokensIn += part.tokensIn;
-    res.tokensOut += part.tokensOut;
+    try {
+      const p = await gate(c, 'categorize');
+      const part = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload, items: payload.items.slice(k, k + 20) }), schema: catOut, maxTokens: 1600, temperature: 0 }));
+      await recordTokensStmt(db, 'categorize', part.tokensIn, part.tokensOut).run();
+      data.push(...part.data);
+    } catch (e) {
+      if (k === 0) throw e;
+      partial = true;
+      break;
+    }
   }
-  await recordTokensStmt(db, 'categorize', res.tokensIn, res.tokensOut).run();
   const byName = new Map(cats.map((x) => [norm(x.name), x.id]));
   const byKey = new Map(rows.map((r) => [r.key, r]));
-  const suggestions = res.data
+  const suggestions = data
     .map((o) => ({ key: keys[o.i], categoryId: byName.get(norm(o.category)), confidence: o.confidence ?? null, reason: o.reason?.trim() || null }))
     .filter((s): s is { key: string; categoryId: string; confidence: number | null; reason: string | null } => !!s.key && !!s.categoryId)
     .map((s) => {
       const r = byKey.get(s.key)!;
       return { ...s, description: r.description, count: r.n, amountMinor: r.amountMinor, direction: r.amountMinor >= 0 ? 'in' : 'out' };
     });
-  return c.json({ suggestions });
+  return c.json({ suggestions, partial });
 });
 
 /** Applies accepted suggestions: category_source='ai' and an `ai` rule per merchant (D-16). */

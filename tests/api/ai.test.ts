@@ -46,6 +46,22 @@ describe('AI opt-in, limits, features (AC12.3, AC13.1–13.4)', () => {
     }
   });
 
+  it('categorize: one reserved call per batch; a failing later batch returns the earlier suggestions as partial', async () => {
+    const o = await ownerSetup();
+    await json('POST', '/api/ai/consent', { cookie: o.cookie, body: { enabled: true } });
+    const acc = await json<{ id: string }>('POST', '/api/accounts', { cookie: o.cookie, body: { name: 'Checking', type: 'checking', openingBalanceMinor: 0, openingDate: '2026-01-01' } });
+    const add = (description: string) => json('POST', '/api/transactions', { cookie: o.cookie, body: { date: '2026-02-01', amountMinor: 1000, direction: 'out', description, accountId: acc.body.id } });
+    // 20 merchants seen twice come first (ORDER BY count), so the once-seen failing one lands in batch 2
+    for (let k = 0; k < 20; k++) for (let r = 0; r < 2; r++) await add(`Shop ${String.fromCharCode(65 + k)}${String.fromCharCode(65 + k)}`);
+    await add('MOCK_FAIL shop');
+    const r = await json<{ suggestions: unknown[]; partial: boolean }>('POST', '/api/ai/categorize', { cookie: o.cookie });
+    expect(r.status).toBe(200);
+    expect(r.body.partial).toBe(true);
+    expect(r.body.suggestions.length).toBeGreaterThan(0);
+    const u = await DB.prepare("SELECT calls, tokens_in FROM ai_usage WHERE household_id = ?1 AND feature = 'categorize'").bind(o.householdId).first<{ calls: number; tokens_in: number }>();
+    expect(u).toMatchObject({ calls: 2, tokens_in: 10 });
+  });
+
   it('review commentary is stored on the draft and kept when the review is completed', async () => {
     const o = await demo();
     await json('POST', '/api/ai/consent', { cookie: o.cookie, body: { enabled: true } });

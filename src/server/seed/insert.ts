@@ -25,7 +25,7 @@ function demoKeys(today: string, locale: Locale) {
 
 /** The sample data uses some catalog extras (car, travel…): add the missing ones first. */
 export async function buildDemoFor(q: TenantDb, today: string, locale: Locale) {
-  const load = () => q.all<{ id: string; name: string; system_key: string | null }>('SELECT id, name, system_key FROM categories WHERE household_id = ?1');
+  const load = () => q.all<{ id: string; name: string; kind: string; system_key: string | null }>('SELECT id, name, kind, system_key FROM categories WHERE household_id = ?1');
   let cats = await load();
   const have = categoryKeyMap(cats);
   const keys = demoKeys(today, locale);

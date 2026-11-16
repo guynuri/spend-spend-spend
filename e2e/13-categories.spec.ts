@@ -19,6 +19,7 @@ test('categories: add from the catalog or a custom name; hide unused ones', asyn
   await expect(page.getByTestId('category-chip').filter({ hasText: 'E2E beans' })).toBeVisible();
 
   await page.getByTestId('hide-unused').click();
+  await expect(page.getByTestId('hide-unused-list')).toContainText('E2E beans');
   await page.getByTestId('hide-unused-confirm-ok').click();
   await expect(page.getByTestId('show-hidden')).toBeVisible();
   await expect(page.getByTestId('category-chip').filter({ hasText: 'E2E beans' })).toHaveCount(0);

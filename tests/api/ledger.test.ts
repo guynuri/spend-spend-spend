@@ -59,13 +59,26 @@ describe('categories (AC3.2)', () => {
     expect((await json('POST', '/api/categories/suggestions/nope', { cookie: s.cookie })).status).toBe(404);
     const g = s.cat('Groceries');
     await s.add('2026-02-05', -5000, 'שופרסל');
-    const hid = await json<{ hidden: number }>('POST', '/api/categories/hide-unused', { cookie: s.cookie });
-    expect(hid.body.hidden).toBeGreaterThan(5);
+    // one month of history is not enough to call anything unused
+    expect((await json<{ eligible: boolean }>('GET', '/api/categories/hide-unused', { cookie: s.cookie })).body.eligible).toBe(false);
+    expect((await json<{ error: { code: string } }>('POST', '/api/categories/hide-unused', { cookie: s.cookie, body: { ids: [g] } })).body.error.code).toBe('no_history');
+    await s.add('2026-03-01', -3000, 'שופרסל');
+    const pre = (await json<{ eligible: boolean; candidates: { id: string; name: string }[] }>('GET', '/api/categories/hide-unused', { cookie: s.cookie })).body;
+    expect(pre.eligible).toBe(true);
+    const ids = pre.candidates.map((c) => c.id);
+    expect(ids).not.toContain(g);
+    expect(ids).not.toContain(add.body.id);
+    const salary = s.cat('Salary');
+    expect(ids).toContain(salary);
+    // the user keeps Salary; a used id sent anyway is re-validated and left alone
+    const hid = await json<{ hidden: number }>('POST', '/api/categories/hide-unused', { cookie: s.cookie, body: { ids: [...ids.filter((x) => x !== salary), g] } });
+    expect(hid.body.hidden).toBe(ids.length - 1);
     const after = (await json<{ categories: Category[] }>('GET', '/api/categories', { cookie: s.cookie })).body.categories;
     const byId = new Map(after.map((c) => [c.id, c]));
     expect(byId.get(g)!.archived).toBe(false);
     expect(byId.get(add.body.id)!.archived).toBe(false);
     expect(after.filter((c) => c.systemKey).every((c) => !c.archived)).toBe(true);
+    expect(byId.get(salary)!.archived).toBe(false);
     const phone = byId.get(s.cat('Phone & internet'))!;
     expect(phone.archived).toBe(true);
     expect((await s.add('2026-02-06', -9000, 'בזק')).categoryId).toBeNull();
@@ -75,8 +88,7 @@ describe('categories (AC3.2)', () => {
 
   it('hide unused is refused before any transaction; old default names still match; custom name of a hidden category restores it', async () => {
     const s = await setup();
-    expect((await json<{ error: { code: string } }>('POST', '/api/categories/hide-unused', { cookie: s.cookie })).body.error.code).toBe('no_history');
-    expect((await json<{ hasTransactions: boolean }>('GET', '/api/categories/suggestions', { cookie: s.cookie })).body.hasTransactions).toBe(false);
+    expect((await json<{ eligible: boolean; candidates: unknown[] }>('GET', '/api/categories/hide-unused', { cookie: s.cookie })).body).toEqual({ eligible: false, candidates: [] });
     const loans = s.cat('Loan repayments');
     expect((await json('PATCH', `/api/categories/${loans}`, { cookie: s.cookie, body: { name: 'Loans' } })).status).toBe(200);
     const sug = (await json<{ suggestions: { key: string }[] }>('GET', '/api/categories/suggestions', { cookie: s.cookie })).body.suggestions;
@@ -88,6 +100,16 @@ describe('categories (AC3.2)', () => {
     expect(again.status).toBe(200);
     expect(again.body.id).toBe(c.body.id);
     expect((await json('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Hobby', kind: 'expense' } })).status).toBe(409);
+    // a hidden category of another kind is not restored for a different kind
+    const inc = await json<{ id: string }>('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Bonus', kind: 'income' } });
+    await json('PATCH', `/api/categories/${inc.body.id}`, { cookie: s.cookie, body: { archived: true } });
+    expect((await json<{ error: { code: string } }>('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Bonus', kind: 'expense' } })).body.error.code).toBe('name_taken_hidden');
+    // alias lookup is kind-aware: an income "Loans" is not taken for the expense default
+    await json('PATCH', `/api/categories/${loans}`, { cookie: s.cookie, body: { name: 'Old loans' } });
+    const incLoans = await json<{ id: string }>('POST', '/api/categories', { cookie: s.cookie, body: { name: 'Loans', kind: 'income' } });
+    const added = await json<{ id: string }>('POST', '/api/categories/suggestions/loans', { cookie: s.cookie, headers: { 'x-mz-locale': 'en' } });
+    expect(added.status).toBe(201);
+    expect(added.body.id).not.toBe(incLoans.body.id);
   });
 });
 

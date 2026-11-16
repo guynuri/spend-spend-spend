@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
-import { del, patch, post } from '../../api';
+import { del, get, patch, post } from '../../api';
 import { Badge, Button, Card, CardTitle, Checkbox, cx, ErrorState, Field, IconButton, Input, PageHeader, Select, Spinner } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
-import { AddCategorySheet, useCategorySuggestions } from '../../components/AddCategorySheet';
+import { useQuery } from '@tanstack/react-query';
+import { AddCategorySheet } from '../../components/AddCategorySheet';
 import { ConfirmSheet } from '../../components/Confirm';
 import { CategorySelect } from '../../components/CategorySelect';
 import { useToast } from '../../components/Toast';
@@ -146,12 +147,14 @@ export function Component() {
   const [adding, setAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [confirmHide, setConfirmHide] = useState(false);
-  const hasTx = useCategorySuggestions().data?.hasTransactions;
+  const [keep, setKeep] = useState<Set<string>>(new Set());
+  const hq = useQuery({ queryKey: ['categories', 'hide-unused'], queryFn: () => get<{ eligible: boolean; candidates: { id: string; name: string }[] }>('/api/categories/hide-unused'), enabled: canWrite });
+  const candidates = hq.data?.candidates ?? [];
   const [addingRule, setAddingRule] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
   const delRule = useApiMutation((id: string) => del(`/api/rules/${id}`), { invalidate: [['rules']] });
   const apply = useApiMutation(() => post<{ applied: number }>('/api/rules/apply'), { invalidate: [...LEDGER_DEPENDENT], onSuccess: (r) => toast({ title: t('categories.applied', { count: r.applied }), tone: 'good' }) });
-  const hideUnused = useApiMutation(() => post<{ hidden: number }>('/api/categories/hide-unused'), {
+  const hideUnused = useApiMutation((ids: string[]) => post<{ hidden: number }>('/api/categories/hide-unused', { ids }), {
     invalidate: [['categories']],
     onSuccess: (r) => toast({ title: t('categories.hiddenToast', { count: r.hidden }), tone: 'good' }),
   });
@@ -174,8 +177,17 @@ export function Component() {
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         {hiddenCount > 0 ? <Checkbox label={t('categories.showHidden', { count: hiddenCount })} checked={showHidden} onChange={setShowHidden} testId="show-hidden" /> : <span />}
-        {canWrite && hasTx && (
-          <Button size="sm" variant="ghost" busy={hideUnused.isPending} onClick={() => setConfirmHide(true)} data-testid="hide-unused">
+        {canWrite && candidates.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            busy={hideUnused.isPending}
+            onClick={() => {
+              setKeep(new Set());
+              setConfirmHide(true);
+            }}
+            data-testid="hide-unused"
+          >
             {t('categories.hideUnused')}
           </Button>
         )}
@@ -267,11 +279,25 @@ export function Component() {
         open={confirmHide}
         onOpenChange={setConfirmHide}
         title={t('categories.hideUnused')}
-        body={t('categories.hideUnusedBody')}
+        body={
+          <>
+            <p className="mb-2">{t('categories.hideUnusedBody')}</p>
+            <ul data-testid="hide-unused-list">
+              {candidates.map((c) => (
+                <li key={c.id}>
+                  <Checkbox label={<bdi>{c.name}</bdi>} checked={!keep.has(c.id)} onChange={(v) => setKeep((k) => { const n = new Set(k); if (v) n.delete(c.id); else n.add(c.id); return n; })} />
+                </li>
+              ))}
+            </ul>
+          </>
+        }
         confirmLabel={t('categories.hideUnused')}
         danger={false}
         testId="hide-unused-confirm"
-        onConfirm={() => hideUnused.mutateAsync(undefined).then(() => undefined)}
+        onConfirm={async () => {
+          const ids = candidates.filter((c) => !keep.has(c.id)).map((c) => c.id);
+          if (ids.length) await hideUnused.mutateAsync(ids);
+        }}
       />
       <Sheet open={addingRule} onOpenChange={setAddingRule} title={t('categories.addRule')}>
         {addingRule && <RuleForm onDone={() => setAddingRule(false)} />}

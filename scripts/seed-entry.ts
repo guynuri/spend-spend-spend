@@ -3,7 +3,7 @@ import { buildDemo, categoryKeyMap, DEMO_TABLE_ORDER } from '../src/server/seed/
 import { newId, nowIso } from '../src/server/lib/crypto';
 
 const [householdId, today, locale, catsJson] = process.argv.slice(2) as [string, string, 'en' | 'he', string];
-const cats = JSON.parse(catsJson) as { id: string; name: string; system_key: string | null }[];
+const cats = JSON.parse(catsJson) as { id: string; name: string; kind: string; system_key: string | null }[];
 const data = buildDemo(today, locale, categoryKeyMap(cats), newId, nowIso());
 const lit = (v: unknown) => (v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
 const out: string[] = [];

@@ -55,6 +55,7 @@ export const ROUTES: Record<string, Cls> = {
   'DELETE /api/categories/:id': 'tenant',
   'GET /api/categories/suggestions': 'tenant',
   'POST /api/categories/suggestions/:key': 'tenant',
+  'GET /api/categories/hide-unused': 'tenant',
   'POST /api/categories/hide-unused': 'tenant',
   'GET /api/ai/uncategorized': 'tenant',
   'GET /api/rules': 'tenant',

@@ -32,10 +32,12 @@ function mulberry32(seed: number) {
 }
 
 /** Category key → id, resolved from the household's categories by default name in either locale. */
-export function categoryKeyMap(cats: { id: string; name: string; system_key: string | null }[]) {
+export function categoryKeyMap(cats: { id: string; name: string; kind: string; system_key: string | null }[]) {
   const m = new Map<string, string>();
   for (const d of DEFAULT_CATEGORIES) {
-    const hit = cats.find((c) => (d.systemKey && c.system_key === d.systemKey) || defaultNames(d).includes(c.name));
+    const hit =
+      cats.find((c) => (d.systemKey && c.system_key === d.systemKey) || (c.kind === d.kind && (c.name === d.en || c.name === d.he))) ??
+      cats.find((c) => c.kind === d.kind && defaultNames(d).includes(c.name));
     if (hit) m.set(d.key, hit.id);
   }
   return m;

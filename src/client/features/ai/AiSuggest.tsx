@@ -40,12 +40,14 @@ export function AiSuggestButton() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<(Suggestion & { on: boolean })[] | null>(null);
   const [err, setErr] = useState<unknown>(null);
+  const [partial, setPartial] = useState(false);
   const fetchS = async () => {
     setOpen(true);
     setItems(null);
     setErr(null);
     try {
-      const r = await post<{ suggestions: Suggestion[] }>('/api/ai/categorize');
+      const r = await post<{ suggestions: Suggestion[]; partial?: boolean }>('/api/ai/categorize');
+      setPartial(!!r.partial);
       setItems(r.suggestions.map((x) => ({ ...x, on: (x.confidence ?? 1) >= SURE })));
     } catch (e) {
       setErr(e);
@@ -89,6 +91,7 @@ export function AiSuggestButton() {
           <p className="text-sm text-muted">{t('ai.noSuggestions')}</p>
         ) : (
           <>
+            {partial && <p className="mb-2 text-xs text-warn" data-testid="ai-partial">{t('ai.partial')}</p>}
             <Checkbox label={t('ai.approveAll')} checked={on === items.length} onChange={(v) => setOn(null, v)} testId="ai-approve-all" />
             <ul className="divide-y divide-border">
               {items.map((i, k) => (
