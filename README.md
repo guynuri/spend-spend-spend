@@ -61,6 +61,16 @@ locks passkeys to the deployed host (`APP_HOST`) and redeploys, then runs `scrip
 On the first deploy it prints the **one-time setup link** to the terminal only.
 `DRY_RUN=1 npm run deploy` shows the plan without touching Cloudflare.
 
+**Reminders and push notifications.** Reminders (Settings → Reminders) always show as cards on the
+Overview page. Real notifications use Web Push: the deploy script generates a VAPID key pair once and
+sets the secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (`https://<host>`; set
+`VAPID_SUBJECT=mailto:…` in `.env.local` before the first deploy to use an e-mail instead). Do not
+rotate the keys: every device would have to turn notifications on again. A cron trigger every
+15 minutes sends due reminders (`*/15 * * * *` in `wrangler.jsonc`). Without the keys the feature is
+in-app only. On iPhone, notifications work only in the app added to the Home Screen (iOS 16.4+).
+Locally, add a key pair to `.dev.vars` to try push (the public key is the 65-byte point, the private
+key the JWK `d`, both base64url), and trigger the cron with `curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=*/15+*+*+*+*"`.
+
 - Smoke-test any deployment: `node scripts/smoke.mjs https://maazan.<subdomain>.workers.dev`
 - Rollback: `npx wrangler rollback`
 - AI model: after deploying, `npx wrangler ai models --json` and set `AI_MODEL` under

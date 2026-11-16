@@ -24,6 +24,8 @@ export default defineConfig({
           { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' },
         ],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // push + notificationclick handlers (public/push-sw.js)
+        importScripts: ['/push-sw.js'],
       },
     }),
   ],
