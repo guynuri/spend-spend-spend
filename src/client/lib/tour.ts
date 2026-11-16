@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import { PAGE_ITEMS } from './nav';
 import { monthEnd, monthStart } from '../../shared/dates';
 
 /**
@@ -11,12 +12,14 @@ export interface TourStep {
   path: string;
   target: string | null;
   write?: boolean;
+  /** Part of the opening (welcome, nav bar, "+"), not of any page's own steps. */
+  intro?: boolean;
 }
 
 export const TOUR_STEPS: TourStep[] = [
-  { id: 'welcome', path: '/', target: null },
-  { id: 'nav', path: '/', target: 'nav' },
-  { id: 'add', path: '/', target: 'add', write: true },
+  { id: 'welcome', path: '/', target: null, intro: true },
+  { id: 'nav', path: '/', target: 'nav', intro: true },
+  { id: 'add', path: '/', target: 'add', write: true, intro: true },
   { id: 'reviewDue', path: '/', target: 'review-due' },
   { id: 'monthSummary', path: '/', target: 'pnl' },
   { id: 'forecastCard', path: '/', target: 'dash-forecast' },
@@ -50,11 +53,16 @@ export const pathOf = (p: string) => p.split('?')[0]!;
 /** Pages whose header shows the ⓘ that starts that page's part of the tour. */
 export const TOUR_PATHS = new Set(TOUR_STEPS.filter((s) => s.target).map((s) => pathOf(s.path)));
 
-/** The steps one run walks through: the whole tour, or one page's targeted steps. */
-export function tourSteps(o: { canWrite: boolean; page?: string; month: string; cardMonth: string }): TourStep[] {
+/** The steps one run walks through: the opening (if `intro`) then each page's steps, in the order of `pages`. */
+export function tourSteps(o: { canWrite: boolean; intro?: boolean; pages: string[]; month: string; cardMonth: string }): TourStep[] {
   const ledger = `from=${monthStart(o.cardMonth)}&to=${monthEnd(o.cardMonth)}`;
-  return TOUR_STEPS.filter((s) => (!s.write || o.canWrite) && (!o.page || (s.target && pathOf(s.path) === o.page))).map((s) => ({ ...s, path: s.path.replace('{month}', o.month).replace('{ledger}', ledger) }));
+  const steps = [...(o.intro ? TOUR_STEPS.filter((s) => s.intro) : []), ...o.pages.flatMap((p) => TOUR_STEPS.filter((s) => !s.intro && s.target && pathOf(s.path) === p))];
+  return steps.filter((s) => !s.write || o.canWrite).map((s) => ({ ...s, path: s.path.replace('{month}', o.month).replace('{ledger}', ledger) }));
 }
+/** The main tour's pages: those in the user's bottom bar, in bar order. */
+export const barPages = (bar: string[]) => bar.filter((p) => TOUR_PATHS.has(p));
+/** Pages with steps not yet seen, in More-list (sidebar) order. */
+export const restPages = (seen: string[]) => PAGE_ITEMS.map((i) => i.to).filter((p) => TOUR_PATHS.has(p) && !seen.includes(p));
 
 /** First rendered (non-zero size) element marked with this tour target, or null. */
 export function findTarget(root: Pick<ParentNode, 'querySelectorAll'>, target: string): HTMLElement | null {

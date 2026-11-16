@@ -1,7 +1,13 @@
 import { devices, expect, test, type Browser, type Page } from '@playwright/test';
 import { ensureAdmin, prepPage, registerVia, setUiLocale, signIn } from './auth';
 import { expectNoHorizontalOverflow } from './helpers';
-import { TOUR_STEPS } from '../src/client/lib/tour';
+import { barPages, restPages, tourSteps } from '../src/client/lib/tour';
+import { DEFAULT_TABS } from '../src/client/lib/nav';
+
+const o = { canWrite: true, month: '2026-10', cardMonth: '2026-11' };
+/** What an owner's main tour (default bar) and the continuation walk, in order. */
+const MAIN = tourSteps({ ...o, intro: true, pages: barPages(DEFAULT_TABS) });
+const REST = tourSteps({ ...o, pages: restPages(DEFAULT_TABS) });
 
 test.beforeAll(async ({ browser }) => ensureAdmin(browser));
 
@@ -34,30 +40,49 @@ for (const locale of ['en', 'he'] as const) {
     await expect(p.getByTestId('onboarding')).toBeVisible();
     await p.getByTestId('onboarding-tour').click();
 
-    const total = TOUR_STEPS.length; // an owner sees every step: none may be skipped
     const vp = p.viewportSize()!;
     const pop = p.getByTestId('tour-popover');
-    for (let k = 1; k <= total; k++) {
-      const step = TOUR_STEPS[k - 1]!;
-      await expect(p.getByTestId('tour-progress')).toHaveText(`${k}/${total}`, { timeout: 15_000 });
-      await expect(pop).toHaveAttribute('data-step', step.id);
-      await expect(p.getByTestId('demo-badge')).toBeVisible();
-      await expect(pop).toBeVisible();
-      if (step.target) {
-        await expect(p.locator(`[data-tour~="${step.target}"]`).first()).toBeAttached();
-        // the ringed hole (target + 6 px) is on screen and the popover never covers it
-        await expect
-          .poll(async () => {
-            const [h, q] = [await p.getByTestId('tour-hole').boundingBox(), await pop.boundingBox()];
-            const t = h && { x: h.x + 6, y: h.y + 6, width: h.width - 12, height: h.height - 12 };
-            return !!t && !!q && inside(t, vp) && inside(q, vp) && !overlap(t, q);
-          }, { message: `step ${step.id}` })
-          .toBe(true);
+    // Walks one segment: every step must show (none skipped), its target ringed and clear of the popover.
+    const walk = async (steps: typeof MAIN, tag: string) => {
+      const total = steps.length;
+      for (let k = 1; k <= total; k++) {
+        const step = steps[k - 1]!;
+        await expect(p.getByTestId('tour-progress')).toHaveText(`${k}/${total}`, { timeout: 15_000 });
+        await expect(pop).toHaveAttribute('data-step', step.id);
+        await expect(p.getByTestId('demo-badge')).toBeVisible();
+        await expect(pop).toBeVisible();
+        if (step.target) {
+          await expect(p.locator(`[data-tour~="${step.target}"]`).first()).toBeAttached();
+          // the ringed hole (target + 6 px) is on screen and the popover never covers it
+          await expect
+            .poll(async () => {
+              const [h, q] = [await p.getByTestId('tour-hole').boundingBox(), await pop.boundingBox()];
+              const t = h && { x: h.x + 6, y: h.y + 6, width: h.width - 12, height: h.height - 12 };
+              return !!t && !!q && inside(t, vp) && inside(q, vp) && !overlap(t, q);
+            }, { message: `step ${step.id}` })
+            .toBe(true);
+        }
+        await expectNoHorizontalOverflow(p);
+        await p.screenshot({ path: `e2e/screenshots/tour/${locale}-${tag}${String(k).padStart(2, '0')}-${step.id}.png` });
+        await p.getByTestId('tour-next').click();
       }
-      await expectNoHorizontalOverflow(p);
-      await p.screenshot({ path: `e2e/screenshots/tour/${locale}-${String(k).padStart(2, '0')}-${step.id}.png` });
-      await p.getByTestId('tour-next').click();
-    }
+    };
+    await walk(MAIN, '');
+    // The bar's pages are done: the choice card, in the page's language, with the demo still showing.
+    await expect(p.getByTestId('tour-end-more')).toBeVisible();
+    await expect(p.getByTestId('tour-end-finish')).toBeVisible();
+    await expect(p.getByTestId('demo-badge')).toBeVisible();
+    await expectNoHorizontalOverflow(p);
+    await p.screenshot({ path: `e2e/screenshots/tour/${locale}-end.png` });
+    // Back returns to the last step (not the one before); Next brings the card again.
+    await p.getByTestId('tour-back').click();
+    await expect(pop).toHaveAttribute('data-step', MAIN.at(-1)!.id);
+    await expect(p.getByTestId('tour-progress')).toHaveText(`${MAIN.length}/${MAIN.length}`);
+    await p.getByTestId('tour-next').click();
+    await expect(p.getByTestId('tour-end-more')).toBeVisible();
+    await p.getByTestId('tour-end-more').click();
+    await walk(REST, 'rest-');
+    // After the last page there is nothing left to offer: the tour simply ends.
 
     // Leaving the tour brings the real (empty) household straight back; nothing was written to it.
     await expect(p.getByTestId('tour')).toHaveCount(0);
@@ -85,10 +110,32 @@ for (const locale of ['en', 'he'] as const) {
   });
 }
 
-test('page ⓘ runs that page’s steps; Esc ends it and restores real data', async ({ page }) => {
+test('main tour: "finish — show me later" ends it; the sample-data button still loads data', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const { p, ctx } = await freshOwner(page, browser, 'en');
+  await expect(p.getByTestId('onboarding-sample')).toBeVisible();
+  await p.getByTestId('onboarding-tour').click();
+  for (let k = 1; k <= MAIN.length; k++) {
+    await expect(p.getByTestId('tour-progress')).toHaveText(`${k}/${MAIN.length}`, { timeout: 15_000 });
+    await p.getByTestId('tour-next').click();
+  }
+  await expect(p.getByTestId('tour-end-finish')).toContainText('show me later');
+  await p.getByTestId('tour-end-finish').click();
+  await expect(p.getByTestId('tour')).toHaveCount(0);
+  await expect(p.getByTestId('demo-badge')).toHaveCount(0);
+  await expect(p.locator('#root')).not.toHaveAttribute('inert');
+  await p.goto('/');
+  await expect(p.getByTestId('onboarding')).toBeVisible(); // real (empty) data is back
+  await p.getByTestId('onboarding-sample').click();
+  await expect(p.getByTestId('sample-banner')).toBeVisible();
+  await ctx.close();
+});
+
+test('page ⓘ runs that page’s steps, then offers more pages or finish; Esc restores real data', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/forecast');
-  await page.getByTestId('page-tour').click();
+  const tourBtn = page.getByTestId('page-tour');
+  await tourBtn.click();
   await expect(page.getByTestId('tour-popover')).toHaveAttribute('data-step', 'forecastEom');
   await expect(page.getByTestId('tour-progress')).toHaveText('1/2');
   await page.getByTestId('tour-next').click();
@@ -100,5 +147,25 @@ test('page ⓘ runs that page’s steps; Esc ends it and restores real data', as
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('tour')).toHaveCount(0);
   await expect(page.getByTestId('demo-badge')).toHaveCount(0);
+  await expect(page.locator('#root')).not.toHaveAttribute('inert');
+
+  // End of the page: "Tour more pages" continues with the others (not this one); then the end card is gone.
+  const others = tourSteps({ ...o, pages: restPages(['/forecast']) });
+  await tourBtn.click();
+  await page.getByTestId('tour-next').click();
+  await page.getByTestId('tour-next').click();
+  await page.getByTestId('tour-end-more').click();
+  await expect(page.getByTestId('tour-progress')).toHaveText(`1/${others.length}`);
+  await expect(page.getByTestId('tour-popover')).toHaveAttribute('data-step', others[0]!.id);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('tour')).toHaveCount(0);
+
+  // ...or "Finish".
+  await page.goto('/forecast');
+  await tourBtn.click();
+  await page.getByTestId('tour-next').click();
+  await page.getByTestId('tour-next').click();
+  await page.getByTestId('tour-end-finish').click();
+  await expect(page.getByTestId('tour')).toHaveCount(0);
   await expect(page.locator('#root')).not.toHaveAttribute('inert');
 });

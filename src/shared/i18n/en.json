@@ -828,6 +828,8 @@
     "title": "Let's get started",
     "body": "Upload your bank statement, or first take a quick tour of the app on demo data.",
     "upload": "Upload a statement",
+    "sample": "Load sample data",
+    "sampleBody": "A fictional household with 6 months of data. You can clear it in one tap.",
     "tour": "Take the tour",
     "banner": "You're looking at sample data.",
     "clear": "Clear sample data",
@@ -1148,6 +1150,11 @@
     "back": "Back",
     "skip": "End tour",
     "finish": "Finish",
+    "later": "Done. Tap the ⓘ next to any page title to tour that page.",
+    "end": {
+      "main": { "title": "The main pages are done", "body": "Continue to the other pages, or finish and take each page’s tour later with its ⓘ button.", "more": "Continue to the other pages", "finish": "Finish — show me later" },
+      "page": { "title": "That’s this page", "body": "Tour more pages, or finish here.", "more": "Tour more pages", "finish": "Finish" }
+    },
     "progress": "Step {{n}} of {{total}}",
     "steps": {
       "welcome": {
