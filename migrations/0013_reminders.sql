@@ -18,6 +18,8 @@ CREATE TABLE reminders (
   seen_at TEXT NOT NULL,
   -- review kind: last month notified, last availability check
   review_month TEXT,
+  -- 1 after a failed send was released for one retry on the next tick
+  retry INTEGER NOT NULL DEFAULT 0,
   checked_at TEXT,
   created_at TEXT NOT NULL
 );

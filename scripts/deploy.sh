@@ -73,7 +73,14 @@ HOST="${URL#https://}"
 # 6) secrets (only those not set yet)
 echo "→ secrets"
 EXISTING=""
-if [[ "$DRY_RUN" != "1" ]]; then EXISTING="$(npx wrangler secret list --name "$WORKER" 2>/dev/null || true)"; fi
+# A failed listing must stop the deploy: treating it as "no secrets" would regenerate BOOTSTRAP_TOKEN
+# and the VAPID pair, breaking every push subscription.
+if [[ "$DRY_RUN" != "1" ]]; then
+  if ! EXISTING="$(npx wrangler secret list --name "$WORKER")"; then
+    echo "✗ could not list the Worker's secrets; aborting before touching them" >&2
+    exit 1
+  fi
+fi
 FIRST_SETUP=0
 if ! grep -q '"BOOTSTRAP_TOKEN"' <<<"$EXISTING"; then
   BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN:-$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')}"

@@ -23,21 +23,24 @@ export const reminderInputSchema = z.discriminatedUnion('kind', [
 ]);
 export type ReminderInput = z.infer<typeof reminderInputSchema>;
 
-/** Push services we deliver to (the Worker POSTs to the endpoint, so arbitrary hosts are refused). */
-const PUSH_HOST = /(^|\.)(googleapis\.com|mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
+/** Push services we deliver to (the Worker POSTs to the endpoint, so anything else is refused). */
+const PUSH_HOST = /^(fcm\.googleapis\.com|([a-z0-9-]+\.)*push\.services\.mozilla\.com|([a-z0-9-]+\.)+push\.apple\.com|([a-z0-9-]+\.)+notify\.windows\.com)$/;
+export function isPushEndpoint(u: string): boolean {
+  let x: URL;
+  try {
+    x = new URL(u);
+  } catch {
+    return false;
+  }
+  return x.protocol === 'https:' && !x.port && !x.username && !x.password && PUSH_HOST.test(x.hostname);
+}
 const b64u = z.string().regex(/^[A-Za-z0-9_-]+$/);
 export const subscriptionSchema = z.object({
-  endpoint: z
-    .string()
-    .max(1000)
-    .url()
-    .refine((u) => {
-      const x = new URL(u);
-      return x.protocol === 'https:' && PUSH_HOST.test(x.hostname);
-    }),
+  endpoint: z.string().max(1000).refine(isPushEndpoint),
   keys: z.object({ p256dh: b64u.min(80).max(100), auth: b64u.min(16).max(32) }),
   label: z.string().trim().max(60).nullable().optional(),
 });
+export const endpointSchema = z.object({ endpoint: z.string().max(1000) }).strict();
 
 export interface Reminder {
   id: string;

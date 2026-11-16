@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { b64uDecode, encryptPayload, importPrivate, vapidAuth } from '../../src/server/lib/webpush';
 import { b64url } from '../../src/server/lib/crypto';
+import { isPushEndpoint } from '../../src/shared/reminders';
 
 // RFC 8291 Appendix A
 const V = {
@@ -35,4 +36,26 @@ describe('web push', () => {
     const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, kp.publicKey, b64uDecode(m[3]!), new TextEncoder().encode(`${m[1]}.${m[2]}`));
     expect(ok).toBe(true);
   });
+});
+
+describe('push endpoint allow-list', () => {
+  it.each([
+    'https://fcm.googleapis.com/fcm/send/abc',
+    'https://updates.push.services.mozilla.com/wpush/v2/abc',
+    'https://push.services.mozilla.com/x',
+    'https://web.push.apple.com/QH',
+    'https://wns2-par02p.notify.windows.com/w/?token=x',
+  ])('accepts %s', (u) => expect(isPushEndpoint(u)).toBe(true));
+  it.each([
+    'http://fcm.googleapis.com/fcm/send/abc',
+    'https://storage.googleapis.com/x',
+    'https://evil.mozilla.com/x',
+    'https://push.apple.com/x',
+    'https://notify.windows.com/x',
+    'https://fcm.googleapis.com.evil.com/x',
+    'https://fcm.googleapis.com:8443/x',
+    'https://user:pw@fcm.googleapis.com/x',
+    'https://evil.com/?fcm.googleapis.com',
+    'not a url',
+  ])('rejects %s', (u) => expect(isPushEndpoint(u)).toBe(false));
 });

@@ -88,12 +88,18 @@ export function vapidKeys(env: { VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: 
   return { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT || `https://${env.APP_HOST || 'localhost'}` };
 }
 
-/** Sends one push; returns the push service's HTTP status (404/410 = subscription gone). */
-export async function sendPush(keys: VapidKeys, to: PushTarget, msg: PushMessage, fetchImpl: typeof fetch = fetch): Promise<number> {
+/** One VAPID header per push-service origin per run (the ECDSA signature is the costly part). */
+export type AuthCache = Map<string, Promise<string>>;
+
+/** Sends one push; returns the push service's HTTP status (404/410 = subscription gone). Redirects are not followed. */
+export async function sendPush(keys: VapidKeys, to: PushTarget, msg: PushMessage, fetchImpl: typeof fetch = fetch, auth: AuthCache = new Map()): Promise<number> {
+  const origin = new URL(to.endpoint).origin;
+  if (!auth.has(origin)) auth.set(origin, vapidAuth(to.endpoint, keys));
   const body = await encryptPayload(utf8(JSON.stringify(msg)), to.p256dh, to.auth);
   const res = await fetchImpl(to.endpoint, {
     method: 'POST',
-    headers: { Authorization: await vapidAuth(to.endpoint, keys), TTL: '86400', Urgency: 'normal', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream' },
+    redirect: 'manual',
+    headers: { Authorization: await auth.get(origin)!, TTL: '86400', Urgency: 'normal', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream' },
     body,
   });
   return res.status;

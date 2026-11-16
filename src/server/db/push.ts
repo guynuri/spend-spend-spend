@@ -13,7 +13,7 @@ export function pushSubs(db: D1Database, userId: string) {
   return {
     list: async () => (await db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?1 ORDER BY created_at').bind(userId).all<PushSubRow>()).results,
     count: async () => (await db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?1').bind(userId).first<{ n: number }>())?.n ?? 0,
-    /** Upsert by endpoint: a browser re-subscribing (or another user signing in on it) takes the row over. */
+    /** Upsert by endpoint: a browser re-subscribing, or another user turning push on in it, takes the row over (the previous user stops receiving there). */
     save: async (s: { endpoint: string; p256dh: string; auth: string; label: string | null }) => {
       const id = newId();
       await db
@@ -25,6 +25,7 @@ export function pushSubs(db: D1Database, userId: string) {
         .run();
     },
     exists: async (endpoint: string) => !!(await db.prepare('SELECT 1 FROM push_subscriptions WHERE endpoint = ?1 AND user_id = ?2').bind(endpoint, userId).first()),
+    removeEndpoint: async (endpoint: string) => (await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?1 AND user_id = ?2').bind(endpoint, userId).run()).meta.changes,
     remove: async (id: string) => (await db.prepare('DELETE FROM push_subscriptions WHERE id = ?1 AND user_id = ?2').bind(id, userId).run()).meta.changes,
   };
 }

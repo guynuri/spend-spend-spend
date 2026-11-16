@@ -50,3 +50,15 @@ function deviceLabel() {
 
 /** Endpoint of this browser's subscription, to mark "this device" in the list. */
 export const thisEndpoint = async () => (supported() ? ((await currentSub())?.endpoint ?? null) : null);
+
+/** Sign-out: drop this browser's subscription here and on the server (shared devices stop getting the user's reminders). */
+export async function unsubscribeThisDevice() {
+  try {
+    const sub = supported() ? await currentSub() : null;
+    if (!sub) return;
+    await post('/api/reminders/devices/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
+    await sub.unsubscribe();
+  } catch {
+    /* best effort */
+  }
+}

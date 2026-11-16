@@ -21,9 +21,9 @@ async function subscribe(cookie: string, tag: string) {
   return endpoint;
 }
 function fakeFetch(status = 201) {
-  const calls: { url: string; headers: Headers; body: Uint8Array }[] = [];
+  const calls: { url: string; headers: Headers; body: Uint8Array; redirect?: RequestInit['redirect'] }[] = [];
   const f = (async (url: string, init: RequestInit) => {
-    calls.push({ url, headers: new Headers(init.headers), body: init.body as Uint8Array });
+    calls.push({ url, headers: new Headers(init.headers), body: init.body as Uint8Array, redirect: init.redirect });
     return new Response(null, { status });
   }) as unknown as typeof fetch;
   return { f, calls };
@@ -105,11 +105,57 @@ describe('scheduled delivery', () => {
     expect(r1.sent).toBeGreaterThanOrEqual(2);
     const h = mine()[0]!.headers;
     expect(h.get('content-encoding')).toBe('aes128gcm');
+    expect(mine()[0]!.redirect).toBe('manual');
     expect(h.get('authorization')).toMatch(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=/);
     expect(mine()[0]!.body.length).toBeGreaterThan(86);
     // next tick: not again
     await runReminders(e, new Date(Date.now() + 15 * 60_000), f);
     expect(mine()).toHaveLength(2);
+  });
+
+  it('a transient failure is retried once on the next tick, and the in-app card still shows', async () => {
+    const e = await pushEnv();
+    const o = await ownerSetup();
+    const id = (await json<{ id: string }>('POST', '/api/reminders', { cookie: o.cookie, body: { kind: 'daily', hour: 0 } })).body.id;
+    const ep = await subscribe(o.cookie, 'flaky');
+    await backdate(id);
+    let n = 0;
+    const throwing = (async (url: string) => {
+      if (url === ep) n++;
+      throw new Error('network');
+    }) as unknown as typeof fetch;
+    await runReminders(e, new Date(), throwing);
+    expect(n).toBe(1);
+    expect((await json<RemindersResponse>('GET', '/api/reminders', { cookie: o.cookie })).body.reminders[0]!.due).toBe(true);
+    await runReminders(e, new Date(Date.now() + 15 * 60_000), throwing); // the one retry
+    expect(n).toBe(2);
+    await runReminders(e, new Date(Date.now() + 30 * 60_000), throwing); // no more
+    expect(n).toBe(2);
+    // a retry that succeeds is not sent again
+    await backdate(id);
+    const { f, calls } = fakeFetch();
+    let fail = true;
+    const once = ((url: string, init: RequestInit) => {
+      if (fail && url === ep) {
+        fail = false;
+        return Promise.resolve(new Response(null, { status: 500 }));
+      }
+      return f(url, init);
+    }) as unknown as typeof fetch;
+    await runReminders(e, new Date(), once);
+    await runReminders(e, new Date(Date.now() + 15 * 60_000), once);
+    await runReminders(e, new Date(Date.now() + 30 * 60_000), once);
+    expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
+  });
+
+  it('sign-out unsubscribe removes only the own row for that endpoint', async () => {
+    const o = await ownerSetup();
+    const ep = await subscribe(o.cookie, 'out');
+    const other = await ownerSetup('Other', 'Other home');
+    expect((await json('POST', '/api/reminders/devices/unsubscribe', { cookie: other.cookie, body: { endpoint: ep } })).status).toBe(200);
+    expect((await DB.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE endpoint = ?1').bind(ep).first<{ n: number }>())!.n).toBe(1);
+    expect((await json('POST', '/api/reminders/devices/unsubscribe', { cookie: o.cookie, body: { endpoint: ep } })).status).toBe(200);
+    expect((await DB.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE endpoint = ?1').bind(ep).first<{ n: number }>())!.n).toBe(0);
   });
 
   it('removes subscriptions the push service reports gone (410)', async () => {

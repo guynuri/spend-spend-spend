@@ -123,6 +123,7 @@ export const ROUTES: Record<string, Cls> = {
   'DELETE /api/reminders/:id': 'tenant',
   'POST /api/reminders/:id/seen': 'tenant',
   'POST /api/reminders/devices': 'tenant',
+  'POST /api/reminders/devices/unsubscribe': 'tenant',
   'DELETE /api/reminders/devices/:id': 'tenant',
   'POST /api/reminders/test': 'tenant',
 };

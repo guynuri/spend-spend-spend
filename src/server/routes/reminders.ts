@@ -11,7 +11,7 @@ import { body, HttpError, notFound } from '../http';
 import { newId, nowIso } from '../lib/crypto';
 import { vapidKeys } from '../lib/webpush';
 import { pushMessage, sendAll } from '../db/reminders';
-import { isDue, MAX_DEVICES, MAX_REMINDERS, reminderInputSchema, subscriptionSchema, type Reminder, type RemindersResponse } from '../../shared/reminders';
+import { endpointSchema, isDue, MAX_DEVICES, MAX_REMINDERS, reminderInputSchema, subscriptionSchema, type Reminder, type RemindersResponse } from '../../shared/reminders';
 
 export const reminderRoutes = new Hono<AppCtx>();
 reminderRoutes.use('*', household);
@@ -49,6 +49,14 @@ reminderRoutes.post('/devices', async (c) => {
   if (!(await push.exists(s.endpoint)) && (await push.count()) >= MAX_DEVICES) throw new HttpError(409, 'too_many_devices', 'Too many devices');
   await push.save({ endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth, label: s.label ?? null });
   return c.json({ ok: true }, 201);
+});
+
+/** Sign-out: this browser stops receiving the user's reminders. */
+reminderRoutes.post('/devices/unsubscribe', async (c) => {
+  const { db, userId } = tctx(c);
+  const { endpoint } = await body(c, endpointSchema);
+  await db.pushOf(userId).removeEndpoint(endpoint);
+  return c.json({ ok: true });
 });
 
 reminderRoutes.delete('/devices/:id', async (c) => {

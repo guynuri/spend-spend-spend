@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -104,7 +104,15 @@ export function Component() {
   // '' = detect from the file; ask only when it can't be inferred
   // ?account=<id> preselects (reminder links); &openBank=1 offers the bank website prominently
   const [sp] = useSearchParams();
-  const [accountId, setAccountId] = useState(() => sp.get('account') ?? '');
+  const [accountId, setAccountId] = useState('');
+  const preset = useRef(sp.get('account'));
+  useEffect(() => {
+    const id = preset.current;
+    const list = accountsQ.data?.accounts;
+    if (!id || !list) return;
+    preset.current = null; // once, and only for a listed, importable account
+    if (list.some((a) => a.id === id && !a.archived && a.type !== 'credit_card')) setAccountId(id);
+  }, [accountsQ.data]);
   const [autoPicked, setAutoPicked] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
