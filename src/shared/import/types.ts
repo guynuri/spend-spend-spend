@@ -34,6 +34,10 @@ export interface ParseResult {
 export interface BankParser {
   id: string;
   labelKey: string;
+  /** Catalog banks (src/shared/banks.ts) that export this layout. */
+  bankIds?: readonly string[];
+  /** Card-issuer statement (not importable yet: PLAN D-10, cards arrive as a lump in the bank file). */
+  card?: boolean;
   detect(grid: Grid): number;
   parse(grid: Grid): ParseResult;
 }

@@ -126,7 +126,7 @@ export function Component() {
                             {i.late && <Badge tone="warn">{t('upcoming.late')}</Badge>}
                           </div>
                         </div>
-                        <Money minor={i.amountMinor} className={i.amountMinor > 0 ? 'font-semibold text-good' : 'font-semibold'} />
+                        <Money minor={i.amountMinor} className="font-semibold" tone />
                       </button>
                     </li>
                   ))}

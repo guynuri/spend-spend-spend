@@ -100,7 +100,7 @@ export function AiSuggestButton() {
                     label={
                       <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                         <bdi className="font-medium">{i.description}</bdi>
-                        <Money minor={i.amountMinor} className="text-sm" />
+                        <Money minor={i.amountMinor} className="text-sm" tone />
                         {i.count > 1 && <span className="text-xs text-muted">{t('ai.times', { count: i.count })}</span>}
                       </span>
                     }

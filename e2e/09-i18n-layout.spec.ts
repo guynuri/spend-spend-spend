@@ -22,6 +22,25 @@ for (const locale of ['en', 'he'] as const) {
   });
 }
 
+for (const locale of ['en', 'he'] as const) {
+  test(`month navigation: "previous" on the start side, chevrons point outward (${locale})`, async ({ page }) => {
+    await signIn(page, 'admin', locale);
+    for (const route of ['/trends?from=2026-10-01&to=2026-10-31', '/trends?tab=day&from=2026-10-01&to=2026-10-31', '/budget', '/transactions']) {
+      await page.goto(route);
+      const prev = page.getByTestId('month-prev');
+      const next = page.getByTestId('month-next');
+      await expect(prev).toBeVisible();
+      const [p, n] = [(await prev.boundingBox())!, (await next.boundingBox())!];
+      expect(locale === 'he' ? p.x > n.x : p.x < n.x, `${route} prev on start side`).toBe(true);
+      // the left-pointing chevron is mirrored in RTL so "previous" points right, towards the start
+      expect(await prev.locator('svg').evaluate((s) => getComputedStyle(s).scale)).toBe(locale === 'he' ? '-1 1' : 'none');
+    }
+    await page.goto('/trends?from=2026-10-01&to=2026-10-31');
+    await page.getByTestId('month-prev').click();
+    await expect(page).toHaveURL(/from=2026-09-01&to=2026-09-30/);
+  });
+}
+
 test('Hebrew label and switching locale from settings', async ({ page }) => {
   await signIn(page, 'admin', 'en');
   await page.goto('/settings');
