@@ -89,7 +89,7 @@ describe('data control (AC15.1)', () => {
     expect((await json('POST', '/api/household/reset', { cookie: o.cookie, body: { confirm: 'Demo home' } })).status).toBe(200);
     expect(await count(o.householdId)).toBe(0);
     const cats = (await DB.prepare('SELECT COUNT(*) AS n FROM categories WHERE household_id = ?1').bind(o.householdId).first<{ n: number }>())!.n;
-    expect(cats).toBe(28);
+    expect(cats).toBe(19);
     expect((await json<{ active: { hasSampleData: boolean } }>('GET', '/api/me', { cookie: o.cookie })).body.active.hasSampleData).toBe(false);
     expect((await json<Dash>('GET', '/api/dashboard', { cookie: o.cookie })).body.onboarding).toBe(true);
   });

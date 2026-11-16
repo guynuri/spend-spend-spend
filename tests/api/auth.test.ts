@@ -35,7 +35,7 @@ describe('bootstrap (AC1.1) and sessions (AC1.8)', () => {
     expect(me.body.active.name).toBe('Our home');
     expect(me.body.role).toBe('owner');
     const cats = await DB.prepare('SELECT COUNT(*) AS n FROM categories WHERE household_id = (SELECT active_household_id FROM sessions LIMIT 1)').first<{ n: number }>();
-    expect(cats!.n).toBeGreaterThan(20);
+    expect(cats!.n).toBe(19);
     // second attempt
     const again = await json('POST', '/api/auth/register/options', { body: { token: 'test-bootstrap-token', displayName: 'Eve' } });
     expect(again.status).toBe(410);

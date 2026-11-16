@@ -27,7 +27,7 @@ if (!hid) {
 const hh = d1(`SELECT locale, timezone FROM households WHERE id = '${hid.replace(/'/g, '')}'`)[0].results[0];
 const locale = opt('--locale', hh.locale === 'he' ? 'he' : 'en');
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: hh.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-const cats = d1(`SELECT id, name, system_key FROM categories WHERE household_id = '${hid}'`)[0].results;
+const cats = d1(`SELECT id, name, kind, system_key FROM categories WHERE household_id = '${hid}'`)[0].results;
 const dir = mkdtempSync(path.join(tmpdir(), 'mz-seed-'));
 const bundle = path.join(dir, 'seed.mjs');
 const b = spawnSync('npx', ['esbuild', 'scripts/seed-entry.ts', '--bundle', '--platform=node', '--format=esm', `--outfile=${bundle}`, '--log-level=warning'], { stdio: 'inherit', env });

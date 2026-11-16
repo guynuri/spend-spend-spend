@@ -156,7 +156,7 @@ function Row({ r, onOpen }: { r: RecurringDto; onOpen: () => void }) {
             )}
           </div>
         </div>
-        <Money minor={r.next?.amountMinor ?? r.amountMinor} className={r.amountMinor > 0 ? 'font-semibold text-good' : 'font-semibold'} />
+        <Money minor={r.next?.amountMinor ?? r.amountMinor} className="font-semibold" tone />
       </button>
     </li>
   );
@@ -204,11 +204,11 @@ export function Component() {
         <div className="grid grid-cols-2 gap-3" data-testid="recurring-totals">
           <div>
             <div className="text-xs text-muted">{t('recurring.monthly')}</div>
-            <Money minor={q.data.totals.monthlyMinor} decimals={0} className="text-xl font-bold" />
+            <Money minor={q.data.totals.monthlyMinor} decimals={0} className="text-xl font-bold" tone="out" />
           </div>
           <div>
             <div className="text-xs text-muted">{t('recurring.yearly')}</div>
-            <Money minor={q.data.totals.yearlyMinor} decimals={0} className="text-xl font-bold" />
+            <Money minor={q.data.totals.yearlyMinor} decimals={0} className="text-xl font-bold" tone="out" />
           </div>
         </div>
       </Card>
@@ -224,7 +224,7 @@ export function Component() {
                     <bdi>{r.name}</bdi>
                   </div>
                   <div className="text-xs text-muted">
-                    {t(`recurring.kinds.${r.kind}`)} · {t(`recurring.cadences.${r.cadence}`)} · <Money minor={r.amountMinor} />
+                    {t(`recurring.kinds.${r.kind}`)} · {t(`recurring.cadences.${r.cadence}`)} · <Money minor={r.amountMinor} tone />
                   </div>
                 </div>
                 {canWrite && (
@@ -273,7 +273,7 @@ export function Component() {
                 {editing.lastSettled.map((s) => (
                   <div key={s.due} className="flex justify-between">
                     <DateText date={s.due} />
-                    <Money minor={s.amountMinor} />
+                    <Money minor={s.amountMinor} tone />
                   </div>
                 ))}
                 {editing.amountMode === 'estimated' && <p className="mt-1 text-xs text-muted">{t('recurring.estimateHelp')}</p>}

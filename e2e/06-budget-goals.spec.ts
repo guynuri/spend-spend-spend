@@ -63,6 +63,17 @@ test('trends: tapping a category opens the filtered ledger', async ({ page }) =>
   await expect(page.getByRole('img').first()).toBeVisible();
   await page.goto('/trends?tab=months');
   await expect(page.locator('.recharts-surface').first()).toBeVisible();
+  // one period control drives every tab and is remembered on this device
+  await page.getByTestId('trend-preset').selectOption('3m');
+  await expect(page).toHaveURL(/tab=months&from=\d{4}-\d{2}-01&to=/);
+  await page.goto('/trends?tab=day');
+  await expect(page.getByTestId('trend-preset')).toHaveValue('3m');
+  await expect(page.locator('.recharts-surface').first()).toBeVisible();
+  await page.getByTestId('trend-preset').selectOption('custom');
+  await page.getByTestId('trend-from').fill('2026-10-05');
+  await page.getByTestId('trend-to').fill('2026-10-20');
+  await expect(page).toHaveURL(/from=2026-10-05&to=2026-10-20/);
+  await expect(page.getByTestId('trend-range-label')).not.toBeEmpty();
 });
 
 test('add a goal and a contribution; progress and milestones update', async ({ page }) => {

@@ -13,6 +13,7 @@ interface Row {
   name: string;
   type: Account['type'];
   institution: string | null;
+  bank_id: string | null;
   account_mask: string | null;
   opening_balance_minor: number;
   opening_date: string | null;
@@ -38,6 +39,7 @@ accountRoutes.get('/', async (c) => {
       name: r.name,
       type: r.type,
       institution: r.institution,
+      bankId: r.bank_id,
       accountMask: r.account_mask,
       openingBalanceMinor: r.opening_balance_minor,
       openingDate: r.opening_date,
@@ -62,7 +64,8 @@ accountRoutes.post('/', async (c) => {
       id,
       name: b.name,
       type: b.type,
-      institution: b.institution ?? null,
+      institution: b.institution || null,
+      bank_id: b.bankId ?? null,
       account_mask: b.accountMask || null,
       opening_balance_minor: b.openingBalanceMinor ?? 0,
       opening_date: b.openingDate ?? null,
@@ -83,7 +86,8 @@ accountRoutes.patch('/:id', async (c) => {
     `UPDATE accounts SET name = COALESCE(?3, name), type = COALESCE(?4, type), institution = COALESCE(?5, institution),
        account_mask = COALESCE(?6, account_mask), opening_balance_minor = COALESCE(?7, opening_balance_minor),
        opening_date = CASE WHEN ?8 = 1 THEN ?9 ELSE opening_date END,
-       include_in_forecast = COALESCE(?10, include_in_forecast), is_liquid = COALESCE(?11, is_liquid), archived = COALESCE(?12, archived)
+       include_in_forecast = COALESCE(?10, include_in_forecast), is_liquid = COALESCE(?11, is_liquid), archived = COALESCE(?12, archived),
+       bank_id = CASE WHEN ?13 = 1 THEN ?14 ELSE bank_id END
      WHERE household_id = ?1 AND id = ?2`,
     id,
     b.name ?? null,
@@ -96,6 +100,8 @@ accountRoutes.patch('/:id', async (c) => {
     b.includeInForecast ?? null,
     b.isLiquid ?? null,
     b.archived ?? null,
+    b.bankId !== undefined ? 1 : 0,
+    b.bankId ?? null,
   );
   if (!r.meta.changes) throw notFound();
   return c.json({ ok: true });

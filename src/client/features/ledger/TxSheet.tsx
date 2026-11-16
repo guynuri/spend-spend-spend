@@ -110,7 +110,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
                     {s.categoryId ? cats.get(s.categoryId)?.name : t('ledger.uncategorized')}
                     {s.note && <bdi className="text-muted"> · {s.note}</bdi>}
                   </span>
-                  <Money minor={s.amountMinor} />
+                  <Money minor={s.amountMinor} tone />
                 </li>
               ))}
             </ul>

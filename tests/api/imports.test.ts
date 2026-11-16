@@ -81,7 +81,7 @@ describe('import pipeline (AC4.5–4.9)', () => {
   it('a manual entry matching an imported row is merged, keeps its category; undo restores it (AC4.8)', async () => {
     const s = await setup();
     const cats = (await json<{ categories: { id: string; name: string }[] }>('GET', '/api/categories', { cookie: s.cookie })).body.categories;
-    const kids = cats.find((c) => c.name === 'Kids')!.id;
+    const kids = cats.find((c) => c.name === 'Leisure')!.id;
     const manual = await json<Tx>('POST', '/api/transactions', { cookie: s.cookie, body: { date: '2026-10-12', amountMinor: 12345, direction: 'out', description: 'toys', accountId: s.accountId, categoryId: kids, notes: 'birthday' } });
     const r = await runImport(s, base);
     expect(r.preview.counts.matches_manual).toBe(1);

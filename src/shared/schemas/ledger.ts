@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { bool01, dateStr, id, minor, posMinor, text } from './common';
+import { BANK_IDS } from '../banks';
 
 export const accountType = z.enum(['checking', 'savings', 'cash', 'credit_card']);
 export const accountCreate = z
@@ -7,6 +8,7 @@ export const accountCreate = z
     name: text(60).min(1),
     type: accountType,
     institution: text(60).optional(),
+    bankId: z.enum(BANK_IDS).nullable().optional(),
     accountMask: z.string().regex(/^\d{0,4}$/).optional(),
     openingBalanceMinor: minor.optional(),
     openingDate: dateStr.nullable().optional(),
@@ -77,6 +79,7 @@ export interface Account {
   name: string;
   type: z.infer<typeof accountType>;
   institution: string | null;
+  bankId: string | null;
   accountMask: string | null;
   openingBalanceMinor: number;
   openingDate: string | null;

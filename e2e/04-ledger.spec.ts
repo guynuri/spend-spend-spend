@@ -46,7 +46,7 @@ test('add manual transactions; categorizing one changes only it, "always" learns
   await expect(rows).toHaveCount(3);
   await rows.first().click();
   const sheet = page.getByTestId('tx-sheet');
-  await sheet.getByTestId('tx-category').selectOption({ index: 14 });
+  await sheet.getByTestId('tx-category').selectOption({ label: 'Eating out' });
   // Only this one changed; the 2 similar ones are offered, not changed.
   await expect(sheet.getByTestId('tx-similar')).toContainText('2 more uncategorized');
   await expect(page.getByTestId('toast').filter({ hasText: /more categorized/ })).toHaveCount(0);
@@ -82,7 +82,7 @@ test('undo of a learned categorization reverts the others', async ({ page }) => 
   await page.goto('/transactions?q=undo+me+e2e');
   for (const a of ['10', '11']) await addTx(page, a, 'Undo Me E2E');
   await page.getByTestId('tx-row').first().click();
-  await page.getByTestId('tx-sheet').getByTestId('tx-category').selectOption({ index: 15 });
+  await page.getByTestId('tx-sheet').getByTestId('tx-category').selectOption({ label: 'Leisure' });
   await page.getByTestId('tx-similar-always').click();
   await page.getByTestId('toast').filter({ hasText: /1 more categorized/ }).getByTestId('toast-action').click();
   await closeSheet(page, 'tx-sheet');
@@ -98,9 +98,9 @@ test('split a card charge into categories', async ({ page }) => {
   await page.getByTestId('tx-split').click();
   await expectSheetFits(page);
   const lines = page.getByTestId('split-line');
-  await lines.nth(0).locator('select').selectOption({ index: 13 });
+  await lines.nth(0).locator('select').selectOption({ label: 'Groceries' });
   await lines.nth(0).locator('input').fill('600');
-  await lines.nth(1).locator('select').selectOption({ index: 14 });
+  await lines.nth(1).locator('select').selectOption({ label: 'Home' });
   await lines.nth(1).locator('input').fill('300');
   await expect(page.getByTestId('split-save')).toBeDisabled();
   await lines.nth(1).locator('input').fill('400');
@@ -116,7 +116,7 @@ test('bulk categorize and CSV export', async ({ page }) => {
   for (const a of ['5', '6']) await addTx(page, a, `Bulk E2E ${a}`);
   await page.getByTestId('ledger-select').click();
   for (const r of await page.getByTestId('tx-row').all()) await r.click();
-  await page.getByTestId('bulk-category').selectOption({ index: 16 });
+  await page.getByTestId('bulk-category').selectOption({ label: 'Health' });
   await page.getByTestId('bulk-apply').click();
   await expect(page.getByTestId('toast').filter({ hasText: /2 transactions updated/ })).toBeVisible();
   const res = await page.request.get('/api/transactions/export.csv?q=bulk+e2e');
@@ -132,7 +132,7 @@ test('applying to similar is a one-off; payment-app transfers are never offered'
   for (const a of ['7', '8']) await addTx(page, a, 'Bakery E2E once');
   await page.getByTestId('tx-row').first().click();
   const sheet = page.getByTestId('tx-sheet');
-  await sheet.getByTestId('tx-category').selectOption({ index: 14 });
+  await sheet.getByTestId('tx-category').selectOption({ label: 'Eating out' });
   await sheet.getByTestId('tx-similar-apply').click();
   await expect(page.getByTestId('toast').filter({ hasText: /1 transaction updated/ })).toBeVisible();
   await closeSheet(page, 'tx-sheet');
@@ -142,7 +142,7 @@ test('applying to similar is a one-off; payment-app transfers are never offered'
   await page.goto('/transactions?q=bit+e2e');
   for (const a of ['20', '30']) await addTx(page, a, 'BIT E2E transfer');
   await page.getByTestId('tx-row').first().click();
-  await sheet.getByTestId('tx-category').selectOption({ index: 14 });
+  await sheet.getByTestId('tx-category').selectOption({ label: 'Eating out' });
   await expect(sheet.getByText('by you')).toBeVisible();
   await expect(sheet.getByTestId('tx-similar')).toHaveCount(0);
 });
@@ -180,7 +180,7 @@ test('split a card payment from an uploaded card statement; keep the difference 
   await addTx(page, '1000', 'ISRACARD E2E statement');
   await page.getByTestId('tx-row').first().click();
   await page.getByTestId('tx-split').click();
-  const csv = 'תאריך עסקה,שם בית העסק,סכום חיוב\n01/11/2026,שופרסל דיל 123,400.00\n02/11/2026,קפה E2E אחד,350.00\n03/11/2026,קפה E2E שני,200.00\n04/11/2026,זיכוי E2E,-50.00\nלא תאריך,שורה שבורה,10.00\n';
+  const csv = 'תאריך עסקה,שם בית העסק,סכום חיוב\n01/11/2026,שופרסל דיל 123,400.00\n02/11/2026,קפה E2E אחד,350.00\n03/11/2026,קפה E2E שני,200.00\n04/11/2026,זיכוי E2E,-50.00\n99/99/2026,שורה שבורה,10.00\n';
   await page.getByTestId('split-file').setInputFiles({ name: 'card.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') });
   await expect(page.getByTestId('split-loaded')).toContainText('4');
   await expect(page.getByTestId('split-skipped')).toBeVisible(); // the broken row is reported, not dropped silently

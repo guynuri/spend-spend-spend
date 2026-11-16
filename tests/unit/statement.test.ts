@@ -51,7 +51,7 @@ describe('card statement columns', () => {
       ['03/11/2026', 'קפה', '20', '20'],
       ['04/11/2026', 'PENDING SHOP', '80', ''], // not billed yet: not part of this payment
       ['05/11/2026', 'FOREIGN', '$12', '0'],
-      ['bad', 'BROKEN', '5', '5'],
+      ['99/99/2026', 'BROKEN', '5', '5'],
     ];
     const r = parseStatementGrid(grid, guessMapping(grid));
     expect(r.rows.map((x) => Math.abs(x.amountMinor))).toEqual([50000, 11050, 2000]);
