@@ -10,8 +10,8 @@ export async function sendInviteEmail(env: AppEnv, to: string, link: string, hou
       body: JSON.stringify({
         from: env.EMAIL_FROM,
         to: [to],
-        subject: `spend-spend-spend — ${householdName}`,
-        text: `You were invited to ${householdName} on spend-spend-spend.\nOpen this link in Safari (or your phone's browser) to join:\n${link}\n\nהוזמנת להצטרף ל־${householdName} ב־לבזבז-לבזבז-לבזבז. יש לפתוח את הקישור:\n${link}\n`,
+        subject: `Money Money Money — ${householdName}`,
+        text: `You were invited to ${householdName} on Money Money Money.\nOpen this link in Safari (or your phone's browser) to join:\n${link}\n\nהוזמנת להצטרף ל־${householdName} ב־כסף כסף כסף. יש לפתוח את הקישור:\n${link}\n`,
       }),
     });
     return res.ok;

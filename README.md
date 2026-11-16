@@ -1,4 +1,4 @@
-# Maazan (מאזן)
+# Money Money Money (כסף כסף כסף)
 
 Invite-only, multi-household money app (installable PWA) for Israeli households. Upload the
 monthly bank export (Excel/CSV — **no bank connection, ever**) and get a categorized ledger,
@@ -26,7 +26,8 @@ printf 'BOOTSTRAP_TOKEN=%s\nAI_PROVIDER=mock\n' "$(node -e 'console.log(require(
 ```
 Open `http://localhost:5173/setup#<the token from .dev.vars>` in Chrome or Safari, enter your
 name, create a passkey — you are now super-admin and owner of a new household.
-Load sample data from the Overview page (or `npm run seed:local` into the first empty household).
+For a populated household run `npm run seed:local` (fills the first empty household). The in-app tour
+(Overview → *Take the tour*, or the ⓘ next to a page title) shows read-only demo data and never writes to yours.
 `AI_PROVIDER=mock` gives deterministic AI output locally; omit it to run without AI.
 
 ## Tests
@@ -98,7 +99,8 @@ the Budget, then run the Monthly review.
 link afterwards.
 
 **Data control.** Household → *Data control*: reset all data or delete the household (type the
-household name to confirm). Sample data is cleared from its banner.
+household name to confirm). Households that loaded sample data earlier (the UI no longer offers it)
+clear it from its banner.
 
 ## Free-tier design notes
 Spreadsheets are parsed in the browser (10 ms CPU limit, and the file never leaves the phone);

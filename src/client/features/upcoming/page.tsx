@@ -73,12 +73,12 @@ export function Component() {
         subtitle={t('upcoming.subtitle')}
         actions={
           <>
-            <Link to="/recurring" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-surface-2 px-3 text-sm font-medium" data-testid="upcoming-recurring">
+            <Link to="/recurring" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-surface-2 px-3 text-sm font-medium" data-testid="upcoming-recurring" data-tour="upcoming-recurring">
               <Repeat className="size-4" aria-hidden />
               {t('upcoming.recurringLink')}
             </Link>
             {canWrite && (
-              <Button onClick={() => setPlanning(true)} data-testid="upcoming-plan">
+              <Button onClick={() => setPlanning(true)} data-testid="upcoming-plan" data-tour="upcoming-plan">
                 <Plus className="size-5" aria-hidden />
                 {t('upcoming.addPlanned')}
               </Button>

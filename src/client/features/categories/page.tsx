@@ -168,7 +168,7 @@ export function Component() {
         title={t('categories.title')}
         actions={
           canWrite && (
-            <Button onClick={() => setAdding(true)} data-testid="category-add">
+            <Button onClick={() => setAdding(true)} data-testid="category-add" data-tour="category-add">
               <Plus className="size-5" aria-hidden />
               {t('categories.add')}
             </Button>
@@ -187,6 +187,7 @@ export function Component() {
               setConfirmHide(true);
             }}
             data-testid="hide-unused"
+            data-tour="hide-unused"
           >
             {t('categories.hideUnused')}
           </Button>

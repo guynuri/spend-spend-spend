@@ -85,19 +85,24 @@ test('safe-area padding and 16px inputs', async ({ page }) => {
 });
 
 test('tour runs in the sign-in language and each page reopens its entry', async ({ page }) => {
+  // signIn settles the profile language first (it used to race the profile and flip to English)
   await signIn(page, 'admin', 'he');
   // runs after prepPage's init script, so the tour counts as not seen on every full load
   await page.addInitScript(() => localStorage.removeItem('mz_tour_done'));
   await page.goto('/');
-  await expect(page.getByTestId('tour-welcome')).toContainText('סיור');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'he');
+  const pop = page.getByTestId('tour-popover');
+  await expect(pop).toHaveAttribute('data-step', 'welcome');
+  await expect(pop).toContainText('סיור');
   await page.getByTestId('tour-next').click();
-  await expect(page.getByTestId('tour-page-overview')).toBeVisible();
-  await page.getByTestId('tour-next').click();
-  await expect(page).toHaveURL(/\/transactions$/);
-  await expect(page.getByTestId('tour-page-transactions')).toBeVisible();
+  await expect(pop).toHaveAttribute('data-step', 'nav');
+  await expect(pop).toContainText('העמודים הראשיים');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('tour')).toHaveCount(0);
   await page.getByTestId('tab-budget').click();
   await page.getByTestId('page-tour').click();
-  await expect(page.getByTestId('tour-page-budget')).toContainText('תקציב');
+  await expect(pop).toHaveAttribute('data-step', 'budgetAdd');
+  await expect(pop).toContainText('תקציב');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('tour')).toHaveCount(0);
 });

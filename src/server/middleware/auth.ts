@@ -5,6 +5,7 @@ import { HttpError } from '../http';
 import { globalDb } from '../db/global';
 import { tenantDb } from '../db/tenant';
 import { randomToken, sha256Hex } from '../lib/crypto';
+import { DEMO_HOUSEHOLD } from '../seed/demoHousehold';
 
 export const SESSION_COOKIE = '__Host-mz_session';
 const HOUR = 3_600_000;
@@ -60,8 +61,20 @@ export const requireSuperAdmin: MiddlewareHandler<AppCtx> = async (c, next) => {
 export const household: MiddlewareHandler<AppCtx> = async (c, next) => {
   const s = c.get('session');
   if (!s) throw new HttpError(401, 'unauthorized', 'Sign in required');
-  if (!s.activeHouseholdId) throw new HttpError(403, 'no_household', 'No active household');
   const g = globalDb(c.env.DB);
+  // App tour: GETs only, against the generated demo household (never the user's own; no write path).
+  const demo = c.req.header('x-mz-demo');
+  if (demo !== undefined) {
+    if (c.req.method !== 'GET') throw new HttpError(403, 'demo_read_only', 'Demo data is read-only');
+    const hh = await g.getHousehold(DEMO_HOUSEHOLD[demo === 'he' ? 'he' : 'en']);
+    if (!hh) throw new HttpError(404, 'not_found', 'Demo data not prepared');
+    c.set('householdId', hh.id);
+    c.set('household', hh);
+    c.set('role', 'viewer');
+    c.set('db', tenantDb(c.env.DB, hh.id));
+    return next();
+  }
+  if (!s.activeHouseholdId) throw new HttpError(403, 'no_household', 'No active household');
   const [m, h] = await g.raw.batch<Record<string, unknown>>([
     g.raw.prepare('SELECT role FROM memberships WHERE household_id = ?1 AND user_id = ?2').bind(s.activeHouseholdId, s.userId),
     g.raw.prepare('SELECT * FROM households WHERE id = ?1').bind(s.activeHouseholdId),

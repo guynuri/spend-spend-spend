@@ -102,7 +102,7 @@ export function GoalCard({ g, onEdit, onContribute }: { g: GoalView; onEdit?: ()
   const { t } = useTranslation();
   const pf = useParamFormatter();
   return (
-    <Card data-testid="goal-card" data-status={g.status}>
+    <Card data-testid="goal-card" data-tour="goal-card" data-status={g.status}>
       <div className="flex items-start justify-between gap-2">
         <button type="button" disabled={!onEdit} onClick={onEdit} className="min-h-11 min-w-0 text-start">
           <div className="truncate font-semibold">

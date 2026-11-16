@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { get } from '../../api';
 import { Badge, Card, CardTitle, ErrorState, Spinner } from '../../components/ui';
@@ -90,8 +90,10 @@ export function ForecastCard({ withChart = true, link = true }: { withChart?: bo
   return (
     <Card data-testid="forecast-card">
       <CardTitle action={<Badge tone={tone}>{t(`forecast.confidence.${f.confidence}`)}</Badge>}>{link ? <Link to="/forecast">{t('forecast.eom')}</Link> : t('forecast.eom')}</CardTitle>
-      <Money minor={f.eom?.balance ?? 0} decimals={0} className="text-3xl font-bold" />
-      <span className="sr-only" data-testid="forecast-eom" data-minor={f.eom?.balance ?? 0} />
+      <div data-tour="forecast-eom">
+        <Money minor={f.eom?.balance ?? 0} decimals={0} className="text-3xl font-bold" />
+        <span className="sr-only" data-testid="forecast-eom" data-minor={f.eom?.balance ?? 0} />
+      </div>
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
         {f.low && (
           <div data-testid="forecast-low">
@@ -109,6 +111,22 @@ export function ForecastCard({ withChart = true, link = true }: { withChart?: bo
             </dd>
           </div>
         )}
+        <div className="col-span-2" data-testid="forecast-cushion" data-tour="forecast-cushion">
+          <dt className="text-xs text-muted">
+            <details>
+              <summary className="inline-flex min-h-6 cursor-pointer list-none items-center gap-1" data-testid="cushion-term">
+                {t('forecast.cushion')}
+                <Info className="size-3.5" aria-label={t('forecast.cushionWhat')} />
+              </summary>
+              <span className="mt-1 block rounded-lg bg-surface-2 p-2 text-text" data-testid="cushion-hint">
+                {t('forecast.cushionHint')}
+              </span>
+            </details>
+          </dt>
+          <dd className="font-semibold">
+            <Money minor={f.safetyBuffer} decimals={0} />
+          </dd>
+        </div>
       </dl>
       {(f.belowZero || f.belowBuffer) && (
         <p className="mt-3 flex gap-2 rounded-xl bg-bad/10 p-2 text-sm text-bad" role="status">

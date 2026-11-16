@@ -34,7 +34,7 @@ function ReviewList({ onOpen }: { onOpen: (m: string) => void }) {
     <div className="flex flex-col gap-4">
       {!done.has(q.data.defaultMonth) && (
         <Card>
-          <Button className="w-full" onClick={() => onOpen(q.data.defaultMonth)} data-testid="review-start">
+          <Button className="w-full" onClick={() => onOpen(q.data.defaultMonth)} data-testid="review-start" data-tour="review-start">
             <ClipboardCheck className="size-5" aria-hidden />
             {t('review.start', { month: fmt(q.data.defaultMonth, 'month') })}
           </Button>
@@ -112,7 +112,7 @@ function ReviewFlow({ month, step, setStep }: { month: string; step: number; set
       <Card data-testid={`chapter-${ch}`}>
         <CardTitle>{t(`review.chapters.${ch}`)}</CardTitle>
         <ChapterView ch={ch} s={s} />
-        <p className="mt-3 text-xs text-muted">{t('review.ruleBased')}</p>
+        <p className="mt-3 text-xs text-muted" data-tour="review-ai">{t('review.ruleBased')}</p>
         {ai && <AiInterpretation ai={ai} ch={ch} scrollKey={aiRun} />}
       </Card>
       {last &&

@@ -12,13 +12,20 @@ export class ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+/** App tour: while set, GETs read the generated demo household (X-MZ-Demo) and writes are refused here. */
+let demo: 'en' | 'he' | null = null;
+export const setDemo = (l: 'en' | 'he' | null) => {
+  demo = l;
+};
+
 export async function api<T>(method: Method, path: string, body?: unknown): Promise<T> {
+  if (demo && method !== 'GET') throw new ApiError(403, 'demo_read_only', 'Demo data is read-only');
   let res: Response;
   try {
     res = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: method === 'GET' ? { Accept: 'application/json' } : { 'Content-Type': 'application/json', 'X-MZ': '1', 'X-MZ-Locale': document.documentElement.lang || 'en', Accept: 'application/json' },
+      headers: method === 'GET' ? { Accept: 'application/json', ...(demo && { 'X-MZ-Demo': demo }) } : { 'Content-Type': 'application/json', 'X-MZ': '1', 'X-MZ-Locale': document.documentElement.lang || 'en', Accept: 'application/json' },
       body: method === 'GET' || body === undefined ? (method === 'GET' ? undefined : '{}') : JSON.stringify(body),
     });
   } catch {

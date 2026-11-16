@@ -21,6 +21,9 @@ import { clearSessionCookie, newSession, requireSession } from '../middleware/au
 import { resolveToken } from '../middleware/tokens';
 import { getProvider } from '../ai/provider';
 import { loadBadges } from '../db/badges';
+import { loadBase } from '../db/sql/facts';
+import { defaultReviewMonth } from '../db/sql/review';
+import { ensureDemoHousehold } from '../seed/demoHousehold';
 
 const enc = new TextEncoder();
 const locale = z.enum(['en', 'he']).optional();
@@ -232,6 +235,17 @@ authRoutes.get('/auth/sessions', requireSession, async (c) => {
   const s = c.get('session')!;
   const rows = await globalDb(c.env.DB).sessionsOfUser(s.userId);
   return c.json({ sessions: rows.map((r) => ({ id: r.token_hash.slice(0, 12), current: r.token_hash === s.tokenHash, createdAt: r.created_at, lastSeenAt: r.last_seen_at, device: (r.user_agent ?? '').slice(0, 120) })) });
+});
+
+/** App tour: makes sure today's generated demo household exists; returns its nav badges, review month and latest card-charge month. */
+authRoutes.post('/demo', requireSession, async (c) => {
+  const b = await body(c, z.object({ locale: z.enum(['en', 'he']) }).strict());
+  const hh = await ensureDemoHousehold(c.env.DB, b.locale);
+  const q = tenantDb(c.env.DB, hh.id);
+  const today = todayInTz(hh.timezone);
+  const [badges, base, lump] = await Promise.all([loadBadges(q, hh, today), loadBase(q, hh), q.first<{ d: string }>("SELECT MAX(date) AS d FROM transactions WHERE household_id = ?1 AND kind = 'card_lump'")]);
+  // Early in a month the newest (unsplit) card charge is last month's: the ledger steps open that month.
+  return c.json({ badges, reviewMonth: defaultReviewMonth(base), cardMonth: (lump?.d ?? today).slice(0, 7) });
 });
 
 // ---------------- me / session ----------------
