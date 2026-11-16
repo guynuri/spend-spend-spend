@@ -1,6 +1,7 @@
 import { norm } from '../../../shared/normalize';
 import type { Grid, ParseResult } from '../../../shared/import/types';
-import type { Mapping } from '../../../shared/import/generic';
+import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
+import { parseAmount } from '../../../shared/import/values';
 import { FileError, parseFile } from '../import/parseFile';
 
 /** splitsPut allows 30 lines: one is left for an unassigned remainder. */
@@ -11,22 +12,25 @@ const CHARGE = /^(סכום (ה)?חיוב|charge amount|billing amount|amount cha
 
 /**
  * A card statement file → parsed rows (errors kept, never dropped).
- * ponytail: generic bank mapping with a charge-column override; swap for a card parser when one exists.
+ * ponytail: generic mapping (parseStatementGrid); swap for a card parser when one exists.
  */
 export async function readStatement(file: File): Promise<ParseResult> {
   const p = await parseFile(file);
   if (p.result) return p.result;
-  const g = await import('../../../shared/import/generic');
   if (!p.guess) throw new FileError('unsupported_file');
-  const m = withChargeColumn(p.grid, p.guess);
-  if (!g.mappingValid(m)) throw new FileError('unsupported_file');
-  return g.parseWithMapping(p.grid, m);
+  return parseStatementGrid(p.grid, p.guess);
 }
 
-/** Uses the charged-amount column as the amount when the file has one. */
-export function withChargeColumn(grid: Grid, m: Mapping): Mapping {
-  const charge = (grid[m.headerRow] ?? []).findIndex((c) => CHARGE.test(norm(c === null ? '' : String(c))));
-  return charge >= 0 ? { ...m, columns: { ...m.columns, amount: charge, debit: undefined, credit: undefined } } : m;
+/**
+ * Generic mapping, but the charged-amount column is the amount when the file has one; rows with no
+ * charge (pending, not billed yet) are not part of this payment and are left out without an error.
+ */
+export function parseStatementGrid(grid: Grid, guess: Mapping): ParseResult {
+  const charge = (grid[guess.headerRow] ?? []).findIndex((c) => CHARGE.test(norm(c === null ? '' : String(c))));
+  const m = charge >= 0 ? { ...guess, columns: { ...guess.columns, amount: charge, debit: undefined, credit: undefined } } : guess;
+  if (!mappingValid(m)) throw new FileError('unsupported_file');
+  const billed = charge < 0 ? grid : grid.filter((r, i) => i <= m.headerRow || !!parseAmount(r[charge] ?? null));
+  return parseWithMapping(billed, m);
 }
 
 /** -1 when the statement's charges carry the opposite sign of the payment (issuer convention). */

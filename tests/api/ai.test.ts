@@ -43,8 +43,8 @@ describe('AI opt-in, limits, features (AC12.3, AC13.1–13.4)', () => {
     const o = await demo();
     await json('POST', '/api/ai/consent', { cookie: o.cookie, body: { enabled: true } });
     const cat = (await DB.prepare("SELECT id FROM categories WHERE household_id = ?1 AND kind = 'expense' LIMIT 1").bind(o.householdId).first<{ id: string }>())!.id;
-    const a = await json<{ updated: number }>('POST', '/api/ai/categorize/apply', { cookie: o.cookie, body: { items: [{ key: 'העברה לחשבון', categoryId: cat, direction: 'out' }] } });
-    expect(a.body.updated).toBe(0);
+    const a = await json<{ updated: number; skipped: number }>('POST', '/api/ai/categorize/apply', { cookie: o.cookie, body: { items: [{ key: 'העברה לחשבון', categoryId: cat, direction: 'out' }] } });
+    expect(a.body).toEqual({ updated: 0, skipped: 1 });
     expect((await DB.prepare("SELECT COUNT(*) AS n FROM category_rules WHERE household_id = ?1 AND pattern_norm = 'העברה לחשבון'").bind(o.householdId).first<{ n: number }>())!.n).toBe(0);
   });
 

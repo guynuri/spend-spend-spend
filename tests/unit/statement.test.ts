@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_STATEMENT_LINES, statementFlip, statementLines, withChargeColumn } from '../../src/client/features/ledger/statement';
-import { guessMapping, parseWithMapping } from '../../src/shared/import/generic';
+import { MAX_STATEMENT_LINES, parseStatementGrid, statementFlip, statementLines } from '../../src/client/features/ledger/statement';
+import { guessMapping } from '../../src/shared/import/generic';
 
 const sum = (ls: { minor: number }[]) => ls.reduce((a, l) => a + l.minor, 0);
 const other = (n: number) => `+${n}`;
@@ -49,10 +49,12 @@ describe('card statement columns', () => {
       ['01/11/2026', 'רהיטים תשלום 1 מ-10', '5,000.00', '500.00'],
       ['02/11/2026', 'AMAZON', '$30.00', '110.50'],
       ['03/11/2026', 'קפה', '20', '20'],
+      ['04/11/2026', 'PENDING SHOP', '80', ''], // not billed yet: not part of this payment
+      ['05/11/2026', 'FOREIGN', '$12', '0'],
+      ['bad', 'BROKEN', '5', '5'],
     ];
-    const m = withChargeColumn(grid, guessMapping(grid));
-    expect(m.columns.amount).toBe(3);
-    const r = parseWithMapping(grid, m);
+    const r = parseStatementGrid(grid, guessMapping(grid));
     expect(r.rows.map((x) => Math.abs(x.amountMinor))).toEqual([50000, 11050, 2000]);
+    expect(r.errors.map((e) => e.code)).toEqual(['date_invalid']); // only real errors count as skipped
   });
 });

@@ -102,7 +102,8 @@ aiRoutes.post('/categorize/apply', async (c) => {
   const now = nowIso();
   // Payment apps / transfers / checks / ATM: one category must not spread to every such row or become a rule.
   const items = b.items.filter((i) => !isGenericPayee(i.key));
-  if (!items.length) return c.json({ updated: 0 });
+  const skipped = b.items.length - items.length;
+  if (!items.length) return c.json({ updated: 0, skipped });
   const res = await db.batch(
     items.flatMap((i) => [
       db.stmt(
@@ -125,7 +126,7 @@ aiRoutes.post('/categorize/apply', async (c) => {
       ),
     ]),
   );
-  return c.json({ updated: res.filter((_, k) => k % 2 === 0).reduce((s, r) => s + (r.meta.changes ?? 0), 0) });
+  return c.json({ updated: res.filter((_, k) => k % 2 === 0).reduce((s, r) => s + (r.meta.changes ?? 0), 0), skipped });
 });
 
 const reviewOut = z.object({
