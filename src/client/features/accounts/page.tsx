@@ -17,7 +17,7 @@ import type { Account } from '../../../shared/schemas/ledger';
 import { BANKS } from '../../../shared/banks';
 import { BankBadge, BankLink, useBankName } from '../../components/BankBadge';
 
-const TYPES: Account['type'][] = ['checking', 'savings', 'cash', 'credit_card'];
+const TYPES: Account['type'][] = ['checking', 'savings', 'cash', 'credit_card', 'investment'];
 
 function AccountForm({ account, onDone }: { account: Account | null; onDone: () => void }) {
   const { t } = useTranslation();
@@ -54,7 +54,21 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
         <Input id="acc-name" dir="auto" data-testid="account-name" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={t('accounts.type')} htmlFor="acc-type">
-        <Select id="acc-type" value={type} onChange={(e) => setType(e.target.value as Account['type'])}>
+        <Select
+          id="acc-type"
+          data-testid="account-type"
+          value={type}
+          onChange={(e) => {
+            const next = e.target.value as Account['type'];
+            setType(next);
+            // An investment account is neither cash-flow nor emergency money by default (also when an
+            // existing account is converted); the boxes stay visible and editable before saving.
+            if (next === 'investment' && type !== 'investment') {
+              setForecast(false);
+              setLiquid(false);
+            }
+          }}
+        >
           {TYPES.map((x) => (
             <option key={x} value={x}>
               {t(`accounts.types.${x}`)}
@@ -62,6 +76,11 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
           ))}
         </Select>
       </Field>
+      {type === 'investment' && (
+        <p className="text-xs text-muted" data-testid="investment-hint">
+          {t('accounts.investmentHint')}
+        </p>
+      )}
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1 text-sm font-medium">{t('accounts.institution')}</legend>
         <div className="flex flex-wrap gap-1.5" data-testid="bank-picker">
@@ -91,8 +110,8 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
           <Input id="acc-open-date" type="date" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
         </Field>
       </div>
-      <Checkbox label={t('accounts.includeInForecast')} checked={forecast} onChange={setForecast} />
-      <Checkbox label={t('accounts.isLiquid')} checked={liquid} onChange={setLiquid} />
+      <Checkbox label={t('accounts.includeInForecast')} checked={forecast} onChange={setForecast} testId="account-forecast" />
+      <Checkbox label={t('accounts.isLiquid')} checked={liquid} onChange={setLiquid} testId="account-liquid" />
       <div className="flex flex-wrap justify-between gap-2">
         {account ? (
           <Button variant="ghost" className="text-bad" onClick={() => remove.mutate(undefined)}>

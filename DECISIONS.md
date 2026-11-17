@@ -233,3 +233,16 @@ Format: date · milestone · what · why · alternatives rejected.
   median that survives a month-end wrap.
 - Not changed (known): undoing an import that overwrote another import's same-date balance
   snapshot removes that snapshot; the low-point headline looks only to month end (PLAN §10.3).
+
+## D-R17 · 2026-11-17 · Investment / trading accounts
+- New account type `investment` (API + UI). Defaults: not in the forecast, not liquid (not part of
+  the safety cushion); both stay user-editable. The value is entered by hand with "Set balance";
+  the variance vs. transactions is hidden for these accounts because market moves are expected.
+  Money moved in is a transfer ("Savings & investments"), so it never counts as spending.
+- **Storage:** rows keep `type = 'savings'` with `is_investment = 1` (migration 0015); the accounts
+  route maps both ways. Widening the `CHECK` on `accounts.type` needs a table rebuild, and on D1
+  that destroys data: `DROP TABLE accounts` cascades to every child table, `PRAGMA foreign_keys =
+  off` is accepted but ignored, `legacy_alter_table` is ignored (a rename retargets child foreign
+  keys), and `writable_schema` is not authorized. Verified against workerd's D1. Any SQL that
+  needs "investment" must test `is_investment`, not `type`.
+- Deferred: live holdings / prices and a net-worth view (PLAN "Later").
