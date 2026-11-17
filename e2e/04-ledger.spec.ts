@@ -222,4 +222,14 @@ test('investment / trading account: picker defaults it out of forecast and cushi
   const card = page.getByTestId('account-card').filter({ hasText: 'Trading' });
   await expect(card).toHaveCount(1);
   await expect(card).toContainText(/Investment \/ trading|השקעות \/ מסחר/);
+  // Converting an existing account applies the defaults; switching away keeps manual choices.
+  await ensureAccount(page);
+  await page.getByTestId('account-card').filter({ hasText: 'Main checking' }).getByRole('button', { name: /edit|עריכה/i }).click();
+  await expect(page.getByTestId('account-liquid')).toBeChecked();
+  await page.getByTestId('account-type').selectOption('investment');
+  await expect(page.getByTestId('account-liquid')).not.toBeChecked();
+  await page.getByTestId('account-liquid').check();
+  await page.getByTestId('account-type').selectOption('savings');
+  await expect(page.getByTestId('account-liquid')).toBeChecked();
+  await closeSheet(page, 'account-sheet');
 });

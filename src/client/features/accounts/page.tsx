@@ -61,10 +61,11 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
           onChange={(e) => {
             const next = e.target.value as Account['type'];
             setType(next);
-            // New account: an investment account is neither cash-flow nor emergency money by default.
-            if (!account && (next === 'investment' || type === 'investment')) {
-              setForecast(next !== 'investment');
-              setLiquid(next !== 'investment');
+            // An investment account is neither cash-flow nor emergency money by default (also when an
+            // existing account is converted); the boxes stay visible and editable before saving.
+            if (next === 'investment' && type !== 'investment') {
+              setForecast(false);
+              setLiquid(false);
             }
           }}
         >

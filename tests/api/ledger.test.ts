@@ -57,6 +57,11 @@ describe('accounts (AC3.1)', () => {
     expect((await get(s.accountId)).type).toBe('investment');
     const row = await DB.prepare('SELECT type, is_investment FROM accounts WHERE id = ?1').bind(s.accountId).first();
     expect(row).toEqual({ type: 'savings', is_investment: 1 });
+    // Explicit flags win over the investment defaults; type + other fields in one PATCH.
+    const opted = await json<{ id: string }>('POST', '/api/accounts', { cookie: s.cookie, body: { name: 'Emergency ETF', type: 'investment', isLiquid: true, includeInForecast: true } });
+    expect(await get(opted.body.id)).toMatchObject({ type: 'investment', isLiquid: true, includeInForecast: true });
+    expect((await json('PATCH', `/api/accounts/${opted.body.id}`, { cookie: s.cookie, body: { type: 'cash', isLiquid: false } })).status).toBe(200);
+    expect(await get(opted.body.id)).toMatchObject({ type: 'cash', isLiquid: false, includeInForecast: true });
   });
 });
 
