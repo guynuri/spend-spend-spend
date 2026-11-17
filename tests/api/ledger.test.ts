@@ -38,6 +38,26 @@ describe('accounts (AC3.1)', () => {
     expect(await get()).toMatchObject({ bankId: null, institution: 'My credit union' });
     expect((await json('PATCH', `/api/accounts/${s.accountId}`, { cookie: s.cookie, body: { bankId: 'nope' } })).status).toBe(400);
   });
+  it('investment account: out of forecast and cushion by default, value set by hand, no variance; type round-trips', async () => {
+    const s = await setup();
+    type A = { id: string; type: string; includeInForecast: boolean; isLiquid: boolean; balanceMinor: number; varianceMinor: number | null };
+    const get = async (id: string) => (await json<{ accounts: A[] }>('GET', '/api/accounts', { cookie: s.cookie })).body.accounts.find((a) => a.id === id)!;
+    const inv = await json<{ id: string }>('POST', '/api/accounts', { cookie: s.cookie, body: { name: 'Trading', type: 'investment', openingBalanceMinor: 1000000, openingDate: '2026-01-01' } });
+    expect(inv.status).toBe(201);
+    expect(await get(inv.body.id)).toMatchObject({ type: 'investment', includeInForecast: false, isLiquid: false, balanceMinor: 1000000 });
+    // Market moved: the new value is a snapshot, not a "missing transaction" warning.
+    expect((await json('POST', `/api/accounts/${inv.body.id}/balance`, { cookie: s.cookie, body: { date: '2026-02-01', balanceMinor: 1123400 } })).status).toBe(200);
+    expect(await get(inv.body.id)).toMatchObject({ balanceMinor: 1123400, varianceMinor: null });
+    // Switching type both ways keeps the flag in step.
+    expect((await json('PATCH', `/api/accounts/${inv.body.id}`, { cookie: s.cookie, body: { type: 'savings' } })).status).toBe(200);
+    expect((await get(inv.body.id)).type).toBe('savings');
+    expect((await json('PATCH', `/api/accounts/${s.accountId}`, { cookie: s.cookie, body: { type: 'investment' } })).status).toBe(200);
+    expect((await get(s.accountId)).type).toBe('investment');
+    expect((await json('PATCH', `/api/accounts/${s.accountId}`, { cookie: s.cookie, body: { name: 'Renamed' } })).status).toBe(200);
+    expect((await get(s.accountId)).type).toBe('investment');
+    const row = await DB.prepare('SELECT type, is_investment FROM accounts WHERE id = ?1').bind(s.accountId).first();
+    expect(row).toEqual({ type: 'savings', is_investment: 1 });
+  });
 });
 
 describe('categories (AC3.2)', () => {

@@ -8,10 +8,15 @@ import { balancesAt, snapshotsAndVariance } from '../db/sql/balances';
 
 export const accountRoutes = tenantGroup();
 
+/** Stored type: 'investment' lives as type 'savings' + is_investment = 1 (migration 0015). */
+type StoredType = Exclude<Account['type'], 'investment'>;
+const stored = (t: Account['type']): { type: StoredType; is_investment: number } => (t === 'investment' ? { type: 'savings', is_investment: 1 } : { type: t, is_investment: 0 });
+
 interface Row {
   id: string;
   name: string;
-  type: Account['type'];
+  type: StoredType;
+  is_investment: number;
   institution: string | null;
   bank_id: string | null;
   account_mask: string | null;
@@ -34,10 +39,11 @@ accountRoutes.get('/', async (c) => {
   const sm = new Map(snaps.map((s) => [s.account_id, s]));
   const accounts: Account[] = rows.map((r) => {
     const s = sm.get(r.id);
+    const investment = r.is_investment === 1;
     return {
       id: r.id,
       name: r.name,
-      type: r.type,
+      type: investment ? 'investment' : r.type,
       institution: r.institution,
       bankId: r.bank_id,
       accountMask: r.account_mask,
@@ -48,7 +54,8 @@ accountRoutes.get('/', async (c) => {
       archived: r.archived === 1,
       balanceMinor: bm.get(r.id)?.balance ?? r.opening_balance_minor,
       balanceDate: today,
-      varianceMinor: s?.variance ?? null,
+      // An investment balance moves with the market, so a gap vs. transactions is expected, not an error.
+      varianceMinor: investment ? null : (s?.variance ?? null),
       latestSnapshot: s?.date ? { date: s.date, balanceMinor: s.balance_minor!, source: s.source! } : null,
     };
   });
@@ -63,14 +70,14 @@ accountRoutes.post('/', async (c) => {
     db.insertStmt('accounts', {
       id,
       name: b.name,
-      type: b.type,
+      ...stored(b.type),
       institution: b.institution || null,
       bank_id: b.bankId ?? null,
       account_mask: b.accountMask || null,
       opening_balance_minor: b.openingBalanceMinor ?? 0,
       opening_date: b.openingDate ?? null,
       include_in_forecast: b.includeInForecast ?? (b.type === 'checking' ? 1 : 0),
-      is_liquid: b.isLiquid ?? (b.type === 'credit_card' ? 0 : 1),
+      is_liquid: b.isLiquid ?? (b.type === 'credit_card' || b.type === 'investment' ? 0 : 1),
       created_at: nowIso(),
     }),
     db.audit(userId, 'account.create', 'account', id),
@@ -87,11 +94,11 @@ accountRoutes.patch('/:id', async (c) => {
        account_mask = COALESCE(?6, account_mask), opening_balance_minor = COALESCE(?7, opening_balance_minor),
        opening_date = CASE WHEN ?8 = 1 THEN ?9 ELSE opening_date END,
        include_in_forecast = COALESCE(?10, include_in_forecast), is_liquid = COALESCE(?11, is_liquid), archived = COALESCE(?12, archived),
-       bank_id = CASE WHEN ?13 = 1 THEN ?14 ELSE bank_id END
+       bank_id = CASE WHEN ?13 = 1 THEN ?14 ELSE bank_id END, is_investment = COALESCE(?15, is_investment)
      WHERE household_id = ?1 AND id = ?2`,
     id,
     b.name ?? null,
-    b.type ?? null,
+    b.type ? stored(b.type).type : null,
     b.institution ?? null,
     b.accountMask ?? null,
     b.openingBalanceMinor ?? null,
@@ -102,6 +109,7 @@ accountRoutes.patch('/:id', async (c) => {
     b.archived ?? null,
     b.bankId !== undefined ? 1 : 0,
     b.bankId ?? null,
+    b.type ? stored(b.type).is_investment : null,
   );
   if (!r.meta.changes) throw notFound();
   return c.json({ ok: true });

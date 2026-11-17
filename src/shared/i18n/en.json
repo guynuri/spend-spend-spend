@@ -395,8 +395,10 @@
       "checking": "Checking",
       "savings": "Savings",
       "cash": "Cash",
-      "credit_card": "Credit card"
+      "credit_card": "Credit card",
+      "investment": "Investment / trading"
     },
+    "investmentHint": "The value moves with the market, so update it by hand with “Set balance” (e.g. once a month). Categorize money you move here as “Savings & investments”: it then isn't counted as spending.",
     "deleted": "Account deleted",
     "archivedToast": "The account has transactions, so it was archived."
   },

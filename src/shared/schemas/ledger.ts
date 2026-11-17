@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { bool01, dateStr, id, minor, posMinor, text } from './common';
 import { BANK_IDS } from '../banks';
 
-export const accountType = z.enum(['checking', 'savings', 'cash', 'credit_card']);
+export const accountType = z.enum(['checking', 'savings', 'cash', 'credit_card', 'investment']);
 export const accountCreate = z
   .object({
     name: text(60).min(1),

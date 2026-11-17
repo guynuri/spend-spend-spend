@@ -206,3 +206,20 @@ test('split a card payment from an uploaded card statement; keep the difference 
   await expect(page.getByTestId('split-line').nth(3).locator('input')).toHaveValue('-50.00');
   await expect(page.getByTestId('split-save')).toBeEnabled();
 });
+
+test('investment / trading account: picker defaults it out of forecast and cushion, shows the hint', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/accounts');
+  await page.getByTestId('account-add').click();
+  await page.getByTestId('account-name').fill('Trading');
+  await expect(page.getByTestId('account-forecast')).toBeChecked();
+  await page.getByTestId('account-type').selectOption('investment');
+  await expect(page.getByTestId('investment-hint')).toBeVisible();
+  await expect(page.getByTestId('account-forecast')).not.toBeChecked();
+  await expect(page.getByTestId('account-liquid')).not.toBeChecked();
+  await expectSheetFits(page, 'account-sheet');
+  await page.getByTestId('account-save').click();
+  const card = page.getByTestId('account-card').filter({ hasText: 'Trading' });
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText(/Investment \/ trading|השקעות \/ מסחר/);
+});
