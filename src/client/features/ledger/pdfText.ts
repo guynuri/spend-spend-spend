@@ -15,8 +15,12 @@ const BUILDS: { name: string; load: () => Promise<[PdfJs, { default: string }]> 
 export class PdfReadError extends Error {
   constructor(public detail: string) {
     super(detail);
+    this.name = 'PdfReadError';
   }
 }
+
+/** Problems with the file itself: every build reports the same, so the next build is not tried. */
+const FILE_ERRORS = new Set(['PasswordException', 'InvalidPDFException']);
 
 const describe = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 200);
 
@@ -37,7 +41,7 @@ async function extract(pdfjs: PdfJs, workerSrc: string, bytes: Uint8Array): Prom
     }
     return out;
   } finally {
-    void task.destroy();
+    task.destroy().catch(() => {});
   }
 }
 
@@ -48,6 +52,9 @@ async function extract(pdfjs: PdfJs, workerSrc: string, bytes: Uint8Array): Prom
 export async function pdfItems(bytes: Uint8Array): Promise<PdfItem[]> {
   const failures: string[] = [];
   for (const b of BUILDS) {
+    // A build that fell back to running its worker on the main thread leaves its worker code on
+    // globalThis.pdfjsWorker, which the next build would pick up instead of its own.
+    delete (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker;
     try {
       const [pdfjs, worker] = await b.load();
       // pdf.js hands the buffer to its worker (detaching it): each attempt gets its own copy.
@@ -55,6 +62,7 @@ export async function pdfItems(bytes: Uint8Array): Promise<PdfItem[]> {
     } catch (e) {
       console.error(`PDF read failed (${b.name} build)`, e);
       failures.push(`${b.name}: ${describe(e)}`);
+      if (e instanceof Error && FILE_ERRORS.has(e.name)) break;
     }
   }
   throw new PdfReadError(failures.join(' | '));

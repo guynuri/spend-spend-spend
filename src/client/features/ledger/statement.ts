@@ -48,7 +48,9 @@ async function readPdfStatement(file: File): Promise<ParseResult & { card: boole
     parseCardPdf = p.parseCardPdf;
     items = await m.pdfItems(new Uint8Array(await file.arrayBuffer()));
   } catch (e) {
-    throw new FileError('pdf_unreadable', e instanceof Error && 'detail' in e ? String(e.detail) : e instanceof Error ? e.message : undefined);
+    // PdfReadError: what each pdf.js build reported; otherwise the PDF code itself didn't load.
+    const detail = e instanceof Error ? (e.name === 'PdfReadError' ? (e as Error & { detail: string }).detail : `${e.name}: ${e.message}`.slice(0, 200)) : undefined;
+    throw new FileError('pdf_unreadable', detail);
   }
   const r = parseCardPdf(items);
   if (!r.rows.length) throw new FileError('pdf_no_table');

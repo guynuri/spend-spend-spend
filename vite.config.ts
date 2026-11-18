@@ -18,6 +18,8 @@ export default defineConfig({
       includeAssets: ['icons/*.png', 'favicon.svg'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
+        // pdf.js (two builds, ~1 MB) loads only when a card PDF is chosen; not worth precaching for everyone.
+        globIgnores: ['**/assets/pdf-*.js', '**/assets/pdf.worker.min-*'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
