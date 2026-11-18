@@ -19,8 +19,8 @@ describe('card statement → split lines', () => {
     const ls = statementLines(rows, -90000, ['groc', null, 'groc', null], other);
     expect(ls).toEqual([
       { categoryId: 'groc', minor: -65000, note: '' },
-      { categoryId: null, minor: -35000, note: 'Cafe A' },
-      { categoryId: null, minor: 10000, note: 'Refund B' },
+      { categoryId: null, minor: -35000, note: 'Cafe A', merchant: 'Cafe A', count: 1 },
+      { categoryId: null, minor: 10000, note: 'Refund B', merchant: 'Refund B', count: 1 },
     ]);
     expect(sum(ls)).toBe(-90000);
   });
@@ -40,6 +40,22 @@ describe('card statement → split lines', () => {
     expect(ls).toHaveLength(MAX_STATEMENT_LINES);
     expect(ls.at(-1)!.note).toBe(`+${50 - MAX_STATEMENT_LINES + 1}`);
     expect(sum(ls)).toBe(sum(rows.map((r) => ({ minor: r.amountMinor }))));
+  });
+
+  it('one line per uncategorized business; a refund nets against its charge; zero lines dropped', () => {
+    const rows = [
+      { amountMinor: 8300, description: 'פספורטכארד שירותים פ' },
+      { amountMinor: 622, description: 'פספורטכארד  שירותים פ' },
+      { amountMinor: 29200, description: 'PAYPAL *GETYOURGUI' },
+      { amountMinor: -29200, description: 'PAYPAL *GETYOURGUI' },
+      { amountMinor: 1000, description: 'Cafe' },
+    ];
+    const ls = statementLines(rows, -9922, [null, null, null, null, null], other);
+    expect(ls).toEqual([
+      { categoryId: null, minor: -8922, note: 'פספורטכארד שירותים פ', merchant: 'פספורטכארד שירותים פ', count: 2 },
+      { categoryId: null, minor: -1000, note: 'Cafe', merchant: 'Cafe', count: 1 },
+    ]);
+    expect(sum(ls)).toBe(-9922);
   });
 });
 

@@ -355,14 +355,22 @@
     "fromLast": "Copied from the split of",
     "noPrevious": "No earlier split to copy.",
     "upload": "Upload card statement",
-    "uploadHint": "Excel or CSV from the card company. Its charges become the split lines.",
+    "uploadHint": "PDF, Excel or CSV from the card company. Its charges become the split lines.",
     "statementLoaded_one": "{{count}} charge loaded from the statement.",
     "statementLoaded_other": "{{count}} charges loaded from the statement.",
     "statementSkipped_one": "{{count}} row in the file couldn't be read and is not included. Check the file or add it by hand.",
     "statementSkipped_other": "{{count}} rows in the file couldn't be read and are not included. Check the file or add them by hand.",
     "unassigned": "Unassigned",
     "keepRemainder": "Keep the difference as unassigned",
-    "otherRows": "{{count}} more charges"
+    "otherRows": "{{count}} more charges",
+    "aiFilled_one": "AI suggested a category for {{count}} business. Check it before saving.",
+    "aiFilled_other": "AI suggested categories for {{count}} businesses. Check them before saving.",
+    "totalMismatch": "The charges read from the PDF don't add up to the statement total. Check the lines against the statement.",
+    "charges_one": "{{count}} charge",
+    "charges_other": "{{count}} charges",
+    "learn": "Remember these businesses' categories for next time",
+    "learned_one": "Remembered {{count}} business for next time",
+    "learned_other": "Remembered {{count}} businesses for next time"
   },
   "accounts": {
     "title": "Accounts",
@@ -563,7 +571,9 @@
       "file_type": "Choose an .xlsx, .xls or .csv file.",
       "unsupported_file": "This file can't be read. Export it again from the bank as Excel or CSV.",
       "file_empty": "The file is empty.",
-      "no_rows": "No transactions were found in the file."
+      "no_rows": "No transactions were found in the file.",
+      "pdf_unreadable": "This PDF can't be read (it may be locked or a scanned image). Download the statement again from the card company's website.",
+      "pdf_no_table": "No charges table was found in this PDF. Isracard and American Express statements are supported; for other cards use Excel or CSV."
     },
     "openBankNamed": "Open the {{bank}} website"
   },

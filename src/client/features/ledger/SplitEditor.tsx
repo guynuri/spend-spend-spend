@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, FileSpreadsheet, Plus, Trash2 } from 'lucide-react';
+import { Copy, FileSpreadsheet, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { errorKey, get, post, put } from '../../api';
 import { useToast } from '../../components/Toast';
-import { Button, cx, IconButton } from '../../components/ui';
+import { Badge, Button, Checkbox, cx, IconButton } from '../../components/ui';
 import { AmountInput } from '../../components/AmountInput';
 import { CategorySelect } from '../../components/CategorySelect';
 import { Money } from '../../components/Money';
@@ -14,23 +14,65 @@ import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT } from '../../lib/queries';
 import { FileError } from '../import/parseFile';
 import { readStatement, statementFlip, statementLines } from './statement';
+import { useAiStatus } from '../ai/useAi';
 
-/** Card statement → split lines (input text in the transaction's direction) + skipped row count. */
-async function loadStatement(file: File, total: number, otherNote: (n: number) => string): Promise<{ lines: Line[]; count: number; skipped: number; card: boolean }> {
-  const { rows, errors, card } = await readStatement(file);
+interface Loaded {
+  lines: Line[];
+  count: number;
+  skipped: number;
+  card: boolean;
+  /** AI suggested a category for this many lines. */
+  ai: number;
+  /** PDF: rows don't add up to the statement's printed total. */
+  totalMismatch: boolean;
+}
+
+/**
+ * Card statement → split lines (input text in the transaction's direction). Rules categorize what
+ * they can; with AI on, the remaining businesses get a suggested category the user can change.
+ */
+async function loadStatement(file: File, total: number, otherNote: (n: number) => string, useAi: boolean): Promise<Loaded> {
+  const { rows, errors, card, totalMinor } = await readStatement(file);
   if (!rows.length) throw new FileError('no_rows');
   const flip = statementFlip(rows, total);
   const { categoryIds } = await post<{ categoryIds: (string | null)[] }>('/api/rules/match', { items: rows.map((r) => ({ description: r.description.slice(0, 300), amountMinor: r.amountMinor * flip })) });
   const sign = total < 0 ? -1 : 1;
-  const lines = statementLines(rows, total, categoryIds, otherNote).map((l) => ({ categoryId: l.categoryId, note: l.note, amount: minorToInput(l.minor * sign) }));
-  return { lines, count: rows.length, skipped: errors.length, card };
+  const st = statementLines(rows, total, categoryIds, otherNote);
+  const lines: Line[] = st.map((l) => ({ categoryId: l.categoryId, note: l.note, amount: minorToInput(l.minor * sign), merchant: l.merchant, count: l.count, minor: l.minor }));
+  let ai = 0;
+  const ask = lines.map((l, i) => ({ l, i })).filter(({ l }) => !l.categoryId && l.merchant);
+  if (useAi && ask.length) {
+    try {
+      const r = await post<{ suggestions: { index: number; categoryId: string }[] }>('/api/ai/categorize-items', { items: ask.slice(0, 40).map(({ l }) => ({ description: l.merchant!, amountMinor: l.minor! })) });
+      for (const s of r.suggestions) {
+        const line = lines[ask[s.index]!.i]!;
+        if (line.categoryId) continue;
+        line.categoryId = s.categoryId;
+        line.aiCategoryId = s.categoryId;
+        ai++;
+      }
+    } catch {
+      // AI is a convenience: limits, outages or a turned-off household leave the lines uncategorized.
+    }
+  }
+  const rowSum = rows.reduce((a, r) => a + r.amountMinor, 0);
+  const totalMismatch = totalMinor !== null && totalMinor !== undefined && Math.abs(rowSum) !== Math.abs(totalMinor);
+  return { lines, count: rows.length, skipped: errors.length, card, ai, totalMismatch };
 }
 
 interface Line {
   categoryId: string | null;
   amount: string;
   note: string;
+  /** From a statement: the business (rules are learned for it) and how many charges it covers. */
+  merchant?: string;
+  count?: number;
+  /** Amount in the payment's sign when loaded (for rule direction / AI). */
+  minor?: number;
+  /** The category AI suggested; while unchanged the line shows an AI mark and learns an `ai` rule. */
+  aiCategoryId?: string;
 }
+
 /** Lines are entered in the transaction's direction (a refund line is negative). */
 const toLines = (ls: SplitLine[], sign: number): Line[] => ls.map((l) => ({ categoryId: l.categoryId, amount: minorToInput(l.amountMinor * sign), note: l.note ?? '' }));
 
@@ -41,15 +83,31 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const [lines, setLines] = useState<Line[]>(() => (tx.splits.length ? toLines(tx.splits, sign) : [{ categoryId: null, amount: '', note: '' }, { categoryId: null, amount: '', note: '' }]));
   const [from, setFrom] = useState<string | null>(null);
   const [noPrev, setNoPrev] = useState(false);
-  const [loaded, setLoaded] = useState<{ count: number; skipped: number; card: boolean } | null>(null);
+  const [loaded, setLoaded] = useState<Omit<Loaded, 'lines'> | null>(null);
+  const [learn, setLearn] = useState(true);
+  const aiStatus = useAiStatus();
   const fileRef = useRef<HTMLInputElement>(null);
   const parsed = lines.map((l) => parseMoneyInput(l.amount || '0'));
   const valid = parsed.every((p) => p !== null);
   const assigned = parsed.reduce<number>((a, p) => a + (p ?? 0), 0) * sign;
   const remaining = tx.amountMinor - assigned;
+  // Businesses from the statement the user (or AI) gave a category: remembered as rules on save.
+  const learnable = lines.filter((l) => l.merchant && l.categoryId && l.minor);
   const save = useApiMutation(
-    (body: { lines: { categoryId: string | null; amountMinor: number; note?: string }[] }) => put(`/api/transactions/${tx.id}/splits`, body),
-    { invalidate: [...LEDGER_DEPENDENT], onSuccess: onDone, successKey: 'ledger.saved' },
+    async (body: { lines: { categoryId: string | null; amountMinor: number; note?: string }[] }) => {
+      const r = await put(`/api/transactions/${tx.id}/splits`, body);
+      if (learn && learnable.length && body.lines.length) {
+        const items = learnable.slice(0, 30).map((l) => ({ description: l.merchant!, amountMinor: l.minor!, categoryId: l.categoryId!, source: l.categoryId === l.aiCategoryId ? ('ai' as const) : ('learned' as const) }));
+        try {
+          const res = await post<{ learned: number }>('/api/rules/learn', { items });
+          if (res.learned) toast({ title: t('split.learned', { count: res.learned }) });
+        } catch {
+          // The split is saved; a failed rule write only means no rules this time.
+        }
+      }
+      return r;
+    },
+    { invalidate: [...LEDGER_DEPENDENT, ['rules']], onSuccess: onDone, successKey: 'ledger.saved' },
   );
   const same = async () => {
     try {
@@ -64,7 +122,9 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const upload = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const r = await loadStatement(file, tx.amountMinor, (count) => t('split.otherRows', { count }));
+      // Fresh status: AI may have been switched on since the cached value was read.
+      const ai = (await aiStatus.refetch()).data ?? aiStatus.data;
+      const r = await loadStatement(file, tx.amountMinor, (count) => t('split.otherRows', { count }), !!ai?.available && !!ai.enabled);
       setLines(r.lines);
       setLoaded(r);
       setFrom(null);
@@ -89,7 +149,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
           <FileSpreadsheet className="size-4" aria-hidden />
           {t('split.upload')}
         </Button>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.html,.htm" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} data-testid="split-file" />
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.html,.htm,.pdf,application/pdf" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} data-testid="split-file" />
         {from && (
           <span className="text-xs text-muted">
             {t('split.fromLast')} 
@@ -101,6 +161,16 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
       <p className="text-xs text-muted" data-testid="split-loaded" data-card={loaded?.card}>
         {loaded ? t('split.statementLoaded', { count: loaded.count }) : t('split.uploadHint')}
       </p>
+      {!!loaded?.ai && (
+        <p className="text-xs text-muted" data-testid="split-ai">
+          {t('split.aiFilled', { count: loaded.ai })}
+        </p>
+      )}
+      {loaded?.totalMismatch && (
+        <p className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn" role="alert" data-testid="split-total-mismatch">
+          {t('split.totalMismatch')}
+        </p>
+      )}
       {!!loaded?.skipped && (
         <p className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn" role="alert" data-testid="split-skipped">
           {t('split.statementSkipped', { count: loaded.skipped })}
@@ -111,6 +181,12 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
           <li key={i} className="flex flex-col gap-1" data-testid="split-line">
             <div className="flex items-center gap-2">
               <CategorySelect className="min-w-0 flex-1" value={l.categoryId} onChange={(v) => upd(i, { categoryId: v })} aria-label={`${t('split.line')} ${i + 1}`} />
+              {l.aiCategoryId && l.categoryId === l.aiCategoryId && (
+                <Badge tone="accent" className="shrink-0">
+                  <Sparkles className="size-3" aria-hidden />
+                  AI
+                </Badge>
+              )}
               {/* Input is w-full: the wrapper sets the width so the row fits a phone. */}
               <div className="w-28 shrink-0">
                 <AmountInput value={l.amount} onChange={(e) => upd(i, { amount: e.target.value })} aria-label={t('ledger.amount')} placeholder="0.00" />
@@ -120,8 +196,9 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
               </IconButton>
             </div>
             {l.note && (
-              <span className="truncate px-1 text-xs text-muted" dir="auto">
-                {l.note}
+              <span className="truncate px-1 text-xs text-muted">
+                <bdi>{l.note}</bdi>
+                {(l.count ?? 0) > 1 && <span data-testid="split-line-count"> · {t('split.charges', { count: l.count })}</span>}
               </span>
             )}
           </li>
@@ -136,6 +213,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
         <Money minor={remaining} />
       </div>
       {remaining !== 0 && <p className="text-xs text-muted">{t('split.mustMatch')}</p>}
+      {learnable.length > 0 && <Checkbox label={t('split.learn')} checked={learn} onChange={setLearn} testId="split-learn" />}
       {remaining !== 0 && valid && (
         <Button size="sm" variant="secondary" className="self-start" onClick={() => setLines((ls) => [...ls, { categoryId: null, amount: minorToInput(remaining * sign), note: t('split.unassigned') }])} data-testid="split-keep-remainder">
           {t('split.keepRemainder')}

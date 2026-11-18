@@ -1,7 +1,8 @@
 import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { HttpError, body, notFound } from '../http';
-import { ruleCreate, ruleLookup, rulePatch, type Rule } from '../../shared/schemas/ledger';
+import { ruleCreate, ruleLearn, ruleLookup, rulePatch, type Rule } from '../../shared/schemas/ledger';
+import { isGenericPayee, learnedRuleFor } from '../../shared/domain/ledger';
 import { norm, normKey } from '../../shared/normalize';
 import { newId, nowIso } from '../lib/crypto';
 import { applyRulesStmt, winningRuleSql } from '../db/sql/rules';
@@ -84,6 +85,45 @@ ruleRoutes.post('/apply', async (c) => {
   const { db } = tctx(c);
   const r = await (await applyRulesStmt(db, { kind: 'all' }, nowIso())).run();
   return c.json({ applied: r.meta.changes ?? 0 });
+});
+
+/**
+ * Learns business → category rules from a card split (one per business and direction), then applies
+ * them to uncategorized transactions. A rule the user wrote by hand is never re-pointed; payment apps,
+ * transfers, checks and ATM never become rules.
+ */
+ruleRoutes.post('/learn', async (c) => {
+  const b = await body(c, ruleLearn);
+  const { db } = tctx(c);
+  await db.assertOwned({ categories: b.items.map((i) => i.categoryId) });
+  const seen = new Set<string>();
+  const items = b.items
+    .filter((i) => !isGenericPayee(i.description))
+    .map((i) => ({ ...i, key: learnedRuleFor(i) }))
+    .filter((i) => i.key.pattern_norm && !seen.has(`${i.key.sign}|${i.key.pattern_norm}`) && seen.add(`${i.key.sign}|${i.key.pattern_norm}`));
+  if (!items.length) return c.json({ learned: 0, skipped: b.items.length, applied: 0 });
+  const now = nowIso();
+  const res = await db.batch(
+    items.map((i) =>
+      db.stmt(
+        `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
+         SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
+         ON CONFLICT(household_id, field, match, pattern_norm, sign) DO UPDATE SET category_id = excluded.category_id, source = excluded.source
+           WHERE category_rules.source <> 'user'`,
+        newId(),
+        i.key.field,
+        i.key.match,
+        i.key.pattern_norm,
+        i.key.sign,
+        i.categoryId,
+        i.source,
+        now,
+      ),
+    ),
+  );
+  const learned = res.reduce((a, r) => a + (r.meta.changes ?? 0), 0);
+  const applied = learned ? ((await (await applyRulesStmt(db, { kind: 'all' }, now)).run()).meta.changes ?? 0) : 0;
+  return c.json({ learned, skipped: b.items.length - learned, applied });
 });
 
 /** Winning rule category per row (null when none), for rows that are not transactions yet. */

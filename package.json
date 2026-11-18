@@ -21,6 +21,7 @@
     "admin:recovery": "node scripts/admin-recovery.mjs",
     "gen:icons": "node scripts/gen-icons.mjs",
     "gen:fixtures": "node scripts/gen-fixtures.mjs",
+    "gen:card-pdf": "node scripts/gen-card-pdf.mjs",
     "deploy": "bash scripts/deploy.sh",
     "cf-types": "wrangler types --include-env=false"
   },
@@ -38,6 +39,7 @@
     "lucide-react": "^1.73.0",
     "nanoid": "^6.0.2",
     "papaparse": "^5.7.1",
+    "pdfjs-dist": "6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-i18next": "^18.0.1",

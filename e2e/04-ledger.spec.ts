@@ -207,6 +207,39 @@ test('split a card payment from an uploaded card statement; keep the difference 
   await expect(page.getByTestId('split-save')).toBeEnabled();
 });
 
+test('split from a card statement PDF: grouped businesses, AI fills the rest, rules are learned (Hebrew)', async ({ page }) => {
+  await signIn(page, 'admin', 'he');
+  await page.goto('/transactions?q=e2e+pdf');
+  const H = { 'x-mz': '1', origin: new URL(page.url()).origin };
+  await addTx(page, '2312.10', 'ISRACARD e2e pdf');
+  expect((await page.request.post('/api/ai/consent', { headers: H, data: { enabled: true } })).ok()).toBe(true);
+  try {
+    await page.getByTestId('tx-row').first().click();
+    await page.getByTestId('tx-split').click();
+    // Synthetic statement (scripts/gen-card-pdf.mjs): read in the browser with pdf.js.
+    await page.getByTestId('split-file').setInputFiles('fixtures/isracard/synthetic/statement.pdf');
+    await expect(page.getByTestId('split-loaded')).toContainText('11');
+    await expect(page.getByTestId('split-total-mismatch')).toHaveCount(0);
+    const lines = page.getByTestId('split-line');
+    // The bakery's two charges are one line; the PayPal charge and its refund cancel out.
+    const bakery = lines.filter({ hasText: 'מאפיית השקד' });
+    await expect(bakery).toHaveCount(1);
+    await expect(bakery.getByTestId('split-line-count')).toContainText('2');
+    await expect(lines.filter({ hasText: 'TOURSHOP' })).toHaveCount(0);
+    await expect(page.getByTestId('split-ai')).toBeVisible();
+    await expect(page.getByTestId('split-remaining')).toHaveAttribute('class', /text-good/);
+    await expectSheetFits(page);
+    await expect(page.getByTestId('split-learn')).toBeChecked();
+    await page.getByTestId('split-save').click();
+    await expect(page.getByTestId('tx-sheet')).toBeHidden();
+    // Next month the café is categorized by the learned rule.
+    const m = await page.request.post('/api/rules/match', { headers: H, data: { items: [{ description: 'קפה לימון', amountMinor: -1000 }] } });
+    expect(((await m.json()) as { categoryIds: (string | null)[] }).categoryIds[0]).not.toBeNull();
+  } finally {
+    await page.request.post('/api/ai/consent', { headers: H, data: { enabled: false } });
+  }
+});
+
 test('investment / trading account: picker defaults it out of forecast and cushion, shows the hint', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/accounts');

@@ -1,5 +1,5 @@
-import { norm } from '../../../shared/normalize';
-import type { Cell, Grid, ParseResult } from '../../../shared/import/types';
+import { norm, normKey } from '../../../shared/normalize';
+import { MAX_FILE_BYTES, type Cell, type Grid, type ParseResult } from '../../../shared/import/types';
 import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { cellText, parseAmount } from '../../../shared/import/values';
 import { FileError, parseCardStatement, parseFile } from '../import/parseFile';
@@ -14,7 +14,8 @@ const CHARGE = /^(סכום (ה)?חיוב|charge amount|billing amount|amount cha
  * A card statement file → parsed rows (errors kept, never dropped). Known card issuers go through
  * the card parser; anything else falls back to a guessed mapping on the charged amount.
  */
-export async function readStatement(file: File): Promise<ParseResult & { card: boolean }> {
+export async function readStatement(file: File): Promise<ParseResult & { card: boolean; totalMinor?: number | null }> {
+  if (await isPdf(file)) return readPdfStatement(file);
   try {
     const r = await parseCardStatement(file);
     // Rows without a charge (pending, not billed yet) are not errors: look them up in the sheet.
@@ -28,6 +29,28 @@ export async function readStatement(file: File): Promise<ParseResult & { card: b
   if (p.result) throw new FileError('not_card');
   if (!p.guess) throw new FileError('unsupported_file');
   return { ...parseStatementGrid(p.grid, p.guess), card: false };
+}
+
+async function isPdf(file: File) {
+  if (/\.pdf$/i.test(file.name)) return true;
+  const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  return String.fromCharCode(...head) === '%PDF-';
+}
+
+/** Card statement PDF (Isracard / American Express layout) → rows plus the statement's printed total. */
+async function readPdfStatement(file: File): Promise<ParseResult & { card: boolean; totalMinor: number | null }> {
+  if (file.size > MAX_FILE_BYTES) throw new FileError('file_too_large');
+  if (file.size === 0) throw new FileError('file_empty');
+  const [{ pdfItems }, { parseCardPdf }] = await Promise.all([import('./pdfText'), import('../../../shared/import/cardPdf')]);
+  let items;
+  try {
+    items = await pdfItems(new Uint8Array(await file.arrayBuffer()));
+  } catch {
+    throw new FileError('pdf_unreadable');
+  }
+  const r = parseCardPdf(items);
+  if (!r.rows.length) throw new FileError('pdf_no_table');
+  return { ...r, card: true };
 }
 
 const unbilled = (c: Cell | undefined) => c === null || c === undefined || cellText(c) === '' || parseAmount(c) === 0;
@@ -64,25 +87,46 @@ export interface StatementLine {
   /** In the payment's sign; refunds have the opposite sign. */
   minor: number;
   note: string;
+  /** Business name of an uncategorized line (rules can be learned / AI asked for it). */
+  merchant?: string;
+  /** Statement rows behind the line. */
+  count?: number;
 }
 
 /**
- * Rows → split lines: rows with a rule category are summed per category, the rest stay one line
- * each (note = description), lines past the cap merge into one. Lines always sum to flip × row total.
+ * Rows → split lines: rows with a rule category are summed per category, the rest are summed per
+ * business (note = description; a charge and its refund cancel out), lines past the cap merge into
+ * one. Lines always sum to flip × row total.
  */
 export function statementLines(rows: { amountMinor: number; description: string }[], total: number, categoryIds: (string | null)[], otherNote: (n: number) => string): StatementLine[] {
   const flip = statementFlip(rows, total);
   const byCat = new Map<string, number>();
+  const byMerchant = new Map<string, StatementLine>();
   const free: StatementLine[] = [];
   rows.forEach((r, i) => {
     const c = categoryIds[i];
-    if (c) byCat.set(c, (byCat.get(c) ?? 0) + r.amountMinor * flip);
-    else free.push({ categoryId: null, minor: r.amountMinor * flip, note: r.description.slice(0, 120) });
+    const minor = r.amountMinor * flip;
+    if (c) {
+      byCat.set(c, (byCat.get(c) ?? 0) + minor);
+      return;
+    }
+    const key = normKey(r.description);
+    const note = r.description.slice(0, 120);
+    if (!key) return void free.push({ categoryId: null, minor, note });
+    const g = byMerchant.get(key);
+    if (g) {
+      g.minor += minor;
+      g.count! += 1;
+    } else {
+      const line: StatementLine = { categoryId: null, minor, note, merchant: r.description.slice(0, 300), count: 1 };
+      byMerchant.set(key, line);
+      free.push(line);
+    }
   });
-  const out: StatementLine[] = [...[...byCat].map(([categoryId, minor]) => ({ categoryId, minor, note: '' })), ...free];
+  const out: StatementLine[] = [...[...byCat].map(([categoryId, minor]) => ({ categoryId, minor, note: '' })), ...free.filter((l) => l.minor !== 0)];
   if (out.length > MAX_STATEMENT_LINES) {
     const rest = out.splice(MAX_STATEMENT_LINES - 1);
-    out.push({ categoryId: null, minor: rest.reduce((a, l) => a + l.minor, 0), note: otherNote(rest.length) });
+    out.push({ categoryId: null, minor: rest.reduce((a, l) => a + l.minor, 0), note: otherNote(rest.reduce((a, l) => a + (l.count ?? 1), 0)) });
   }
   return out;
 }
