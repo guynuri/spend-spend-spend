@@ -229,10 +229,10 @@ export function Component() {
                 </div>
                 {canWrite && (
                   <div className="flex gap-1">
-                    <Button size="sm" busy={setStatus.isPending && setStatus.variables?.id === r.id && setStatus.variables.status === 'active'} onClick={() => setStatus.mutate({ id: r.id, status: 'active' })} data-testid="suggestion-confirm">
+                    <Button size="sm" busy={setStatus.isPendingWith((v) => v.id === r.id && v.status === 'active')} disabled={setStatus.isPendingWith((v) => v.id === r.id)} onClick={() => setStatus.mutate({ id: r.id, status: 'active' })} data-testid="suggestion-confirm">
                       {t('recurring.confirm')}
                     </Button>
-                    <Button size="sm" variant="ghost" busy={setStatus.isPending && setStatus.variables?.id === r.id && setStatus.variables.status === 'dismissed'} onClick={() => setStatus.mutate({ id: r.id, status: 'dismissed' })}>
+                    <Button size="sm" variant="ghost" busy={setStatus.isPendingWith((v) => v.id === r.id && v.status === 'dismissed')} disabled={setStatus.isPendingWith((v) => v.id === r.id)} onClick={() => setStatus.mutate({ id: r.id, status: 'dismissed' })}>
                       {t('recurring.dismiss')}
                     </Button>
                   </div>
@@ -282,7 +282,7 @@ export function Component() {
             {editing !== 'new' && (
               <div className="mb-3 flex gap-2">
                 <Badge>{t(`recurring.kinds.${editing.kind}`)}</Badge>
-                <Button size="sm" variant="secondary" busy={setStatus.isPending} onClick={() => setStatus.mutate({ id: editing.id, status: editing.status === 'paused' ? 'active' : 'paused' })}>
+                <Button size="sm" variant="secondary" busy={setStatus.isPendingWith((v) => v.id === editing.id)} onClick={() => setStatus.mutate({ id: editing.id, status: editing.status === 'paused' ? 'active' : 'paused' })}>
                   {editing.status === 'paused' ? t('recurring.resume') : t('recurring.pause')}
                 </Button>
               </div>

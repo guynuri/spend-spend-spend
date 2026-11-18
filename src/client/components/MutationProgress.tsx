@@ -10,7 +10,8 @@ import { cx } from './ui';
  */
 export function MutationProgress() {
   const { t } = useTranslation();
-  const n = useIsMutating();
+  // Paused mutations (offline) aren't saving: they'd keep the line running until back online.
+  const n = useIsMutating({ predicate: (m) => !m.state.isPaused });
   const [show, setShow] = useState(false);
   useEffect(() => {
     if (!n) return setShow(false);
@@ -27,7 +28,8 @@ export function MutationProgress() {
       className={cx('pointer-events-none fixed inset-x-0 z-[60] h-[3px] overflow-hidden transition-opacity duration-200', show ? 'opacity-100' : 'opacity-0')}
       style={{ top: 'env(safe-area-inset-top)' }}
     >
-      <div className="h-full w-1/3 rounded-full bg-accent animate-[progress-slide_1.1s_ease-in-out_infinite] motion-reduce:w-full motion-reduce:animate-pulse" />
+      {/* Animated only while shown: no hidden animation running on every page. */}
+      {show && <div className="h-full w-1/3 rounded-full bg-accent animate-[progress-slide_1.1s_ease-in-out_infinite] motion-reduce:w-full motion-reduce:animate-pulse" />}
     </div>
   );
 }

@@ -26,7 +26,7 @@ interface Segment {
  * "A usual month": the usual total with its share of income, where the money goes (one segmented
  * bar), and per category the usual amount (bars against the biggest), with this month in one line.
  */
-export function UsualMonthCard({ u, month }: { u: UsualMonth | null; month: string }) {
+export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; month: string; current: boolean }) {
   const { t, i18n } = useTranslation();
   const pf = useParamFormatter();
   const [picked, setPicked] = useState<string | null>(null);
@@ -127,7 +127,7 @@ export function UsualMonthCard({ u, month }: { u: UsualMonth | null; month: stri
                 {t(i.shareOfIncome !== null ? 'dashboard.usual.ofIncome' : 'dashboard.usual.ofSpending', pf({ pct: i.shareOfIncome ?? i.shareOfSpending }))}
                 {' · '}
                 <span className={cx(i.over && 'text-warn')}>
-                  {t('dashboard.usual.soFar', pf({ month, amountMinor: i.thisMonthMinor }))}
+                  {t(current ? 'dashboard.usual.soFar' : 'dashboard.usual.inMonth', pf({ month, amountMinor: i.thisMonthMinor }))}
                   {i.over && <> · {t('dashboard.usual.over')}</>}
                 </span>
               </p>

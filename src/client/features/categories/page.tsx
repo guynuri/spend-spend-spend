@@ -264,7 +264,7 @@ export function Component() {
                 </div>
               </div>
               {canWrite && (
-                <IconButton label={t('common.delete')} disabled={delRule.isPending && delRule.variables === r.id} onClick={() => delRule.mutate(r.id)}>
+                <IconButton label={t('common.delete')} disabled={delRule.isPendingWith((v) => v === r.id)} onClick={() => delRule.mutate(r.id)}>
                   <Trash2 className="size-4" aria-hidden />
                 </IconButton>
               )}

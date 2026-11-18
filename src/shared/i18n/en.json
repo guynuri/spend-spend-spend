@@ -849,6 +849,7 @@
       "ofIncome": "{{pct}} of income",
       "ofSpending": "{{pct}} of spending",
       "soFar": "{{month}} so far: {{amount}}",
+      "inMonth": "{{month}}: {{amount}}",
       "other": "Other categories",
       "notCategorized": "Not categorized yet",
       "unassigned": "{{amount}} a month isn't in a category yet (uncategorized or unsplit card charges). Categorize it for a fuller picture.",

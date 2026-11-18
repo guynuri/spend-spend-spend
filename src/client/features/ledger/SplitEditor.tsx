@@ -172,7 +172,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   return (
     <div className="flex flex-col gap-3" data-testid="split-editor">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button size="sm" variant="secondary" onClick={() => void same()} data-testid="split-same">
+        <Button size="sm" variant="secondary" disabled={reading} onClick={() => void same()} data-testid="split-same">
           <Copy className="size-4" aria-hidden />
           {t('split.sameAsLast')}
         </Button>
