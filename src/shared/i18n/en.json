@@ -834,7 +834,29 @@
     "goalsSummary": "{{saved}} saved of {{target}}",
     "goalsBehind_one": "{{count}} behind",
     "goalsBehind_other": "{{count}} behind",
-    "noGoals": "No goals yet."
+    "noGoals": "No goals yet.",
+    "usual": {
+      "title": "Your usual month",
+      "aMonth": "a month",
+      "ofYourIncome": "{{pct}} of your income ({{income}})",
+      "basis_one": "Average of {{count}} complete month:",
+      "basis_other": "Average of {{count}} complete months:",
+      "moreData": "more accurate with more months",
+      "whereItGoes": "Where it usually goes: tap a part of the bar",
+      "biggest": "Biggest:",
+      "paceAbove": "{{pct}} above your usual pace",
+      "paceBelow": "{{pct}} below your usual pace",
+      "above": "{{pct}} above usual",
+      "below": "{{pct}} below usual",
+      "perMonth": "{{amount}} / month",
+      "ofIncome": "{{pct}} of income",
+      "ofSpending": "{{pct}} of spending",
+      "other": "Other categories",
+      "notCategorized": "Not categorized yet",
+      "unassigned": "{{amount}} a month isn't in a category yet (uncategorized or unsplit card charges). Categorize it for a fuller picture.",
+      "over": "already above usual",
+      "notYet": "After your first complete month of data, this shows what you usually spend per category."
+    }
   },
   "onboarding": {
     "title": "Let's get started",

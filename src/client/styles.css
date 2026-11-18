@@ -35,6 +35,13 @@
   --mz-chart-1: #0d7068;
   --mz-chart-2: #8a9a95;
   --mz-chart-3: #c0262d;
+  /* Categorical series, fixed order (validated: adjacent CVD ΔE ≥ 8.4, normal ≥ 19.3; light needs visible labels). */
+  --mz-cat-1: #2a78d6;
+  --mz-cat-2: #eb6834;
+  --mz-cat-3: #1baf7a;
+  --mz-cat-4: #eda100;
+  --mz-cat-5: #e87ba4;
+  --mz-cat-6: #008300;
 }
 
 .dark {
@@ -52,6 +59,12 @@
   --mz-chart-1: #3cc4b5;
   --mz-chart-2: #6b7c77;
   --mz-chart-3: #ff6b6b;
+  --mz-cat-1: #3987e5;
+  --mz-cat-2: #d95926;
+  --mz-cat-3: #199e70;
+  --mz-cat-4: #c98500;
+  --mz-cat-5: #d55181;
+  --mz-cat-6: #0ca30c;
 }
 
 html {

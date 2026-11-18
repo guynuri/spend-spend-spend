@@ -23,6 +23,8 @@ import { InsightList } from './Insights';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { ReviewDueCard } from '../review/DueCard';
 import { ReminderCards } from './ReminderCards';
+import { UsualMonthCard } from './UsualMonthCard';
+import type { UsualMonth } from '../../../shared/domain/usual';
 
 interface Dashboard {
   month: string;
@@ -36,6 +38,7 @@ interface Dashboard {
   goals: { summary: GoalsSummary; items: GoalView[] };
   health: HealthData;
   insights: Insight[];
+  usual: UsualMonth | null;
 }
 
 function Onboarding() {
@@ -160,6 +163,7 @@ export function Component() {
           ))}
         </dl>
       </Card>
+      <UsualMonthCard u={d.usual} month={d.month} f={d.budget.f} />
       <Card>
         <CardTitle>{t('dashboard.actions')}</CardTitle>
         <InsightList items={d.insights} />
