@@ -42,12 +42,15 @@ async function isPdf(file: File) {
 async function readPdfStatement(file: File): Promise<ParseResult & { card: boolean; totalMinor: number | null }> {
   if (file.size > MAX_FILE_BYTES) throw new FileError('file_too_large');
   if (file.size === 0) throw new FileError('file_empty');
-  const [{ pdfItems }, { parseCardPdf }] = await Promise.all([import('./pdfText'), import('../../../shared/import/cardPdf')]);
-  let items;
+  let items, parseCardPdf;
   try {
-    items = await pdfItems(new Uint8Array(await file.arrayBuffer()));
-  } catch {
-    throw new FileError('pdf_unreadable');
+    const [m, p] = await Promise.all([import('./pdfText'), import('../../../shared/import/cardPdf')]);
+    parseCardPdf = p.parseCardPdf;
+    items = await m.pdfItems(new Uint8Array(await file.arrayBuffer()));
+  } catch (e) {
+    // PdfReadError: what each pdf.js build reported; otherwise the PDF code itself didn't load.
+    const detail = e instanceof Error ? (e.name === 'PdfReadError' ? (e as Error & { detail: string }).detail : `${e.name}: ${e.message}`.slice(0, 200)) : undefined;
+    throw new FileError('pdf_unreadable', detail);
   }
   const r = parseCardPdf(items);
   if (!r.rows.length) throw new FileError('pdf_no_table');

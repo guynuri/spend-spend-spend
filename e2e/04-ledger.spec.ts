@@ -266,3 +266,21 @@ test('investment / trading account: picker defaults it out of forecast and cushi
   await expect(page.getByTestId('account-liquid')).toBeChecked();
   await closeSheet(page, 'account-sheet');
 });
+
+test.describe('without the service worker', () => {
+  // page.route can't see requests a service worker answers from its cache.
+  test.use({ serviceWorkers: 'block' });
+  test('a PDF that cannot be read says why (both pdf.js builds tried)', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/transactions?q=e2e+pdf+fail');
+  await addTx(page, '100', 'ISRACARD e2e pdf fail');
+  await page.getByTestId('tx-row').first().click();
+  await page.getByTestId('tx-split').click();
+  // Simulate a browser where pdf.js can't load (e.g. a device-specific failure).
+  await page.route(/\/assets\/pdf(\.worker\.min)?-[^/]*\.m?js$/, (r) => r.abort());
+  await page.getByTestId('split-file').setInputFiles('fixtures/isracard/synthetic/statement.pdf');
+  const detail = page.getByTestId('split-error-detail');
+  await expect(detail).toContainText('modern:');
+  await expect(detail).toContainText('legacy:');
+});
+});

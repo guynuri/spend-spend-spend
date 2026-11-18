@@ -18,7 +18,11 @@ export interface Parsed {
 }
 
 export class FileError extends Error {
-  constructor(public code: string) {
+  /** Optional technical detail shown under the message (e.g. why a PDF couldn't be read). */
+  constructor(
+    public code: string,
+    public detail?: string,
+  ) {
     super(code);
   }
 }
