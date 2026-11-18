@@ -36,6 +36,29 @@ describe('card statement PDF (Isracard / American Express layout)', () => {
     expect(-r.rows.reduce((a, x) => a + x.amountMinor, 0)).toBe(r.totalMinor);
   });
 
+  it('credit terms, page breaks, currency marks and unreadable charges', () => {
+    // Right-aligned columns: date ends at 520, business at 440, charge at 260.
+    const at = (page: number, y: number, s: string, rightEdge: number, rtl = true): PdfItem => ({ page, x: rightEdge - 40, y, w: 40, s, rtl });
+    const header = (page: number, y: number) => [at(page, y, 'תאריך', 520), at(page, y, 'שם בית עסק', 440), at(page, y, 'סכום החיוב', 260)];
+    const row = (page: number, y: number, d: string, m: string, a: string) => [at(page, y, d, 520, false), at(page, y, m, 440), at(page, y, a, 260, false)];
+    const r = parseCardPdf([
+      ...header(1, 700),
+      ...row(1, 690, '01/10/26', 'חנות א', '₪ 10.00'), // currency mark in the charge cell
+      ...row(1, 680, '02/10/26', 'חנות ב', 'n/a'), // unreadable charge: reported
+      ...row(2, 780, '05/10/26', 'כותרת עמוד', '99.00'), // next page before its header: not a row
+      ...header(2, 760),
+      ...row(2, 750, '03/10/26', 'חנות ג', '20.00'),
+      at(2, 700, 'מסגרת הכרטיס ותנאי האשראי', 520),
+      ...header(2, 690), // credit terms look like a table: still not charges
+      ...row(2, 680, '03/10/2026', 'יתרה', '1,500.00'),
+    ]);
+    expect(r.rows.map((x) => [x.description, x.amountMinor])).toEqual([
+      ['חנות א', -1000],
+      ['חנות ג', -2000],
+    ]);
+    expect(r.errors.map((e) => e.code)).toEqual(['amount_invalid']);
+  });
+
   it('a PDF without a charges table gives no rows', () => {
     const line = (y: number, s: string, x = 100): PdfItem => ({ page: 1, x, y, w: 50, s, rtl: true });
     expect(parseCardPdf([line(700, 'שלום'), line(690, '01/10/26', 300), line(690, '12.00', 100)]).rows).toEqual([]);

@@ -255,6 +255,8 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
       { description: 'Cafe Nord', amountMinor: -2000, categoryId: s.cat('Eating out'), source: 'ai' },
     ]);
     expect(r.body).toEqual({ learned: 2, skipped: 3, applied: 1 });
+    // Saving the same choices again changes nothing and says so.
+    expect((await learn([{ description: 'Cafe Nord', amountMinor: -2000, categoryId: s.cat('Eating out'), source: 'ai' }])).body).toEqual({ learned: 0, skipped: 1, applied: 0 });
     const rules = (await DB.prepare("SELECT pattern_norm AS p, source, sign FROM category_rules WHERE household_id = ?1 AND pattern_norm IN ('passport card svc', 'corner deli', 'cafe nord') ORDER BY p").bind(s.householdId).all()).results;
     expect(rules).toEqual([
       { p: 'cafe nord', source: 'ai', sign: 'out' },

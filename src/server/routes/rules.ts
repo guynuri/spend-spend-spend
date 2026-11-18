@@ -109,7 +109,7 @@ ruleRoutes.post('/learn', async (c) => {
         `INSERT INTO category_rules (id, household_id, field, match, pattern_norm, sign, category_id, source, created_at)
          SELECT ?2, ?1, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE EXISTS (SELECT 1 FROM categories WHERE household_id = ?1 AND id = ?7)
          ON CONFLICT(household_id, field, match, pattern_norm, sign) DO UPDATE SET category_id = excluded.category_id, source = excluded.source
-           WHERE category_rules.source <> 'user'`,
+           WHERE category_rules.source <> 'user' AND (category_rules.category_id <> excluded.category_id OR category_rules.source <> excluded.source)`,
         newId(),
         i.key.field,
         i.key.match,
@@ -122,7 +122,22 @@ ruleRoutes.post('/learn', async (c) => {
     ),
   );
   const learned = res.reduce((a, r) => a + (r.meta.changes ?? 0), 0);
-  const applied = learned ? ((await (await applyRulesStmt(db, { kind: 'all' }, now)).run()).meta.changes ?? 0) : 0;
+  // Only these businesses' uncategorized transactions, with whatever rule now wins for them (as "always").
+  const applied = (
+    await db.batch(
+      items.map((i) =>
+        db.stmt(
+          `UPDATE transactions SET category_id = r.category_id, category_source = 'rule', updated_at = ?2
+             FROM (SELECT category_id FROM category_rules WHERE household_id = ?1 AND field = 'description' AND match = 'equals' AND pattern_norm = ?3 AND sign = ?4) r
+            WHERE transactions.household_id = ?1 AND transactions.category_id IS NULL AND transactions.has_splits = 0 AND transactions.description_norm = ?3
+              AND ((?4 = 'in' AND transactions.amount_minor > 0) OR (?4 = 'out' AND transactions.amount_minor < 0))`,
+          now,
+          i.key.pattern_norm,
+          i.key.sign,
+        ),
+      ),
+    )
+  ).reduce((a, r) => a + (r.meta.changes ?? 0), 0);
   return c.json({ learned, skipped: b.items.length - learned, applied });
 });
 

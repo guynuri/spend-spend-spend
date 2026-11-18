@@ -1,6 +1,6 @@
 import { finalizeRows, type RawRow } from './finalize';
-import type { ParseResult } from './types';
-import { parseAmount } from './values';
+import type { ParseResult, RowError } from './types';
+import { parseAmount, parseDateCell } from './values';
 
 /** One text run from a PDF page (pdf.js text content): left edge x, baseline y, width, text. */
 export interface PdfItem {
@@ -23,7 +23,9 @@ interface Line {
   items: PdfItem[];
 }
 
-const DATE = /^(\d{2})\/(\d{2})\/(\d{2}|\d{4})$/;
+const DATE = /^\d{2}\/\d{2}\/(\d{2}|\d{4})$/;
+// Currency marks around an amount ('₪ 42.50', '42.50 ש"ח').
+const CURRENCY = /[₪$€£\s\u00A0]|ש"ח|ש״ח|ILS|NIS|USD|EUR/gi;
 const AMOUNT = /^-?\d{1,3}(,\d{3})*\.\d{2}-?$|^-?\d+\.\d{2}-?$/;
 const TOTAL = /סה"כ|סה״כ/;
 // Where the transaction tables end (credit terms follow).
@@ -118,15 +120,8 @@ function columnOf(cols: Column[], it: PdfItem): number {
   return -1;
 }
 
-function isoDate(s: string): string | null {
-  const m = DATE.exec(s.trim());
-  if (!m) return null;
-  const [, d, mo, y] = m;
-  const year = y!.length === 2 ? `20${y}` : y!;
-  const iso = `${year}-${mo}-${d}`;
-  const dt = new Date(`${iso}T00:00:00Z`);
-  return Number.isNaN(dt.getTime()) || dt.getUTCDate() !== Number(d) ? null : iso;
-}
+/** A whole cell of DD/MM/YY(YY): a date inside other text (a total line, a notice) is not a row date. */
+const isoDate = (s: string): string | null => (DATE.test(s.trim()) ? parseDateCell(s.trim(), 'dmy') : null);
 
 /**
  * Isracard / American Express Israel monthly statement PDF (text layer) → card rows, charges
@@ -136,20 +131,27 @@ function isoDate(s: string): string | null {
  */
 export function parseCardPdf(items: PdfItem[]): ParseResult & { totalMinor: number | null } {
   const raw: RawRow[] = [];
+  const errors: RowError[] = [];
   let layout: Layout | null = null;
+  let layoutPage = 0;
+  // Past the credit-terms heading nothing is a charge, even under a header-like row.
+  let ended = false;
   let last: { row: RawRow; line: Line } | null = null;
   let totalMinor: number | null = null;
   for (const line of toLines(items)) {
     const text = line.items.map((i) => i.s).join(' ');
-    if (END.test(text)) {
-      layout = null;
+    if (ended || END.test(text)) {
+      ended = true;
       continue;
     }
     if (isHeader(line)) {
       layout = layoutOf(headerColumns(line));
+      layoutPage = line.page;
       last = null;
       continue;
     }
+    // A table continuing on the next page repeats its header; until then, footers and page tops are not rows.
+    if (layout && line.page !== layoutPage) layout = null;
     if (!layout) continue;
     const cells = new Map<number, PdfItem[]>();
     for (const it of line.items) {
@@ -157,7 +159,8 @@ export function parseCardPdf(items: PdfItem[]): ParseResult & { totalMinor: numb
       if (c >= 0) cells.set(c, [...(cells.get(c) ?? []), it]);
     }
     const chargeText = cellText(cells.get(layout.charge) ?? []);
-    const amount = AMOUNT.test(chargeText.replace(/\s/g, '')) ? parseAmount(chargeText) : null;
+    const bare = chargeText.replace(CURRENCY, '');
+    const amount = AMOUNT.test(bare) ? parseAmount(bare) : null;
     if (TOTAL.test(text)) {
       if (amount !== null) totalMinor = (totalMinor ?? 0) + amount;
       layout = null; // the table ends at its total
@@ -167,9 +170,15 @@ export function parseCardPdf(items: PdfItem[]): ParseResult & { totalMinor: numb
     const date = isoDate(cellText(cells.get(layout.date) ?? []));
     const merchant = cellText(cells.get(layout.merchant) ?? []);
     if (date && amount !== null && merchant) {
-      const row: RawRow = { row: raw.length + 1, date, amountMinor: -amount, description: merchant };
+      const row: RawRow = { row: raw.length + errors.length + 1, date, amountMinor: -amount, description: merchant };
       raw.push(row);
       last = { row, line };
+      continue;
+    }
+    // A dated business row whose charge can't be read is reported, never dropped silently.
+    if (date && merchant) {
+      errors.push({ row: raw.length + errors.length + 1, code: 'amount_invalid' });
+      last = null;
       continue;
     }
     // A business name that wraps: text only in the business column, right under the row.
@@ -182,6 +191,6 @@ export function parseCardPdf(items: PdfItem[]): ParseResult & { totalMinor: numb
     }
     last = null;
   }
-  const result = finalizeRows('card_pdf', raw, [], {});
+  const result = finalizeRows('card_pdf', raw, errors, {});
   return { ...result, totalMinor };
 }

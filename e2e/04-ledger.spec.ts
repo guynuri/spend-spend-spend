@@ -221,11 +221,11 @@ test('split from a card statement PDF: grouped businesses, AI fills the rest, ru
     await expect(page.getByTestId('split-loaded')).toContainText('11');
     await expect(page.getByTestId('split-total-mismatch')).toHaveCount(0);
     const lines = page.getByTestId('split-line');
-    // The bakery's two charges are one line; the PayPal charge and its refund cancel out.
+    // The bakery's two charges are one line; PayPal (a payment app) keeps one line per charge.
     const bakery = lines.filter({ hasText: 'מאפיית השקד' });
     await expect(bakery).toHaveCount(1);
     await expect(bakery.getByTestId('split-line-count')).toContainText('2');
-    await expect(lines.filter({ hasText: 'TOURSHOP' })).toHaveCount(0);
+    await expect(lines.filter({ hasText: 'TOURSHOP' })).toHaveCount(2);
     await expect(page.getByTestId('split-ai')).toBeVisible();
     await expect(page.getByTestId('split-remaining')).toHaveAttribute('class', /text-good/);
     await expectSheetFits(page);

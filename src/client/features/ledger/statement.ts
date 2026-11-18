@@ -1,4 +1,5 @@
 import { norm, normKey } from '../../../shared/normalize';
+import { isGenericPayee } from '../../../shared/domain/ledger';
 import { MAX_FILE_BYTES, type Cell, type Grid, type ParseResult } from '../../../shared/import/types';
 import { mappingValid, parseWithMapping, type Mapping } from '../../../shared/import/generic';
 import { cellText, parseAmount } from '../../../shared/import/values';
@@ -112,7 +113,8 @@ export function statementLines(rows: { amountMinor: number; description: string 
     }
     const key = normKey(r.description);
     const note = r.description.slice(0, 120);
-    if (!key) return void free.push({ categoryId: null, minor, note });
+    // Payment apps / transfers / ATM: a different counterparty each time, so never one line (or rule) for all.
+    if (!key || isGenericPayee(r.description)) return void free.push({ categoryId: null, minor, note });
     const g = byMerchant.get(key);
     if (g) {
       g.minor += minor;

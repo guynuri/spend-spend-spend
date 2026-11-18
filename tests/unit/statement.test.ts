@@ -42,20 +42,24 @@ describe('card statement → split lines', () => {
     expect(sum(ls)).toBe(sum(rows.map((r) => ({ minor: r.amountMinor }))));
   });
 
-  it('one line per uncategorized business; a refund nets against its charge; zero lines dropped', () => {
+  it('one line per uncategorized business; a refund nets against its charge; zero lines dropped; payment apps not grouped', () => {
     const rows = [
       { amountMinor: 8300, description: 'פספורטכארד שירותים פ' },
       { amountMinor: 622, description: 'פספורטכארד  שירותים פ' },
-      { amountMinor: 29200, description: 'PAYPAL *GETYOURGUI' },
-      { amountMinor: -29200, description: 'PAYPAL *GETYOURGUI' },
+      { amountMinor: 29200, description: 'HOTEL NORD' },
+      { amountMinor: -29200, description: 'HOTEL NORD' },
       { amountMinor: 1000, description: 'Cafe' },
+      { amountMinor: 500, description: 'BIT' },
+      { amountMinor: 700, description: 'BIT' },
     ];
-    const ls = statementLines(rows, -9922, [null, null, null, null, null], other);
+    const ls = statementLines(rows, -11122, rows.map(() => null), other);
     expect(ls).toEqual([
       { categoryId: null, minor: -8922, note: 'פספורטכארד שירותים פ', merchant: 'פספורטכארד שירותים פ', count: 2 },
       { categoryId: null, minor: -1000, note: 'Cafe', merchant: 'Cafe', count: 1 },
+      { categoryId: null, minor: -500, note: 'BIT' },
+      { categoryId: null, minor: -700, note: 'BIT' },
     ]);
-    expect(sum(ls)).toBe(-9922);
+    expect(sum(ls)).toBe(-11122);
   });
 });
 

@@ -15,6 +15,8 @@ import { LEDGER_DEPENDENT } from '../../lib/queries';
 import { FileError } from '../import/parseFile';
 import { readStatement, statementFlip, statementLines } from './statement';
 import { useAiStatus } from '../ai/useAi';
+import { useMe } from '../../lib/session';
+import { normKey } from '../../../shared/normalize';
 
 interface Loaded {
   lines: Line[];
@@ -31,7 +33,12 @@ interface Loaded {
  * Card statement → split lines (input text in the transaction's direction). Rules categorize what
  * they can; with AI on, the remaining businesses get a suggested category the user can change.
  */
-async function loadStatement(file: File, total: number, otherNote: (n: number) => string, useAi: boolean): Promise<Loaded> {
+// AI answers per household + business for this session: re-uploading a statement (fixing lines,
+// another card) does not spend the small daily AI quota again.
+const aiAnswers = new Map<string, string>();
+const aiKey = (hh: string, merchant: string, minor: number) => `${hh}|${minor < 0 ? 'out' : 'in'}|${normKey(merchant)}`;
+
+async function loadStatement(file: File, total: number, otherNote: (n: number) => string, aiFor: Promise<string | null>): Promise<Loaded> {
   const { rows, errors, card, totalMinor } = await readStatement(file);
   if (!rows.length) throw new FileError('no_rows');
   const flip = statementFlip(rows, total);
@@ -40,19 +47,33 @@ async function loadStatement(file: File, total: number, otherNote: (n: number) =
   const st = statementLines(rows, total, categoryIds, otherNote);
   const lines: Line[] = st.map((l) => ({ categoryId: l.categoryId, note: l.note, amount: minorToInput(l.minor * sign), merchant: l.merchant, count: l.count, minor: l.minor }));
   let ai = 0;
-  const ask = lines.map((l, i) => ({ l, i })).filter(({ l }) => !l.categoryId && l.merchant);
-  if (useAi && ask.length) {
-    try {
-      const r = await post<{ suggestions: { index: number; categoryId: string }[] }>('/api/ai/categorize-items', { items: ask.slice(0, 40).map(({ l }) => ({ description: l.merchant!, amountMinor: l.minor! })) });
-      for (const s of r.suggestions) {
-        const line = lines[ask[s.index]!.i]!;
-        if (line.categoryId) continue;
-        line.categoryId = s.categoryId;
-        line.aiCategoryId = s.categoryId;
-        ai++;
+  const open = lines.filter((l) => !l.categoryId && l.merchant);
+  // Household id when AI is on for it (null otherwise); only awaited when a business needs a category.
+  const hh = open.length ? await aiFor : null;
+  if (hh) {
+    const setAi = (l: Line, categoryId: string) => {
+      l.categoryId = categoryId;
+      l.aiCategoryId = categoryId;
+      ai++;
+    };
+    const ask: Line[] = [];
+    for (const l of open) {
+      const known = aiAnswers.get(aiKey(hh, l.merchant!, l.minor!));
+      if (known) setAi(l, known);
+      else ask.push(l);
+    }
+    if (ask.length) {
+      try {
+        const r = await post<{ suggestions: { index: number; categoryId: string }[] }>('/api/ai/categorize-items', { items: ask.slice(0, 40).map((l) => ({ description: l.merchant!, amountMinor: l.minor! })) });
+        for (const s of r.suggestions) {
+          const l = ask[s.index];
+          if (!l || l.categoryId) continue;
+          aiAnswers.set(aiKey(hh, l.merchant!, l.minor!), s.categoryId);
+          setAi(l, s.categoryId);
+        }
+      } catch {
+        // AI is a convenience: limits, outages or a turned-off household leave the lines uncategorized.
       }
-    } catch {
-      // AI is a convenience: limits, outages or a turned-off household leave the lines uncategorized.
     }
   }
   const rowSum = rows.reduce((a, r) => a + r.amountMinor, 0);
@@ -86,6 +107,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const [loaded, setLoaded] = useState<Omit<Loaded, 'lines'> | null>(null);
   const [learn, setLearn] = useState(true);
   const aiStatus = useAiStatus();
+  const me = useMe();
   const fileRef = useRef<HTMLInputElement>(null);
   const parsed = lines.map((l) => parseMoneyInput(l.amount || '0'));
   const valid = parsed.every((p) => p !== null);
@@ -115,6 +137,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
       if (!r.suggestion) return setNoPrev(true);
       setLines(toLines(r.suggestion.lines, sign));
       setFrom(r.suggestion.fromDate);
+      setLoaded(null);
     } catch (e) {
       toast({ title: t(errorKey(e), { defaultValue: t('errors.unknown') }), tone: 'bad' });
     }
@@ -122,9 +145,13 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const upload = async (file: File | undefined) => {
     if (!file) return;
     try {
-      // Fresh status: AI may have been switched on since the cached value was read.
-      const ai = (await aiStatus.refetch()).data ?? aiStatus.data;
-      const r = await loadStatement(file, tx.amountMinor, (count) => t('split.otherRows', { count }), !!ai?.available && !!ai.enabled);
+      // Fresh status (AI may have been switched on since it was cached), fetched while the file is read.
+      const hh = me?.active?.id ?? null;
+      const aiFor = aiStatus.refetch().then(
+        (q) => (q.data?.available && q.data.enabled ? hh : null),
+        () => null,
+      );
+      const r = await loadStatement(file, tx.amountMinor, (count) => t('split.otherRows', { count }), aiFor);
       setLines(r.lines);
       setLoaded(r);
       setFrom(null);
