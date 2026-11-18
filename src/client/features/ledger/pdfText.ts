@@ -24,6 +24,27 @@ const FILE_ERRORS = new Set(['PasswordException', 'InvalidPDFException']);
 
 const describe = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 200);
 
+type TextItem = Awaited<ReturnType<Awaited<ReturnType<Awaited<ReturnType<PdfJs['getDocument']>['promise']>['getPage']>>['getTextContent']>>['items'][number];
+
+/**
+ * A page's text items. page.getTextContent() loops over a ReadableStream with `for await`, which
+ * Safari (iPhone) doesn't support ("undefined is not a function"), so the stream is read with its
+ * reader instead.
+ */
+async function textItems(page: { streamTextContent: () => ReadableStream }): Promise<TextItem[]> {
+  const reader = (page.streamTextContent() as ReadableStream<{ items: TextItem[] }>).getReader();
+  const items: TextItem[] = [];
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) return items;
+      items.push(...value.items);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function extract(pdfjs: PdfJs, workerSrc: string, bytes: Uint8Array): Promise<PdfItem[]> {
   pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
   // Text only: no fonts or images are rendered.
@@ -33,8 +54,7 @@ async function extract(pdfjs: PdfJs, workerSrc: string, bytes: Uint8Array): Prom
     const out: PdfItem[] = [];
     for (let p = 1; p <= Math.min(doc.numPages, MAX_PAGES); p++) {
       const page = await doc.getPage(p);
-      const tc = await page.getTextContent();
-      for (const it of tc.items) {
+      for (const it of await textItems(page)) {
         if (!('str' in it) || !it.str.trim()) continue;
         out.push({ page: p, x: it.transform[4] as number, y: it.transform[5] as number, w: it.width, s: it.str, rtl: it.dir === 'rtl' });
       }
