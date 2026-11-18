@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DB, json, makeUser, ownerSetup, sessionFor } from './helpers';
 import { TENANT_TABLES } from '../../src/server/db/tables';
-import { addMonths, monthOf, todayInTz } from '../../src/shared/dates';
+import { addMonths, monthEnd, monthOf, todayInTz } from '../../src/shared/dates';
 import type { BudgetView } from '../../src/shared/domain/budget';
 import type { UsualMonth } from '../../src/shared/domain/usual';
-import { monthEnd } from '../../src/shared/dates';
 
 async function demo() {
   const o = await ownerSetup('Owner', 'Demo home');

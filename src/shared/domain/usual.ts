@@ -52,10 +52,13 @@ export function usualMonth(i: {
   const avgIncomeMinor = avg(i.months.map((m) => i.pnl.get(m)?.income ?? 0));
   const avgExpensesMinor = avg(i.months.map((m) => i.pnl.get(m)?.expenses ?? 0));
   const items: UsualItem[] = [];
+  // Everything in a real category, refunds included (a net-negative category still lowers spending).
+  let assigned = 0;
   for (const [categoryId, byMonth] of i.spent) {
     const cat = i.categories.get(categoryId);
     if (!cat || cat.system) continue;
     const avgMinor = avg(i.months.map((m) => byMonth.get(m) ?? 0));
+    assigned += avgMinor;
     if (avgMinor <= 0) continue;
     const thisMonthMinor = i.thisMonth.get(categoryId) ?? 0;
     items.push({
@@ -69,7 +72,6 @@ export function usualMonth(i: {
       fixed: !!cat.fixed,
     });
   }
-  const assigned = items.reduce((a, x) => a + x.avgMinor, 0);
   items.sort((a, b) => b.avgMinor - a.avgMinor || a.name.localeCompare(b.name));
   return {
     months: i.months,

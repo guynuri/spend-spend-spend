@@ -7,6 +7,7 @@ import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
+import { monthEnd, monthStart } from '../../../shared/dates';
 import type { UsualItem, UsualMonth } from '../../../shared/domain/usual';
 
 /** Fixed categorical order (styles.css --mz-cat-*): color follows the category's rank in the usual month. */
@@ -34,7 +35,7 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
   const pf = useParamFormatter();
   const [picked, setPicked] = useState<string | null>(null);
   const pct = (x: number) => formatPercent(x, i18n.language as Locale);
-  if (!u || !u.items.length)
+  if (!u)
     return (
       <Card data-testid="usual-card">
         <CardTitle>{t('dashboard.usual.title')}</CardTitle>
@@ -51,15 +52,19 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
   const sel = segments.find((s) => s.key === picked) ?? null;
 
   // What stands out this month: the category furthest above, and furthest below, its usual pace.
-  const fr = f ?? 1;
+  // Without a known share of the month elapsed, or in its first days, a pace is noise: no chips.
+  const fr = f ?? 0;
+  const paceOk = fr >= 0.25;
   // Only variable spending has a pace; nothing spent yet may just be timing, so it isn't "below".
   const paced = u.items
-    .filter((i) => !i.fixed && i.thisMonthMinor > 0 && i.avgMinor >= 10_000)
+    .filter((i) => paceOk && !i.fixed && i.thisMonthMinor > 0 && i.avgMinor >= 10_000)
     .map((i) => ({ i, p: paceOf(i, fr) }))
     .filter((x): x is { i: UsualItem; p: number } => x.p !== null);
   const hot = paced.filter((x) => x.p >= 1.2).sort((a, b) => b.p - a.p)[0];
-  const cool = fr >= 0.25 ? paced.filter((x) => x.p <= 0.7).sort((a, b) => a.p - b.p)[0] : undefined;
-  const biggest = u.items[0]!;
+  const cool = paced.filter((x) => x.p <= 0.7).sort((a, b) => a.p - b.p)[0];
+  const biggest = u.items[0];
+  const from = monthStart(month);
+  const to = monthEnd(month);
   const first = u.months[0]!;
   const last = u.months[u.months.length - 1]!;
 
@@ -75,7 +80,7 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
         </p>
         {u.spendShareOfIncome !== null && (
           <span className={cx('rounded-full px-2.5 py-1 text-xs font-semibold', u.spendShareOfIncome > 1 ? 'bg-bad/10 text-bad' : u.spendShareOfIncome > 0.9 ? 'bg-warn/10 text-warn' : 'bg-good/10 text-good')} data-testid="usual-income-share">
-            {t('dashboard.usual.ofYourIncome', { pct: pct(u.spendShareOfIncome), ...pf({ incomeMinor: u.avgIncomeMinor }) })}
+            {t('dashboard.usual.ofYourIncome', pf({ pct: u.spendShareOfIncome, incomeMinor: u.avgIncomeMinor }))}
           </span>
         )}
       </div>
@@ -117,18 +122,20 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
       </p>
 
       {/* What stands out. */}
-      <div className="mt-3 flex flex-wrap gap-2" data-testid="usual-highlights">
-        <Chip icon={<Crown className="size-3.5" aria-hidden />} tone="accent">
-          {t('dashboard.usual.biggest')} <bdi>{biggest.name}</bdi> ({pct(biggest.shareOfSpending)})
-        </Chip>
+      <div className={cx('mt-3 flex flex-wrap gap-2', !biggest && 'hidden')} data-testid="usual-highlights">
+        {biggest && (
+          <Chip icon={<Crown className="size-3.5" aria-hidden />} tone="accent">
+            {t('dashboard.usual.biggest')} <bdi>{biggest.name}</bdi> ({pct(biggest.shareOfSpending)})
+          </Chip>
+        )}
         {hot && (
           <Chip icon={<TrendingUp className="size-3.5" aria-hidden />} tone="warn" testId="usual-hot">
-            <bdi>{hot.i.name}</bdi>: {t(f !== null && f < 1 ? 'dashboard.usual.paceAbove' : 'dashboard.usual.above', { pct: pct(hot.p - 1) })}
+            <bdi>{hot.i.name}</bdi>: {t(fr < 1 ? 'dashboard.usual.paceAbove' : 'dashboard.usual.above', pf({ pct: hot.p - 1 }))}
           </Chip>
         )}
         {cool && (
           <Chip icon={<TrendingDown className="size-3.5" aria-hidden />} tone="good" testId="usual-cool">
-            <bdi>{cool.i.name}</bdi>: {t(f !== null && f < 1 ? 'dashboard.usual.paceBelow' : 'dashboard.usual.below', { pct: pct(1 - cool.p) })}
+            <bdi>{cool.i.name}</bdi>: {t(fr < 1 ? 'dashboard.usual.paceBelow' : 'dashboard.usual.below', pf({ pct: 1 - cool.p }))}
           </Chip>
         )}
       </div>
@@ -137,7 +144,7 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
       <ul className="mt-4 flex flex-col gap-3" data-testid="usual-items">
         {u.items.map((i, k) => (
           <li key={i.categoryId}>
-            <Link to={`/transactions?category=${i.categoryId}`} className="block min-h-11 rounded-lg active:bg-surface-2" data-testid="usual-item">
+            <Link to={`/transactions?from=${from}&to=${to}&category=${i.categoryId}`} className="block min-h-11 rounded-lg active:bg-surface-2" data-testid="usual-item">
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="size-2.5 shrink-0 rounded-full" style={{ background: CAT[k % CAT.length] }} aria-hidden />
@@ -145,11 +152,11 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
                 </span>
                 <span className="shrink-0">
                   {t('dashboard.usual.perMonth', pf({ amountMinor: i.avgMinor }))}
-                  <span className="text-muted"> · {t(i.shareOfIncome !== null ? 'dashboard.usual.ofIncome' : 'dashboard.usual.ofSpending', { pct: pct(i.shareOfIncome ?? i.shareOfSpending) })}</span>
+                  <span className="text-muted"> · {t(i.shareOfIncome !== null ? 'dashboard.usual.ofIncome' : 'dashboard.usual.ofSpending', pf({ pct: i.shareOfIncome ?? i.shareOfSpending }))}</span>
                 </span>
               </div>
               <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, (i.thisMonthMinor / i.avgMinor) * 100)}%`, background: i.over ? 'var(--mz-warn)' : CAT[k % CAT.length] }} />
+                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (i.thisMonthMinor / i.avgMinor) * 100))}%`, background: i.over ? 'var(--mz-warn)' : CAT[k % CAT.length] }} />
               </div>
               <p className={cx('mt-0.5 text-xs', i.over ? 'text-warn' : 'text-muted')} data-testid="usual-this-month">
                 <DateText date={month} format="month" />: <Money minor={i.thisMonthMinor} decimals={0} />
@@ -159,7 +166,7 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
           </li>
         ))}
       </ul>
-      {u.unassignedMinor > 0.05 * u.avgExpensesMinor && (
+      {(u.unassignedMinor > 0.05 * u.avgExpensesMinor || (!u.items.length && u.unassignedMinor > 0)) && (
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted" data-testid="usual-unassigned">
           <span className="mt-0.5 size-2.5 shrink-0 rounded-full" style={{ background: UNASSIGNED }} aria-hidden />
           {t('dashboard.usual.unassigned', pf({ amountMinor: u.unassignedMinor }))}

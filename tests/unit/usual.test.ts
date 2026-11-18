@@ -32,6 +32,18 @@ describe('a usual month', () => {
     ]);
   });
 
+  it('a net refund category lowers the categorized total, so uncategorized spending is not understated', () => {
+    const u = usualMonth({
+      months: ['2026-10'],
+      pnl: new Map([['2026-10', { income: 0, expenses: 450_000 }]]), // 400k + 100k uncategorized − 50k refund
+      spent: new Map([['groc', new Map([['2026-10', 400_000]])], ['fun', new Map([['2026-10', -50_000]])]]),
+      thisMonth: new Map(),
+      categories: cats,
+    })!;
+    expect(u.items.map((x) => x.categoryId)).toEqual(['groc']);
+    expect(u.unassignedMinor).toBe(100_000);
+  });
+
   it('no complete month → null; no income → shares of spending only; top N', () => {
     expect(usualMonth({ months: [], pnl: new Map(), spent: new Map(), thisMonth: new Map(), categories: cats })).toBeNull();
     const u = usualMonth({
