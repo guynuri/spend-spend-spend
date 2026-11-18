@@ -240,6 +240,22 @@ test('split from a card statement PDF: grouped businesses, AI fills the rest, ru
   }
 });
 
+test('a card PDF reads in a browser without async-iterable streams (iPhone Safari)', async ({ page }) => {
+  // Safari has no ReadableStream[Symbol.asyncIterator]; pdf.js's getTextContent needs it.
+  await page.addInitScript(() => {
+    delete (ReadableStream.prototype as unknown as Record<symbol, unknown>)[Symbol.asyncIterator];
+  });
+  await signIn(page, 'admin');
+  await ensureAccount(page);
+  await page.goto('/transactions?q=e2e+safari+pdf');
+  await addTx(page, '2312.10', 'ISRACARD e2e safari pdf');
+  await page.getByTestId('tx-row').first().click();
+  await page.getByTestId('tx-split').click();
+  await page.getByTestId('split-file').setInputFiles('fixtures/isracard/synthetic/statement.pdf');
+  await expect(page.getByTestId('split-loaded')).toContainText('11');
+  await expect(page.getByTestId('split-remaining')).toHaveAttribute('class', /text-good/);
+});
+
 test('investment / trading account: picker defaults it out of forecast and cushion, shows the hint', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/accounts');
