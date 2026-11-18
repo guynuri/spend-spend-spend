@@ -100,6 +100,9 @@ test('tour runs in the sign-in language and each page reopens its entry', async 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('tour')).toHaveCount(0);
   await page.getByTestId('tab-budget').click();
+  // The overview has a page-tour button too: wait for the budget page before opening its tour.
+  await expect(page).toHaveURL(/\/budget/);
+  await expect(page.getByTestId('budget-add')).toBeVisible();
   await page.getByTestId('page-tour').click();
   await expect(pop).toHaveAttribute('data-step', 'budgetAdd');
   await expect(pop).toContainText('תקציב');

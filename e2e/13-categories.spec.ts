@@ -49,3 +49,24 @@ test('AI suggestions: review sheet with reason, approve all, apply', async ({ pa
     await page.request.post('/api/ai/consent', { headers: H, data: { enabled: false } });
   }
 });
+
+test.describe('without the service worker', () => {
+  // page.route can't see requests a service worker handles.
+  test.use({ serviceWorkers: 'block' });
+  test('a slow save shows it is working: button spinner and the progress line', async ({ page }) => {
+    await signIn(page, 'admin');
+    await page.goto('/categories');
+    await page.route('**/api/categories', async (r) => {
+      if (r.request().method() === 'POST') await new Promise((ok) => setTimeout(ok, 1500));
+      await r.continue();
+    });
+    await page.getByTestId('category-add').click();
+    const sheet = page.getByTestId('add-category-sheet');
+    await sheet.getByTestId('category-name').fill('E2E slow save');
+    await sheet.getByTestId('category-save').click();
+    await expect(sheet.getByTestId('category-save')).toBeDisabled();
+    await expect(page.getByTestId('mutation-progress')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByTestId('category-chip').filter({ hasText: 'E2E slow save' })).toBeVisible();
+    await expect(page.getByTestId('mutation-progress')).toHaveAttribute('data-active', 'false');
+  });
+});

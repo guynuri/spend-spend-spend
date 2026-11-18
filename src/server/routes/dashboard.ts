@@ -58,10 +58,10 @@ async function usualFor(db: TenantDb, base: BaseFacts, month: string) {
     pnlByMonthStmt(db, months[0]!, months[months.length - 1]!),
     spentByCategoryStmt(db, months[0]!, months[months.length - 1]!),
     spentByCategoryStmt(db, month, month),
-    db.stmt('SELECT id, name, system_key, grp FROM categories WHERE household_id = ?1'),
+    db.stmt('SELECT id, name, system_key FROM categories WHERE household_id = ?1'),
   ]);
   const thisMonth = new Map<string, number>();
   for (const [cid, mm] of toSpentMaps(now)) thisMonth.set(cid, mm.get(month) ?? 0);
-  const categories = new Map(((cats?.results ?? []) as { id: string; name: string; system_key: string | null; grp: string | null }[]).map((c) => [c.id, { name: c.name, system: !!c.system_key, fixed: c.grp === 'fixed' }]));
+  const categories = new Map(((cats?.results ?? []) as { id: string; name: string; system_key: string | null }[]).map((c) => [c.id, { name: c.name, system: !!c.system_key }]));
   return usualMonth({ months, pnl: toPnlMap(pnl), spent: toSpentMaps(spent), thisMonth, categories });
 }

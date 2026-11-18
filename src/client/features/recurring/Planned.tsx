@@ -117,6 +117,8 @@ export function PlannedList() {
   const q = useQuery({ queryKey: ['planned'], queryFn: () => get<{ planned: PlannedDto[] }>('/api/planned') });
   const setStatus = useApiMutation((v: { id: string; status: PlannedDto['status'] }) => patch(`/api/planned/${v.id}`, { status: v.status }), { invalidate: PLAN_KEYS });
   const remove = useApiMutation((id: string) => del(`/api/planned/${id}`), { invalidate: PLAN_KEYS });
+  // One action on a row at a time (done / cancel / delete would conflict).
+  const rowBusy = (id: string) => setStatus.isPendingWith((v) => v.id === id) || remove.isPendingWith((v) => v === id);
   const items = q.data?.planned ?? [];
   return (
     <Card>
@@ -150,13 +152,13 @@ export function PlannedList() {
               <Money minor={p.amountMinor} tone />
               {canWrite && p.status === 'planned' && (
                 <div className="flex w-full justify-end gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: p.id, status: 'done' })}>
+                  <Button size="sm" variant="ghost" busy={setStatus.isPendingWith((v) => v.id === p.id && v.status === 'done')} disabled={rowBusy(p.id)} onClick={() => setStatus.mutate({ id: p.id, status: 'done' })}>
                     {t('planned.markDone')}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: p.id, status: 'cancelled' })}>
+                  <Button size="sm" variant="ghost" busy={setStatus.isPendingWith((v) => v.id === p.id && v.status === 'cancelled')} disabled={rowBusy(p.id)} onClick={() => setStatus.mutate({ id: p.id, status: 'cancelled' })}>
                     {t('planned.cancel')}
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-bad" onClick={() => remove.mutate(p.id)}>
+                  <Button size="sm" variant="ghost" className="text-bad" busy={remove.isPendingWith((v) => v === p.id)} disabled={rowBusy(p.id)} onClick={() => remove.mutate(p.id)}>
                     {t('common.delete')}
                   </Button>
                 </div>

@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Crown, TrendingDown, TrendingUp } from 'lucide-react';
 import { Card, CardTitle, cx } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
 import { monthEnd, monthStart } from '../../../shared/dates';
-import type { UsualItem, UsualMonth } from '../../../shared/domain/usual';
+import type { UsualMonth } from '../../../shared/domain/usual';
 
 /** Fixed categorical order (styles.css --mz-cat-*): color follows the category's rank in the usual month. */
 const CAT = ['var(--mz-cat-1)', 'var(--mz-cat-2)', 'var(--mz-cat-3)', 'var(--mz-cat-4)', 'var(--mz-cat-5)', 'var(--mz-cat-6)'];
@@ -23,14 +22,11 @@ interface Segment {
   fill: string;
 }
 
-/** This month's spending vs. the usual amount for the same share of the month (1 = on pace). */
-const paceOf = (i: UsualItem, f: number) => (i.avgMinor > 0 && f > 0 ? i.thisMonthMinor / (i.avgMinor * f) : null);
-
 /**
  * "A usual month": the usual total with its share of income, where the money goes (one segmented
- * bar), what stands out this month, and per category the usual amount next to this month so far.
+ * bar), and per category the usual amount (bars against the biggest), with this month in one line.
  */
-export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: string; f: number | null }) {
+export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; month: string; current: boolean }) {
   const { t, i18n } = useTranslation();
   const pf = useParamFormatter();
   const [picked, setPicked] = useState<string | null>(null);
@@ -51,18 +47,7 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
   const total = segments.reduce((a, s) => a + s.minor, 0) || 1;
   const sel = segments.find((s) => s.key === picked) ?? null;
 
-  // What stands out this month: the category furthest above, and furthest below, its usual pace.
-  // Without a known share of the month elapsed, or in its first days, a pace is noise: no chips.
-  const fr = f ?? 0;
-  const paceOk = fr >= 0.25;
-  // Only variable spending has a pace; nothing spent yet may just be timing, so it isn't "below".
-  const paced = u.items
-    .filter((i) => paceOk && !i.fixed && i.thisMonthMinor > 0 && i.avgMinor >= 10_000)
-    .map((i) => ({ i, p: paceOf(i, fr) }))
-    .filter((x): x is { i: UsualItem; p: number } => x.p !== null);
-  const hot = paced.filter((x) => x.p >= 1.2).sort((a, b) => b.p - a.p)[0];
-  const cool = paced.filter((x) => x.p <= 0.7).sort((a, b) => a.p - b.p)[0];
-  const biggest = u.items[0];
+  const top = u.items[0]?.avgMinor || 1;
   const from = monthStart(month);
   const to = monthEnd(month);
   const first = u.months[0]!;
@@ -121,46 +106,30 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
         )}
       </p>
 
-      {/* What stands out. */}
-      <div className={cx('mt-3 flex flex-wrap gap-2', !biggest && 'hidden')} data-testid="usual-highlights">
-        {biggest && (
-          <Chip icon={<Crown className="size-3.5" aria-hidden />} tone="accent">
-            {t('dashboard.usual.biggest')} <bdi>{biggest.name}</bdi> ({pct(biggest.shareOfSpending)})
-          </Chip>
-        )}
-        {hot && (
-          <Chip icon={<TrendingUp className="size-3.5" aria-hidden />} tone="warn" testId="usual-hot">
-            <bdi>{hot.i.name}</bdi>: {t(fr < 1 ? 'dashboard.usual.paceAbove' : 'dashboard.usual.above', pf({ pct: hot.p - 1 }))}
-          </Chip>
-        )}
-        {cool && (
-          <Chip icon={<TrendingDown className="size-3.5" aria-hidden />} tone="good" testId="usual-cool">
-            <bdi>{cool.i.name}</bdi>: {t(fr < 1 ? 'dashboard.usual.paceBelow' : 'dashboard.usual.below', pf({ pct: 1 - cool.p }))}
-          </Chip>
-        )}
-      </div>
-
-      {/* Per category: usual amount, share of income, and this month so far against it. */}
-      <ul className="mt-4 flex flex-col gap-3" data-testid="usual-items">
+      {/* Per category: what a usual month holds (bars against the biggest), and this month in one line. */}
+      <ul className="mt-4 flex flex-col gap-3.5" data-testid="usual-items">
         {u.items.map((i, k) => (
           <li key={i.categoryId}>
             <Link to={`/transactions?from=${from}&to=${to}&category=${i.categoryId}`} className="block min-h-11 rounded-lg active:bg-surface-2" data-testid="usual-item">
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="flex min-w-0 items-center gap-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2 text-sm">
                   <span className="size-2.5 shrink-0 rounded-full" style={{ background: CAT[k % CAT.length] }} aria-hidden />
                   <bdi className="truncate font-medium">{i.name}</bdi>
                 </span>
-                <span className="shrink-0">
+                <span className="shrink-0 text-base font-semibold" data-testid="usual-amount">
                   {t('dashboard.usual.perMonth', pf({ amountMinor: i.avgMinor }))}
-                  <span className="text-muted"> · {t(i.shareOfIncome !== null ? 'dashboard.usual.ofIncome' : 'dashboard.usual.ofSpending', pf({ pct: i.shareOfIncome ?? i.shareOfSpending }))}</span>
                 </span>
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
-                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (i.thisMonthMinor / i.avgMinor) * 100))}%`, background: i.over ? 'var(--mz-warn)' : CAT[k % CAT.length] }} />
+              <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
+                <div className="h-full rounded-full" style={{ width: `${Math.max(2, (i.avgMinor / top) * 100)}%`, background: CAT[k % CAT.length] }} />
               </div>
-              <p className={cx('mt-0.5 text-xs', i.over ? 'text-warn' : 'text-muted')} data-testid="usual-this-month">
-                <DateText date={month} format="month" />: <Money minor={i.thisMonthMinor} decimals={0} />
-                {i.over && <> · {t('dashboard.usual.over')}</>}
+              <p className="mt-1 text-xs text-muted" data-testid="usual-this-month">
+                {t(i.shareOfIncome !== null ? 'dashboard.usual.ofIncome' : 'dashboard.usual.ofSpending', pf({ pct: i.shareOfIncome ?? i.shareOfSpending }))}
+                {' · '}
+                <span className={cx(i.over && 'text-warn')}>
+                  {t(current ? 'dashboard.usual.soFar' : 'dashboard.usual.inMonth', pf({ month, amountMinor: i.thisMonthMinor }))}
+                  {i.over && <> · {t('dashboard.usual.over')}</>}
+                </span>
               </p>
             </Link>
           </li>
@@ -173,15 +142,5 @@ export function UsualMonthCard({ u, month, f }: { u: UsualMonth | null; month: s
         </p>
       )}
     </Card>
-  );
-}
-
-function Chip({ icon, tone, children, testId }: { icon: React.ReactNode; tone: 'accent' | 'warn' | 'good'; children: React.ReactNode; testId?: string }) {
-  const cls = { accent: 'bg-accent/10 text-accent', warn: 'bg-warn/10 text-warn', good: 'bg-good/10 text-good' }[tone];
-  return (
-    <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', cls)} data-testid={testId}>
-      {icon}
-      <span>{children}</span>
-    </span>
   );
 }

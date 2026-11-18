@@ -56,7 +56,7 @@ function GoalForm({ goal, onDone }: { goal: GoalView | null; onDone: () => void 
       )}
       <div className="flex justify-between gap-2">
         {goal ? (
-          <Button variant="ghost" className="text-bad" onClick={() => window.confirm(t('goals.deleteConfirm')) && remove.mutate(undefined)}>
+          <Button variant="ghost" className="text-bad" busy={remove.isPending} onClick={() => window.confirm(t('goals.deleteConfirm')) && remove.mutate(undefined)}>
             {t('common.delete')}
           </Button>
         ) : (

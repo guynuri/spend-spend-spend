@@ -13,8 +13,6 @@ export interface UsualItem {
   thisMonthMinor: number;
   /** This month already passed the usual amount. */
   over: boolean;
-  /** A fixed cost (rent, loans): paid on a date, so "pace" within the month means nothing. */
-  fixed: boolean;
 }
 
 export interface UsualMonth {
@@ -43,7 +41,7 @@ export function usualMonth(i: {
   /** category → month → spent (expense categories). */
   spent: Map<string, Map<string, number>>;
   thisMonth: Map<string, number>;
-  categories: Map<string, { name: string; system: boolean; fixed?: boolean }>;
+  categories: Map<string, { name: string; system: boolean }>;
   limit?: number;
 }): UsualMonth | null {
   const n = i.months.length;
@@ -69,7 +67,6 @@ export function usualMonth(i: {
       shareOfSpending: avgExpensesMinor > 0 ? avgMinor / avgExpensesMinor : 0,
       thisMonthMinor,
       over: thisMonthMinor > avgMinor,
-      fixed: !!cat.fixed,
     });
   }
   items.sort((a, b) => b.avgMinor - a.avgMinor || a.name.localeCompare(b.name));

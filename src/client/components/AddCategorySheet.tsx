@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { get, post } from '../api';
 import { useApiMutation } from '../lib/mutate';
 import type { Category } from '../../shared/schemas/ledger';
 import { Sheet } from './Sheet';
-import { Button, Field, Input, Select } from './ui';
+import { Button, Field, Input, Select, Spinner } from './ui';
 
 type Kind = Category['kind'];
 interface Suggestion {
@@ -33,6 +33,7 @@ export function AddCategorySheet({ open, onOpenChange, kinds = ['expense', 'inco
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={t('categories.add')} testId="add-category-sheet">
       <div className="flex flex-col gap-4">
+        {sq.isPending && <Spinner className="p-2" />}
         {sugg.length > 0 && (
           <section>
             <h3 className="mb-2 text-sm font-medium text-muted">{t('categories.suggested')}</h3>
@@ -46,7 +47,7 @@ export function AddCategorySheet({ open, onOpenChange, kinds = ['expense', 'inco
                     className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-dashed border-border px-3 text-sm hover:bg-surface-2"
                     data-testid="category-suggestion"
                   >
-                    <Plus className="size-4 text-accent" aria-hidden />
+                    {pick.isPending && pick.variables === s.key ? <Loader2 className="size-4 animate-spin text-accent" aria-hidden /> : <Plus className="size-4 text-accent" aria-hidden />}
                     {i18n.language === 'he' ? s.he : s.en}
                   </button>
                 </li>

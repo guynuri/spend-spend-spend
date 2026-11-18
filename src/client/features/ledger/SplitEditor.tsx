@@ -106,6 +106,8 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   const [noPrev, setNoPrev] = useState(false);
   const [loaded, setLoaded] = useState<Omit<Loaded, 'lines'> | null>(null);
   const [learn, setLearn] = useState(true);
+  // Reading a statement (PDF, rules, AI) can take a few seconds: show it.
+  const [reading, setReading] = useState(false);
   const aiStatus = useAiStatus();
   const me = useMe();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -144,6 +146,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   };
   const upload = async (file: File | undefined) => {
     if (!file) return;
+    setReading(true);
     try {
       // Fresh status (AI may have been switched on since it was cached), fetched while the file is read.
       const hh = me?.active?.id ?? null;
@@ -159,6 +162,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
       const k = e instanceof FileError ? `import.fileErrors.${e.code}` : errorKey(e);
       toast({ title: t(k, { defaultValue: t('errors.unknown') }), description: e instanceof FileError && e.detail ? <span dir="ltr" className="block text-xs" data-testid="split-error-detail">{e.detail}</span> : undefined, tone: 'bad', ...(e instanceof FileError && e.detail ? { duration: 30_000 } : {}) });
     } finally {
+      setReading(false);
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -168,12 +172,12 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
   return (
     <div className="flex flex-col gap-3" data-testid="split-editor">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button size="sm" variant="secondary" onClick={() => void same()} data-testid="split-same">
+        <Button size="sm" variant="secondary" disabled={reading} onClick={() => void same()} data-testid="split-same">
           <Copy className="size-4" aria-hidden />
           {t('split.sameAsLast')}
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => fileRef.current?.click()} data-testid="split-upload">
-          <FileSpreadsheet className="size-4" aria-hidden />
+        <Button size="sm" variant="secondary" onClick={() => fileRef.current?.click()} busy={reading} data-testid="split-upload">
+          {!reading && <FileSpreadsheet className="size-4" aria-hidden />}
           {t('split.upload')}
         </Button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.html,.htm,.pdf,application/pdf" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} data-testid="split-file" />
@@ -186,7 +190,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
         {noPrev && <span className="text-xs text-muted">{t('split.noPrevious')}</span>}
       </div>
       <p className="text-xs text-muted" data-testid="split-loaded" data-card={loaded?.card}>
-        {loaded ? t('split.statementLoaded', { count: loaded.count }) : t('split.uploadHint')}
+        {reading ? t('split.reading') : loaded ? t('split.statementLoaded', { count: loaded.count }) : t('split.uploadHint')}
       </p>
       {!!loaded?.ai && (
         <p className="text-xs text-muted" data-testid="split-ai">
@@ -253,7 +257,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
           </Button>
         )}
         <Button
-          disabled={!valid || remaining !== 0}
+          disabled={!valid || remaining !== 0 || reading}
           busy={save.isPending}
           data-testid="split-save"
           onClick={() => save.mutate({ lines: lines.map((l, i) => ({ categoryId: l.categoryId, amountMinor: (parsed[i] ?? 0) * sign, ...(l.note ? { note: l.note } : {}) })) })}

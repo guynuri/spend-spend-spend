@@ -242,7 +242,7 @@ export function RemindersCard() {
                 {d.label ?? t('security.unnamed')}
                 {d.endpoint === mine && <span className="text-muted"> · {t('settings.reminders.thisDevice')}</span>}
               </span>
-              <IconButton label={t('security.remove')} onClick={() => removeDevice.mutate(d.id)}>
+              <IconButton label={t('security.remove')} disabled={removeDevice.isPendingWith((v) => v === d.id)} onClick={() => removeDevice.mutate(d.id)}>
                 <Trash2 className="size-4" aria-hidden />
               </IconButton>
             </li>
@@ -271,7 +271,7 @@ export function RemindersCard() {
                     testId="reminder-toggle"
                   />
                 </div>
-                <IconButton label={t('settings.reminders.delete')} onClick={() => remove.mutate(r.id)} data-testid="reminder-delete">
+                <IconButton label={t('settings.reminders.delete')} disabled={remove.isPendingWith((v) => v === r.id)} onClick={() => remove.mutate(r.id)} data-testid="reminder-delete">
                   <Trash2 className="size-4" aria-hidden />
                 </IconButton>
               </li>

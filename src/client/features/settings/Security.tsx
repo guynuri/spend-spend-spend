@@ -46,7 +46,7 @@ export function SecurityCard() {
                   {t('security.created', { date: fmt(p.createdAt.slice(0, 10)) })} · {p.lastUsedAt ? t('security.lastUsed', { date: fmt(p.lastUsedAt.slice(0, 10)) }) : t('security.neverUsed')}
                 </div>
               </div>
-              <IconButton label={t('security.remove')} disabled={list.length <= 1} onClick={() => remove.mutate(p.id)}>
+              <IconButton label={t('security.remove')} disabled={list.length <= 1 || remove.isPending} onClick={() => remove.mutate(p.id)}>
                 <Trash2 className="size-4" aria-hidden />
               </IconButton>
             </li>

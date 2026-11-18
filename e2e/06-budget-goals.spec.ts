@@ -111,7 +111,8 @@ test('overview shows the cards in order and the health explanation', async ({ pa
   const firstName = (await usual.getByTestId('usual-item').first().locator('bdi').first().textContent())!;
   await usual.getByTestId('usual-bar').getByRole('listitem').first().click();
   await expect(usual.getByTestId('usual-bar-label')).toContainText(firstName);
-  await expect(usual.getByTestId('usual-highlights')).toBeVisible();
+  // Each category leads with its usual monthly amount.
+  await expect(usual.getByTestId('usual-amount').first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.getByTestId('health-open').click();
   await expect(page.getByTestId('health-sheet')).toContainText(/Savings rate/);

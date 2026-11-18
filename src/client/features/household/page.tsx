@@ -135,7 +135,7 @@ function Members() {
             </div>
             {owner && (
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={() => rec.mutate(m.userId)}>
+                <Button size="sm" variant="secondary" busy={rec.isPendingWith((v) => v === m.userId)} onClick={() => rec.mutate(m.userId)}>
                   {t('household.recover')}
                 </Button>
                 {m.userId !== me.user.id && (
@@ -214,7 +214,7 @@ function Invites() {
                 {t('household.expires')} <DateText date={i.expiresAt.slice(0, 10)} />
               </span>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => revoke.mutate(i.id)}>
+            <Button size="sm" variant="ghost" busy={revoke.isPendingWith((v) => v === i.id)} onClick={() => revoke.mutate(i.id)}>
               {t('household.revoke')}
             </Button>
           </li>

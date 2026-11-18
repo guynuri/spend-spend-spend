@@ -163,7 +163,7 @@ export function Component() {
           ))}
         </dl>
       </Card>
-      <UsualMonthCard u={d.usual} month={d.month} f={d.budget.f} />
+      <UsualMonthCard u={d.usual} month={d.month} current={d.month === d.today.slice(0, 7)} />
       <Card>
         <CardTitle>{t('dashboard.actions')}</CardTitle>
         <InsightList items={d.insights} />
