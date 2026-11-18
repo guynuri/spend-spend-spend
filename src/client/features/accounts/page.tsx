@@ -114,7 +114,7 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
       <Checkbox label={t('accounts.isLiquid')} checked={liquid} onChange={setLiquid} testId="account-liquid" />
       <div className="flex flex-wrap justify-between gap-2">
         {account ? (
-          <Button variant="ghost" className="text-bad" onClick={() => remove.mutate(undefined)}>
+          <Button variant="ghost" className="text-bad" busy={remove.isPending} onClick={() => remove.mutate(undefined)}>
             {t('common.delete')}
           </Button>
         ) : (

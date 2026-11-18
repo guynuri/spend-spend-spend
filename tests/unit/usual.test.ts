@@ -3,7 +3,6 @@ import { usualMonth } from '../../src/shared/domain/usual';
 
 const cats = new Map([
   ['groc', { name: 'Groceries', system: false }],
-  ['rent', { name: 'Rent', system: false, fixed: true }],
   ['fun', { name: 'Leisure', system: false }],
   ['card', { name: 'Credit card (not split)', system: true }],
 ]);
@@ -27,8 +26,8 @@ describe('a usual month', () => {
     })!;
     expect(u).toMatchObject({ avgIncomeMinor: 1_000_000, avgExpensesMinor: 500_000, spendShareOfIncome: 0.5, unassignedMinor: 500_000 - 150_000 - 10_000, otherMinor: 0 });
     expect(u.items).toEqual([
-      { categoryId: 'groc', name: 'Groceries', avgMinor: 150_000, shareOfIncome: 0.15, shareOfSpending: 0.3, thisMonthMinor: 160_000, over: true, fixed: false },
-      { categoryId: 'fun', name: 'Leisure', avgMinor: 10_000, shareOfIncome: 0.01, shareOfSpending: 0.02, thisMonthMinor: 2_000, over: false, fixed: false },
+      { categoryId: 'groc', name: 'Groceries', avgMinor: 150_000, shareOfIncome: 0.15, shareOfSpending: 0.3, thisMonthMinor: 160_000, over: true},
+      { categoryId: 'fun', name: 'Leisure', avgMinor: 10_000, shareOfIncome: 0.01, shareOfSpending: 0.02, thisMonthMinor: 2_000, over: false},
     ]);
   });
 
@@ -56,6 +55,6 @@ describe('a usual month', () => {
     })!;
     expect(u.spendShareOfIncome).toBeNull();
     expect(u.otherMinor).toBe(500); // Leisure, past the limit
-    expect(u.items).toEqual([{ categoryId: 'groc', name: 'Groceries', avgMinor: 1500, shareOfIncome: null, shareOfSpending: 0.75, thisMonthMinor: 0, over: false, fixed: false }]);
+    expect(u.items).toEqual([{ categoryId: 'groc', name: 'Groceries', avgMinor: 1500, shareOfIncome: null, shareOfSpending: 0.75, thisMonthMinor: 0, over: false}]);
   });
 });

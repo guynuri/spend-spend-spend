@@ -10,6 +10,7 @@ import { cx, Spinner } from './ui';
 import { InstallHint, OfflineBanner, UpdatePrompt } from './Pwa';
 import { SampleDataBanner } from './SampleDataBanner';
 import { TourProvider } from './Tour';
+import { MutationProgress } from './MutationProgress';
 
 /** `inline` = in a list row (More page) rather than over a tab icon. */
 export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
@@ -129,6 +130,7 @@ export function Layout() {
   }, [addParam, me, canWrite, setSp]);
   return (
     <TourProvider>
+    <MutationProgress />
     <div className="flex min-h-dvh bg-bg text-text">
       <Sidebar onAdd={onAdd} />
       <div className="flex min-w-0 flex-1 flex-col">

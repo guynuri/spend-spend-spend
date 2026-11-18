@@ -82,8 +82,18 @@ export function toSpentMaps(r: D1Result | undefined) {
   return byCat;
 }
 
+/**
+ * Card charges still waiting to be split: not split, and still uncategorized or on the "card (not
+ * split)" placeholder. A charge the user put in one real category as a whole is done.
+ */
 export function unsplitCardStmt(q: TenantDb, month: MonthStr) {
-  return q.stmt("SELECT COALESCE(-SUM(amount_minor), 0) AS s, COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND kind = 'card_lump' AND has_splits = 0 AND date >= ?2 AND date <= ?3", monthStart(month), monthEnd(month));
+  return q.stmt(
+    `SELECT COALESCE(-SUM(t.amount_minor), 0) AS s, COUNT(*) AS n FROM transactions t
+      WHERE t.household_id = ?1 AND t.kind = 'card_lump' AND t.has_splits = 0 AND t.date >= ?2 AND t.date <= ?3
+        AND (t.category_id IS NULL OR t.category_id IN (SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'))`,
+    monthStart(month),
+    monthEnd(month),
+  );
 }
 
 export const monthsBack = (m: MonthStr, n: number) => addMonths(m, -n);

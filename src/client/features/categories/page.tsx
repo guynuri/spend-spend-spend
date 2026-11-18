@@ -66,11 +66,11 @@ function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
       <div className="flex flex-wrap justify-between gap-2">
         {!cat.systemKey ? (
           cat.archived ? (
-            <Button variant="ghost" onClick={() => restore.mutate(undefined)}>
+            <Button variant="ghost" busy={restore.isPending} onClick={() => restore.mutate(undefined)}>
               {t('categories.restore')}
             </Button>
           ) : (
-            <Button variant="ghost" className="text-bad" onClick={() => remove.mutate(undefined)}>
+            <Button variant="ghost" className="text-bad" busy={remove.isPending} onClick={() => remove.mutate(undefined)}>
               {t('common.delete')}
             </Button>
           )
@@ -264,7 +264,7 @@ export function Component() {
                 </div>
               </div>
               {canWrite && (
-                <IconButton label={t('common.delete')} onClick={() => delRule.mutate(r.id)}>
+                <IconButton label={t('common.delete')} disabled={delRule.isPending && delRule.variables === r.id} onClick={() => delRule.mutate(r.id)}>
                   <Trash2 className="size-4" aria-hidden />
                 </IconButton>
               )}

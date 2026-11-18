@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { json, ownerSetup } from './helpers';
+import { DB, json, ownerSetup } from './helpers';
 import { addDays, addMonths, MAX_RANGE_DAYS, monthEnd, monthOf, monthStart, todayInTz } from '../../src/shared/dates';
 import type { BudgetView } from '../../src/shared/domain/budget';
 
@@ -42,6 +42,10 @@ describe('budgets & trends (AC5.1–5.5, AC10.1)', () => {
     // the latest card lump is unsplit
     const lumpMonth = Number(today.slice(8)) > 10 ? cur : prev;
     expect((await json<BudgetView>('GET', `/api/budgets?month=${lumpMonth}`, { cookie: o.cookie })).body.unsplitCardMinor).toBeGreaterThan(600000);
+    // ...until it is put in one real category as a whole: then it isn't waiting to be split.
+    const lump = await DB.prepare(`SELECT id FROM transactions WHERE household_id = ?1 AND kind = 'card_lump' AND has_splits = 0 AND substr(date, 1, 7) = ?2`).bind(o.householdId, lumpMonth).first<{ id: string }>();
+    expect((await json('PATCH', `/api/transactions/${lump!.id}`, { cookie: o.cookie, body: { categoryId: groceries.categoryId } })).status).toBe(200);
+    expect((await json<BudgetView>('GET', `/api/budgets?month=${lumpMonth}`, { cookie: o.cookie })).body.unsplitCardMinor).toBe(0);
     // income category cannot be budgeted
     const cats = (await json<{ categories: { id: string; kind: string }[] }>('GET', '/api/categories', { cookie: o.cookie })).body.categories;
     const inc = cats.find((c) => c.kind === 'income')!;

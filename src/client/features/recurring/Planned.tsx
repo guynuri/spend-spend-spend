@@ -150,13 +150,13 @@ export function PlannedList() {
               <Money minor={p.amountMinor} tone />
               {canWrite && p.status === 'planned' && (
                 <div className="flex w-full justify-end gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: p.id, status: 'done' })}>
+                  <Button size="sm" variant="ghost" busy={setStatus.isPending && setStatus.variables?.id === p.id && setStatus.variables.status === 'done'} onClick={() => setStatus.mutate({ id: p.id, status: 'done' })}>
                     {t('planned.markDone')}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: p.id, status: 'cancelled' })}>
+                  <Button size="sm" variant="ghost" busy={setStatus.isPending && setStatus.variables?.id === p.id && setStatus.variables.status === 'cancelled'} onClick={() => setStatus.mutate({ id: p.id, status: 'cancelled' })}>
                     {t('planned.cancel')}
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-bad" onClick={() => remove.mutate(p.id)}>
+                  <Button size="sm" variant="ghost" className="text-bad" busy={remove.isPending && remove.variables === p.id} onClick={() => remove.mutate(p.id)}>
                     {t('common.delete')}
                   </Button>
                 </div>
