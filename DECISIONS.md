@@ -246,3 +246,24 @@ Format: date · milestone · what · why · alternatives rejected.
   keys), and `writable_schema` is not authorized. Verified against workerd's D1. Any SQL that
   needs "investment" must test `is_investment`, not `type`.
 - Deferred: live holdings / prices and a net-worth view (PLAN "Later").
+
+## D-R18 · 2026-11-18 · Card split: PDF statements, learned rules, AI
+- **PDF statements (Isracard / American Express layout)** are read in the browser with pdf.js
+  (lazy chunk + worker, nothing leaves the device). `parseCardPdf` works on positioned text runs:
+  a header row with date / business / amount labels defines the columns; values are right-aligned
+  under their header (RTL), so a run belongs to the header with the nearest right edge at or past
+  its own. The charged amount is the leftmost "סכום" column (installments and foreign purchases
+  count at this month's charge). Wrapped business names are joined; digit-only lines (foreign
+  reference numbers) are not. Tables end at their "סה"כ" line, which also gives the printed total;
+  a mismatch is shown, not hidden. Synthetic fixture: `npm run gen:card-pdf`.
+- **Grouping:** uncategorized statement rows are one line per business (normKey); a charge and its
+  refund net out and a zero line is dropped.
+- **Learning:** saving a split from a statement remembers business → category as rules
+  (`POST /api/rules/learn`, opt-out checkbox): `learned`, or `ai` when the AI suggestion was kept.
+  A user rule is never re-pointed; payment apps / transfers never become rules (as with "always").
+  Learned rules are applied to uncategorized transactions right away.
+- **AI:** with AI on, businesses still uncategorized after rules get a suggestion
+  (`POST /api/ai/categorize-items`, same scrubbed payload, limits and consent as /categorize).
+  Nothing is written until the user saves. PayPal stays a generic payee (never sent, never a rule).
+- Known, unrelated: `e2e/05-forecast` "card charge override" fails on main from the 18th of the
+  month on (date-dependent), and is left for a separate fix.

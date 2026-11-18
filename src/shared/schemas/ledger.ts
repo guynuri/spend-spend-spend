@@ -28,6 +28,12 @@ export const ruleMatch = z.enum(['contains', 'equals', 'starts_with']);
 export const ruleSign = z.enum(['any', 'in', 'out']);
 /** Rows (e.g. a card statement) to look up the winning rule's category for. */
 export const ruleLookup = z.object({ items: z.array(z.object({ description: text(300), amountMinor: minor }).strict()).max(5000) }).strict();
+/** Business → category choices from a card split, remembered as rules (`ai` when the AI suggestion was kept). */
+export const ruleLearn = z
+  .object({ items: z.array(z.object({ description: text(300).min(1), amountMinor: minor, categoryId: id, source: z.enum(['learned', 'ai']) }).strict()).min(1).max(30) })
+  .strict();
+/** Rows that are not transactions yet (card statement businesses) for AI categorization. */
+export const aiCategorizeItems = z.object({ items: z.array(z.object({ description: text(300).min(1), amountMinor: minor }).strict()).min(1).max(40) }).strict();
 export const ruleCreate = z.object({ field: ruleField, match: ruleMatch, pattern: text(100).min(1), sign: ruleSign, categoryId: id }).strict();
 export const rulePatch = z.object({ match: ruleMatch.optional(), pattern: text(100).min(1).optional(), sign: ruleSign.optional(), categoryId: id.optional() }).strict();
 

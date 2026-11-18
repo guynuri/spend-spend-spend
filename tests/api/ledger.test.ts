@@ -242,6 +242,35 @@ describe('transactions, rules, learning (AC3.3, AC3.5)', () => {
     expect(r.body.categoryIds).toEqual([s.cat('Groceries'), null]);
   });
 
+  it('learning from a card split: one rule per business, user rules kept, payment apps skipped, applied to old rows', async () => {
+    const s = await setup();
+    const old = await s.add('2026-02-02', -1500, 'Passport Card Svc');
+    await json('POST', '/api/rules', { cookie: s.cookie, body: { field: 'description', match: 'equals', pattern: 'Corner Deli', sign: 'out', categoryId: s.cat('Home') } });
+    const learn = (items: unknown[]) => json<{ learned: number; skipped: number; applied: number }>('POST', '/api/rules/learn', { cookie: s.cookie, body: { items } });
+    const r = await learn([
+      { description: 'Passport Card Svc', amountMinor: -8922, categoryId: s.cat('Health'), source: 'learned' },
+      { description: 'PASSPORT  CARD SVC', amountMinor: -100, categoryId: s.cat('Health'), source: 'learned' }, // same business
+      { description: 'Corner Deli', amountMinor: -2000, categoryId: s.cat('Groceries'), source: 'ai' }, // user rule wins
+      { description: 'PAYPAL *SOMEONE', amountMinor: -500, categoryId: s.cat('Leisure'), source: 'learned' }, // payment app
+      { description: 'Cafe Nord', amountMinor: -2000, categoryId: s.cat('Eating out'), source: 'ai' },
+    ]);
+    expect(r.body).toEqual({ learned: 2, skipped: 3, applied: 1 });
+    // Saving the same choices again changes nothing and says so.
+    expect((await learn([{ description: 'Cafe Nord', amountMinor: -2000, categoryId: s.cat('Eating out'), source: 'ai' }])).body).toEqual({ learned: 0, skipped: 1, applied: 0 });
+    const rules = (await DB.prepare("SELECT pattern_norm AS p, source, sign FROM category_rules WHERE household_id = ?1 AND pattern_norm IN ('passport card svc', 'corner deli', 'cafe nord') ORDER BY p").bind(s.householdId).all()).results;
+    expect(rules).toEqual([
+      { p: 'cafe nord', source: 'ai', sign: 'out' },
+      { p: 'corner deli', source: 'user', sign: 'out' },
+      { p: 'passport card svc', source: 'learned', sign: 'out' },
+    ]);
+    expect((await DB.prepare('SELECT category_id, category_source FROM transactions WHERE id = ?1').bind(old.id).first())).toEqual({ category_id: s.cat('Health'), category_source: 'rule' });
+    // Next month's statement: the learned business is categorized by the rule.
+    const m = await json<{ categoryIds: (string | null)[] }>('POST', '/api/rules/match', { cookie: s.cookie, body: { items: [{ description: 'Passport Card Svc', amountMinor: -300 }] } });
+    expect(m.body.categoryIds).toEqual([s.cat('Health')]);
+    // A category that isn't this household's is refused.
+    expect((await learn([{ description: 'X', amountMinor: -1, categoryId: 'nope', source: 'learned' }])).status).toBe(404);
+  });
+
   it('rules never overwrite a user category', async () => {
     const s = await setup();
     const t = await s.add('2026-02-03', -100, 'רמי לוי', { categoryId: s.cat('Leisure') });

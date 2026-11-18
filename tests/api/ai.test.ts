@@ -23,6 +23,26 @@ describe('AI opt-in, limits, features (AC12.3, AC13.1–13.4)', () => {
     expect(h!.ai_consent_at).toBeTruthy();
   });
 
+  it('categorize-items: statement businesses get suggestions (scrubbed, no payment apps), nothing written', async () => {
+    const o = await demo();
+    const items = [
+      { description: 'Cafe Nord', amountMinor: -2000 },
+      { description: 'bit Dana', amountMinor: -5000 },
+      { description: 'CAFE  NORD', amountMinor: -100 },
+    ];
+    expect((await json<{ error: { code: string } }>('POST', '/api/ai/categorize-items', { cookie: o.cookie, body: { items } })).body.error.code).toBe('ai_disabled');
+    await json('POST', '/api/ai/consent', { cookie: o.cookie, body: { enabled: true } });
+    const before = await DB.prepare('SELECT COUNT(*) AS n FROM category_rules WHERE household_id = ?1').bind(o.householdId).first<{ n: number }>();
+    const r = await json<{ suggestions: { index: number; categoryId: string }[] }>('POST', '/api/ai/categorize-items', { cookie: o.cookie, body: { items } });
+    expect(r.status).toBe(200);
+    // One question per business; both rows of it get the answer; the bit transfer is never sent.
+    expect(r.body.suggestions.map((x) => x.index).sort()).toEqual([0, 2]);
+    expect(r.body.suggestions[0]!.categoryId).toBe(r.body.suggestions[1]!.categoryId);
+    const after = await DB.prepare('SELECT COUNT(*) AS n FROM category_rules WHERE household_id = ?1').bind(o.householdId).first<{ n: number }>();
+    expect(after!.n).toBe(before!.n);
+    expect((await json('POST', '/api/ai/categorize-items', { cookie: o.cookie, body: { items: [] } })).status).toBe(400);
+  });
+
   it('categorize suggestions → apply sets category_source=ai and ai rules', async () => {
     const o = await demo();
     await json('POST', '/api/ai/consent', { cookie: o.cookie, body: { enabled: true } });

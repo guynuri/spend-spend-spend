@@ -7,7 +7,8 @@ import { requireOwner } from '../middleware/auth';
 import { AiError, getProvider, type AiProvider } from '../ai/provider';
 import { CATEGORIZE_SYSTEM, reviewSystem } from '../ai/prompts';
 import { buildCategorizePayload, buildReviewPayload, isP2P } from '../../shared/ai/payloads';
-import { norm } from '../../shared/normalize';
+import { norm, normKey } from '../../shared/normalize';
+import { aiCategorizeItems } from '../../shared/schemas/ledger';
 import { isGenericPayee } from '../../shared/domain/ledger';
 import { id, monthStr } from '../../shared/schemas/common';
 import { newId, nowIso } from '../lib/crypto';
@@ -69,6 +70,32 @@ aiRoutes.post('/consent', requireOwner, async (c) => {
 
 const catOut = z.array(z.object({ i: z.number().int(), category: z.string().max(80), confidence: z.number().min(0).max(1).optional(), reason: z.string().transform((x) => x.slice(0, 120)).optional() }));
 
+/**
+ * Batches of 20 keep each reply (with reasons) inside maxTokens. Every provider call is gated, reserved and
+ * its tokens recorded; a failing later batch keeps the earlier suggestions (partial: true).
+ */
+async function categorizeBatches(c: Ctx, payload: ReturnType<typeof buildCategorizePayload>['payload']) {
+  const { db } = tctx(c);
+  const data: z.infer<typeof catOut> = [];
+  let partial = false;
+  for (let k = 0; k < payload.items.length; k += 20) {
+    try {
+      const p = await gate(c, 'categorize');
+      const part = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload, items: payload.items.slice(k, k + 20) }), schema: catOut, maxTokens: 1600, temperature: 0 }));
+      await recordTokensStmt(db, 'categorize', part.tokensIn, part.tokensOut).run();
+      data.push(...part.data);
+    } catch (e) {
+      if (k === 0) throw e;
+      partial = true;
+      break;
+    }
+  }
+  return { data, partial };
+}
+
+const categorizableCats = (c: Ctx) =>
+  tctx(c).db.all<{ id: string; name: string; kind: string }>("SELECT id, name, kind FROM categories WHERE household_id = ?1 AND archived = 0 AND kind <> 'transfer' AND system_key IS NULL");
+
 /** All-time count of what /categorize can look at (the nav badge only covers 60 days). */
 aiRoutes.get('/uncategorized', async (c) => {
   const { db } = tctx(c);
@@ -88,26 +115,11 @@ aiRoutes.post('/categorize', async (c) => {
          FROM transactions t WHERE t.household_id = ?1 AND t.category_id IS NULL AND t.has_splits = 0 AND t.description_norm <> ''
         GROUP BY t.description_norm ORDER BY n DESC LIMIT 200`,
     ),
-    db.all<{ id: string; name: string; kind: string }>("SELECT id, name, kind FROM categories WHERE household_id = ?1 AND archived = 0 AND kind <> 'transfer' AND system_key IS NULL"),
+    categorizableCats(c),
   ]);
   const { payload, keys } = buildCategorizePayload(rows, cats.map((x) => x.name));
   if (!payload.items.length) return c.json({ suggestions: [] });
-  // Batches of 20 keep each reply (with reasons) inside maxTokens. Every provider call is gated, reserved and
-  // its tokens recorded; a failing later batch keeps the earlier suggestions (partial: true).
-  const data: z.infer<typeof catOut> = [];
-  let partial = false;
-  for (let k = 0; k < payload.items.length; k += 20) {
-    try {
-      const p = await gate(c, 'categorize');
-      const part = await run(() => p.generateJson({ system: CATEGORIZE_SYSTEM, user: JSON.stringify({ task: 'categorize', ...payload, items: payload.items.slice(k, k + 20) }), schema: catOut, maxTokens: 1600, temperature: 0 }));
-      await recordTokensStmt(db, 'categorize', part.tokensIn, part.tokensOut).run();
-      data.push(...part.data);
-    } catch (e) {
-      if (k === 0) throw e;
-      partial = true;
-      break;
-    }
-  }
+  const { data, partial } = await categorizeBatches(c, payload);
   const byName = new Map(cats.map((x) => [norm(x.name), x.id]));
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const suggestions = data
@@ -117,6 +129,31 @@ aiRoutes.post('/categorize', async (c) => {
       const r = byKey.get(s.key)!;
       return { ...s, description: r.description, count: r.n, amountMinor: r.amountMinor, direction: r.amountMinor >= 0 ? 'in' : 'out' };
     });
+  return c.json({ suggestions, partial });
+});
+
+/**
+ * Suggestions for rows that are not transactions yet: the businesses of a card statement being split.
+ * Same payload rules as /categorize (scrubbed text, rounded amounts, no payment apps); the client
+ * shows them on the split lines and the user saves (nothing is written here).
+ */
+aiRoutes.post('/categorize-items', async (c) => {
+  const b = await body(c, aiCategorizeItems);
+  await gate(c, 'categorize', false);
+  const cats = await categorizableCats(c);
+  const rows = b.items.map((i) => ({ key: normKey(i.description), description: i.description, operationType: null, amountMinor: i.amountMinor }));
+  const { payload, keys } = buildCategorizePayload(rows, cats.map((x) => x.name));
+  if (!payload.items.length) return c.json({ suggestions: [], partial: false });
+  const { data, partial } = await categorizeBatches(c, payload);
+  const byName = new Map(cats.map((x) => [norm(x.name), x.id]));
+  const byKey = new Map<string, number[]>();
+  rows.forEach((r, i) => byKey.set(r.key, [...(byKey.get(r.key) ?? []), i]));
+  const suggestions = data.flatMap((o) => {
+    const categoryId = byName.get(norm(o.category));
+    const key = keys[o.i];
+    if (!categoryId || !key) return [];
+    return (byKey.get(key) ?? []).map((index) => ({ index, categoryId, confidence: o.confidence ?? null }));
+  });
   return c.json({ suggestions, partial });
 });
 
