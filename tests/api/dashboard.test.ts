@@ -3,6 +3,8 @@ import { DB, json, makeUser, ownerSetup, sessionFor } from './helpers';
 import { TENANT_TABLES } from '../../src/server/db/tables';
 import { addMonths, monthOf, todayInTz } from '../../src/shared/dates';
 import type { BudgetView } from '../../src/shared/domain/budget';
+import type { UsualMonth } from '../../src/shared/domain/usual';
+import { monthEnd } from '../../src/shared/dates';
 
 async function demo() {
   const o = await ownerSetup('Owner', 'Demo home');
@@ -20,6 +22,7 @@ type Dash = {
   health: { overall: number | null; trend: { overall: number | null }[]; change: number | null };
   insights: { key: string; severity: string; href: string }[];
   forecast: { eom: { balance: number } };
+  usual: UsualMonth | null;
 };
 
 describe('dashboard (AC11.1–11.3, AC5.4)', () => {
@@ -49,6 +52,25 @@ describe('dashboard (AC11.1–11.3, AC5.4)', () => {
     for (let i = 1; i < d.insights.length; i++) expect(order[d.insights[i - 1]!.severity]!).toBeLessThanOrEqual(order[d.insights[i]!.severity]!);
     expect(d.insights.every((i) => i.href.startsWith('/'))).toBe(true);
     if (d.month === monthOf(todayInTz('Asia/Jerusalem'))) expect(d.pnl.expectedExpensesMinor!).toBeGreaterThanOrEqual(d.pnl.expensesMinor);
+  });
+
+  it('usual month: averages over complete months before the shown one; same numbers as Trends', async () => {
+    const empty = await ownerSetup();
+    expect((await json<Dash>('GET', '/api/dashboard', { cookie: empty.cookie })).body.usual).toBeNull();
+    const o = await demo();
+    const d = (await json<Dash>('GET', '/api/dashboard', { cookie: o.cookie })).body;
+    const u = d.usual!;
+    expect(u.months.length).toBeGreaterThan(0);
+    expect(u.months.length).toBeLessThanOrEqual(6);
+    expect(u.months.every((m) => m < d.month)).toBe(true);
+    expect(u.items.length).toBeGreaterThan(0);
+    for (let i = 1; i < u.items.length; i++) expect(u.items[i - 1]!.avgMinor).toBeGreaterThanOrEqual(u.items[i]!.avgMinor);
+    // Each average = that category's spending in Trends over the same months ÷ number of months.
+    const from = `${u.months[0]}-01`;
+    const to = monthEnd(u.months[u.months.length - 1]!);
+    const tr = (await json<{ items: { categoryId: string | null; spentMinor: number }[] }>('GET', `/api/trends/categories?from=${from}&to=${to}`, { cookie: o.cookie })).body.items;
+    for (const it of u.items) expect(it.avgMinor).toBe(Math.round(tr.find((x) => x.categoryId === it.categoryId)!.spentMinor / u.months.length));
+    if (u.avgIncomeMinor > 0) expect(u.spendShareOfIncome).toBeCloseTo(u.avgExpensesMinor / u.avgIncomeMinor, 6);
   });
 
   it('health endpoint and goals CRUD with contributions completing a goal', async () => {

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { ensureAdmin, signIn } from './auth';
+import { expectNoHorizontalOverflow } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ browser }) => ensureAdmin(browser));
@@ -98,10 +99,20 @@ test('add a goal and a contribution; progress and milestones update', async ({ p
 test('overview shows the cards in order and the health explanation', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/');
-  const ids = ['forecast-card', 'pnl-card', 'insights', 'budget-card', 'dash-goals', 'health-card'];
+  const ids = ['forecast-card', 'pnl-card', 'usual-card', 'insights', 'budget-card', 'dash-goals', 'health-card'];
   const tops: number[] = [];
   for (const id of ids) tops.push((await page.getByTestId(id).first().boundingBox())!.y);
   expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+  // A usual month from the imported months: per-category averages, this month next to each.
+  const usual = page.getByTestId('usual-card');
+  await expect(usual.getByTestId('usual-summary')).toBeVisible();
+  await expect(usual.getByTestId('usual-item').first()).toBeVisible();
+  // Tapping a part of the bar names it.
+  const firstName = (await usual.getByTestId('usual-item').first().locator('bdi').first().textContent())!;
+  await usual.getByTestId('usual-bar').getByRole('listitem').first().click();
+  await expect(usual.getByTestId('usual-bar-label')).toContainText(firstName);
+  await expect(usual.getByTestId('usual-highlights')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
   await page.getByTestId('health-open').click();
   await expect(page.getByTestId('health-sheet')).toContainText(/Savings rate/);
 });
