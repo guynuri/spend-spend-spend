@@ -157,7 +157,7 @@ export function SplitEditor({ tx, onDone }: { tx: Tx; onDone: () => void }) {
       setFrom(null);
     } catch (e) {
       const k = e instanceof FileError ? `import.fileErrors.${e.code}` : errorKey(e);
-      toast({ title: t(k, { defaultValue: t('errors.unknown') }), tone: 'bad' });
+      toast({ title: t(k, { defaultValue: t('errors.unknown') }), description: e instanceof FileError && e.detail ? <span dir="ltr" className="block text-xs" data-testid="split-error-detail">{e.detail}</span> : undefined, tone: 'bad' });
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }

@@ -42,12 +42,13 @@ async function isPdf(file: File) {
 async function readPdfStatement(file: File): Promise<ParseResult & { card: boolean; totalMinor: number | null }> {
   if (file.size > MAX_FILE_BYTES) throw new FileError('file_too_large');
   if (file.size === 0) throw new FileError('file_empty');
-  const [{ pdfItems }, { parseCardPdf }] = await Promise.all([import('./pdfText'), import('../../../shared/import/cardPdf')]);
-  let items;
+  let items, parseCardPdf;
   try {
-    items = await pdfItems(new Uint8Array(await file.arrayBuffer()));
-  } catch {
-    throw new FileError('pdf_unreadable');
+    const [m, p] = await Promise.all([import('./pdfText'), import('../../../shared/import/cardPdf')]);
+    parseCardPdf = p.parseCardPdf;
+    items = await m.pdfItems(new Uint8Array(await file.arrayBuffer()));
+  } catch (e) {
+    throw new FileError('pdf_unreadable', e instanceof Error && 'detail' in e ? String(e.detail) : e instanceof Error ? e.message : undefined);
   }
   const r = parseCardPdf(items);
   if (!r.rows.length) throw new FileError('pdf_no_table');
