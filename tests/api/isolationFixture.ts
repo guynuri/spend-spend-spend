@@ -72,6 +72,7 @@ async function side(label: 'A' | 'B'): Promise<Side> {
   ids.reminder = (await post('/api/reminders', { kind: 'import', freq: 'monthly', day: 1, hour: 9, accountId: ids.account })).id as string;
   await post('/api/reminders/devices', { endpoint: `https://fcm.googleapis.com/fcm/send/${label}-${ownerId}`, keys: { p256dh: 'B'.repeat(87), auth: 'a'.repeat(22) } });
   ids.device = (await DB.prepare('SELECT id FROM push_subscriptions WHERE user_id = ?1').bind(ownerId).first<{ id: string }>())!.id;
+  ids.captureKey = (await post('/api/capture-keys', { label: `phone${tag}`.slice(0, 60) })).id as string;
   return { householdId, ownerId, memberId, ownerCookie: cookie, inviteId: inv.id, ids };
 }
 
@@ -93,6 +94,7 @@ export async function buildIsolationFixture(): Promise<IsoFixture> {
     if (pattern.startsWith('/api/reminders/devices/')) return s.ids.device!;
     if (pattern.startsWith('/api/reminders/')) return s.ids.reminder!;
     if (pattern.startsWith('/api/goals/')) return param === 'cid' ? s.ids.contribution! : s.ids.goal!;
+    if (pattern.startsWith('/api/capture-keys/')) return s.ids.captureKey!;
     throw new Error(`no id mapping for ${pattern} :${param}`);
   };
   const bodyFor = (key: string, sideL: 'A' | 'B'): unknown => {

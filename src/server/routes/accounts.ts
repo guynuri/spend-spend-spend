@@ -5,6 +5,7 @@ import { accountCreate, accountPatch, balanceSet, type Account } from '../../sha
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
 import { balancesAt, snapshotsAndVariance } from '../db/sql/balances';
+import { refreshCardPayments } from '../db/sql/cards';
 
 export const accountRoutes = tenantGroup();
 
@@ -30,12 +31,18 @@ interface Row {
 accountRoutes.get('/', async (c) => {
   const { db, hh } = tctx(c);
   const today = householdToday(hh);
-  const [rows, bals, snaps] = await Promise.all([
+  const [rows, bals, snaps, paid] = await Promise.all([
     db.all<Row>('SELECT * FROM accounts WHERE household_id = ?1 ORDER BY archived, created_at'),
     balancesAt(db, today),
     snapshotsAndVariance(db),
+    // card bills paid from the bank (linked card charges): they lower what the card account owes
+    db.all<{ a: string; s: number }>(
+      "SELECT card_account_id AS a, -SUM(amount_minor) AS s FROM transactions WHERE household_id = ?1 AND kind = 'card_lump' AND card_account_id IS NOT NULL AND date <= ?2 GROUP BY card_account_id",
+      today,
+    ),
   ]);
   const bm = new Map(bals.map((b) => [b.account_id, b]));
+  const pm = new Map(paid.map((p) => [p.a, p.s]));
   const sm = new Map(snaps.map((s) => [s.account_id, s]));
   const accounts: Account[] = rows.map((r) => {
     const s = sm.get(r.id);
@@ -52,7 +59,7 @@ accountRoutes.get('/', async (c) => {
       includeInForecast: r.include_in_forecast === 1,
       isLiquid: r.is_liquid === 1,
       archived: r.archived === 1,
-      balanceMinor: bm.get(r.id)?.balance ?? r.opening_balance_minor,
+      balanceMinor: (bm.get(r.id)?.balance ?? r.opening_balance_minor) + (r.type === 'credit_card' ? (pm.get(r.id) ?? 0) : 0),
       balanceDate: today,
       // An investment balance moves with the market, so a gap vs. transactions is expected, not an error.
       varianceMinor: investment ? null : (s?.variance ?? null),
@@ -82,6 +89,7 @@ accountRoutes.post('/', async (c) => {
     }),
     db.audit(userId, 'account.create', 'account', id),
   ]);
+  await refreshCardPayments(db);
   return c.json({ id }, 201);
 });
 
@@ -112,6 +120,7 @@ accountRoutes.patch('/:id', async (c) => {
     b.type ? stored(b.type).is_investment : null,
   );
   if (!r.meta.changes) throw notFound();
+  await refreshCardPayments(db);
   return c.json({ ok: true });
 });
 
@@ -123,9 +132,11 @@ accountRoutes.delete('/:id', async (c) => {
   const used = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM transactions WHERE household_id = ?1 AND account_id = ?2', id);
   if (used!.n > 0) {
     await db.run('UPDATE accounts SET archived = 1 WHERE household_id = ?1 AND id = ?2', id);
+    await refreshCardPayments(db);
     return c.json({ archived: true });
   }
   await db.batch([db.stmt('DELETE FROM accounts WHERE household_id = ?1 AND id = ?2', id), db.audit(userId, 'account.delete', 'account', id)]);
+  await refreshCardPayments(db);
   return c.json({ deleted: true });
 });
 

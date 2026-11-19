@@ -1,7 +1,8 @@
 import type { SplitLine, Tx } from '../../../shared/schemas/ledger';
 
 export const TX_COLS = `t.id, t.account_id, t.date, t.value_date, t.amount_minor, t.description, t.reference, t.operation_type, t.category_id,
-  t.category_source, t.has_splits, t.kind, t.notes, t.recurring_id, t.recurring_due, t.planned_id, t.import_id, t.source, t.balance_after_minor`;
+  t.category_source, t.has_splits, t.kind, t.notes, t.recurring_id, t.recurring_due, t.planned_id, t.import_id, t.source, t.balance_after_minor,
+  t.card_account_id, t.captured`;
 
 export function mapTx(r: Record<string, unknown>, splits: SplitLine[] = []): Tx {
   return {
@@ -25,5 +26,8 @@ export function mapTx(r: Record<string, unknown>, splits: SplitLine[] = []): Tx 
     importId: (r.import_id as string) ?? null,
     source: r.source as Tx['source'],
     balanceAfterMinor: (r.balance_after_minor as number) ?? null,
+    // a bank card charge booked as the bill of this card account (null: not linked, incl. "never link")
+    cardAccountId: r.card_account_id && r.card_account_id !== 'none' ? (r.card_account_id as string) : null,
+    captured: r.captured === 1,
   };
 }

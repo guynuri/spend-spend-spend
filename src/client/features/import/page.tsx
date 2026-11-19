@@ -99,7 +99,7 @@ export function Component() {
   const canWrite = useCanWrite();
   const cats = useCategoryMap();
   const accountsQ = useAccounts();
-  const accounts = (accountsQ.data?.accounts ?? []).filter((a) => !a.archived && a.type !== 'credit_card');
+  const allAccounts = (accountsQ.data?.accounts ?? []).filter((a) => !a.archived);
   const bankName = useBankName();
   // '' = detect from the file; ask only when it can't be inferred
   // ?account=<id> preselects (reminder links); &openBank=1 offers the bank website prominently
@@ -111,7 +111,7 @@ export function Component() {
     const list = accountsQ.data?.accounts;
     if (!id || !list) return;
     preset.current = null; // once, and only for a listed, importable account
-    if (list.some((a) => a.id === id && !a.archived && a.type !== 'credit_card')) setAccountId(id);
+    if (list.some((a) => a.id === id && !a.archived)) setAccountId(id);
   }, [accountsQ.data]);
   const [autoPicked, setAutoPicked] = useState(false);
   const [newName, setNewName] = useState('');
@@ -136,12 +136,18 @@ export function Component() {
   // whose `gen` is no longer current is dropped, so quick A→B→C switches can't land out of order.
   const gen = useRef(0);
   const acc = accountId;
-  const accObj = accounts.find((a) => a.id === acc);
+  // A card-issuer file goes to a credit-card account (its purchases); everything else to a bank account (D-R20).
+  const isCard = (a: { type: string }) => a.type === 'credit_card';
+  // a recognized layout fixes the kind of account; a file mapped by hand may go to either
+  const fits = (a: { type: string }, p: Parsed | null) => !p?.result || isCard(a) === p.card;
+  const accounts = allAccounts.filter((a) => fits(a, orig));
+  const accObj = allAccounts.find((a) => a.id === acc);
 
   const reset = () => {
     gen.current++; // drop any in-flight derive
     setStep('pick');
     setParsed(null);
+    setOrig(null);
     setResult(null);
     setPreview(null);
     setSummary(null);
@@ -183,14 +189,15 @@ export function Component() {
     setStep('parsing');
     try {
       const p = await parseFile(file);
-      // Card statements would double count the card lump already in the bank file (PLAN D-10).
-      if (p.card) throw new FileError('card_file');
       setParsed(p);
       setOrig(p);
       const mask = p.result?.accountMask;
-      const inferred = inferAccount(accounts, { accountMask: mask, bankIds: p.bankIds });
+      // card files only fit card accounts and bank files only bank accounts: a pick of the other kind is ignored
+      const fit = allAccounts.filter((a) => fits(a, p));
+      const inferred = inferAccount(fit, { accountMask: mask, bankIds: p.bankIds });
+      const picked = fit.some((a) => a.id === acc) ? acc : '';
       // an account-number match beats the pre-selection; otherwise the user's pick wins
-      const account = (mask && inferred?.accountMask === mask ? inferred.id : acc) || inferred?.id;
+      const account = (mask && inferred?.accountMask === mask ? inferred.id : picked) || inferred?.id;
       setAutoPicked(!!account && account !== acc);
       if (!account) return setStep('account');
       setAccountId(account);
@@ -204,7 +211,7 @@ export function Component() {
   const createAccount = async () => {
     setCreating(true);
     try {
-      const { id } = await post<{ id: string }>('/api/accounts', { name: newName.trim(), type: 'checking', bankId: parsed?.bankIds[0] ?? null });
+      const { id } = await post<{ id: string }>('/api/accounts', { name: newName.trim(), type: parsed?.card ? 'credit_card' : 'checking', bankId: parsed?.bankIds[0] ?? null });
       await qc.invalidateQueries({ queryKey: QK.accounts });
       setAccountId(id);
       await proceed(orig!, id);
@@ -219,6 +226,13 @@ export function Component() {
   const proceed = async (p: Parsed, account: string, current?: Mapping | null) => {
     const my = ++gen.current;
     setStep('previewing');
+    // A card file into a card account: every purchase, billed or not (cardAccountResult).
+    if (p.card && p.result) {
+      setParsed(p);
+      const { cardAccountResult } = await import('../../../shared/import/cardAccount');
+      if (my !== gen.current) return;
+      return void (await runPreview(cardAccountResult(p.result, p.grid), account));
+    }
     // A mapping the household saved for this header wins over format detection, so re-imports keep
     // the same description column and dedupe keys.
     let profiles: Map<string, Mapping>;
@@ -303,7 +317,7 @@ export function Component() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('import.title')} subtitle={t('import.subtitle')} />
-      {accountsQ.data && accounts.length === 0 ? (
+      {accountsQ.data && allAccounts.length === 0 ? (
         <EmptyState
           title={t('import.newAccount')}
           action={

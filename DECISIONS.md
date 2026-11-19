@@ -295,3 +295,47 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Rejected:** a hidden system category for the pool (would leak into pickers, rules and the ledger);
   re-interpreting `budgets.limit_minor` as yearly for occasional categories (switching modes would
   silently change the meaning of past rows).
+
+## D-R20 · 2026-11-19 · Card accounts, Apple Pay capture, files shared from the phone (supersedes PLAN D-10 for card accounts)
+- **Card accounts:** card-issuer files (Isracard / Amex, Max, Cal) are now imported, into credit-card
+  accounts only (`wrong_account_type` otherwise; a hand-mapped generic file may go to either). For a card
+  account the file gives every purchase: billed rows at the charged ILS amount; rows not billed yet at
+  the transaction amount when it is in shekels (foreign ones wait for the billing file); installment k
+  of n dated k − 1 months after the purchase and keyed `ref k/n`, so each month's installment is its own
+  row and repeated uploads never drop one (`shared/import/cardAccount.ts`). Rows on a card account are
+  never flagged as card lumps.
+- **Linking the bank's card charge:** `transactions.card_account_id` (migration 0017). After every write
+  that can change it (imports, undo, manual create / edit / delete, captures, account changes)
+  `refreshCardPayments` links placeholder card charges (uncategorized or "card not split", never one the
+  user split or categorized) to a card account: issuer named in the description (Isracard and Amex as
+  one group), then the account's last 4 digits, then the account whose previous-month purchases are
+  closest (≤ 10 %); ambiguous → left unlinked. A linked charge is booked by app-owned split lines:
+  the bill payment (Internal transfers, not spending) and the part not explained by the card account's
+  purchases in the calendar month before the charge ("card not split", still spending — shown as "not
+  itemized yet" in the budget banner and the transaction sheet). So totals never lose or double card
+  spending: with no card data the charge counts as before, and it shrinks to a transfer as purchases
+  arrive. Charges older than the card account's first purchase month aren't linked automatically.
+  The user can link / unlink by hand (`PATCH cardAccountId`; null = "not a card bill", stored as
+  `'none'` so it is never re-linked); a linked charge can't be split by hand. A card account's balance
+  is what it owes: purchases minus linked bill payments.
+- **Billing cycle:** "the calendar month before the charge" approximates Israeli cycles (charges on
+  the 2nd–15th for the previous month's purchases). Purchases near a cycle edge can show a temporary
+  "not itemized" amount until the next charge; totals over two months stay right.
+- **Apple Pay capture:** per-user keys (`capture_keys`, SHA-256 at rest, shown once, ≤ 5, revocable;
+  viewers get none). `POST /api/hook/purchase` (bearer key, CSRF-exempt because it never uses the
+  cookie, rate-limited, failures count toward the token-failure limit) adds a manual row with
+  `captured = 1` on the card account matched from Wallet's card name (last 4 digits → issuer → account
+  name → the only card account). It goes through rules, recurring linking and the card refresh. Retries
+  within 5 minutes are not added twice; foreign-currency purchases are skipped (their ILS amount comes
+  with the card file). Captured rows are manual rows, so the existing import merge (same account and
+  amount, ± 3 days) replaces them with the file's row, keeping the category; `captured` is cleared on
+  merge and restored on undo.
+- **Files shared from the phone:** `POST /api/hook/file` (same key) reads an uploaded bank or card file
+  on the server (SheetJS loads only for this route; the Worker stays ≈ 0.6 MB compressed), picks the
+  account like the import page (mask / bank / the only fitting account) and runs the same commit
+  (`commitImport`). Unrecognized layouts or ambiguous accounts are refused with a message to use the
+  Import page. This is the one path where a file leaves the device; it is read in memory and never
+  stored (the Settings card says so). AC4.2 still holds for the Import page.
+- **Setup:** Settings → "Live card tracking": key management and step-by-step Shortcuts instructions
+  (Wallet "Transaction" automation, a Share-sheet shortcut). An iCloud shortcut link can't be produced
+  from here; the instructions are untested on a device.

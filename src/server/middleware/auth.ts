@@ -10,10 +10,13 @@ import { DEMO_HOUSEHOLD } from '../seed/demoHousehold';
 export const SESSION_COOKIE = '__Host-mz_session';
 const HOUR = 3_600_000;
 
-/** CSRF: non-GET needs same Origin, X-MZ: 1 and a JSON content type (PLAN §7). */
+/**
+ * CSRF: non-GET needs same Origin, X-MZ: 1 and a JSON content type (PLAN §7). The phone-automation hooks
+ * are exempt: they authenticate with a bearer key, never a cookie, so a cross-site request can't ride on them.
+ */
 export const csrf: MiddlewareHandler<AppCtx> = async (c, next) => {
   const m = c.req.method;
-  if (m !== 'GET' && m !== 'HEAD' && m !== 'OPTIONS') {
+  if (m !== 'GET' && m !== 'HEAD' && m !== 'OPTIONS' && !c.req.path.startsWith('/api/hook/')) {
     const origin = c.req.header('origin');
     const reqOrigin = new URL(c.req.url).origin;
     const ct = (c.req.header('content-type') ?? '').toLowerCase();
@@ -24,6 +27,8 @@ export const csrf: MiddlewareHandler<AppCtx> = async (c, next) => {
 
 /** Loads the session if a valid cookie is present; never fails by itself. */
 export const loadSession: MiddlewareHandler<AppCtx> = async (c, next) => {
+  // hooks never use the session cookie (see csrf)
+  if (c.req.path.startsWith('/api/hook/')) return next();
   const token = getCookie(c, SESSION_COOKIE);
   if (token && token.length < 100) {
     const g = globalDb(c.env.DB);

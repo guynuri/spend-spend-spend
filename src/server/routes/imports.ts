@@ -16,12 +16,17 @@ import { applyRulesStmt, winningRuleSql } from '../db/sql/rules';
 import { afterTransactionsWritten } from '../db/sql/linking';
 import { afterImportCommitted } from '../db/sql/detection';
 import type { TenantDb } from '../db/tenant';
+import type { HouseholdRow } from '../db/rows';
+import { refreshCardPayments } from '../db/sql/cards';
+import { CARD_PARSER_IDS } from '../../shared/import/formats';
+
+const isCardAccount = async (db: TenantDb, accountId: string) => (await db.first<{ type: string }>('SELECT type FROM accounts WHERE household_id = ?1 AND id = ?2', accountId))?.type === 'credit_card';
 
 export const importRoutes = tenantGroup();
 export const importProfileRoutes = tenantGroup();
 
 /** Server-side enrichment: dedupe key and normalized texts are always computed here. */
-const enrich = (r: WireRow) => ({ ...r, k: dedupeKey(r), dn: normKey(r.description), op: r.operationType ? norm(r.operationType) : null, lump: isCardLump(norm(r.description), r.amountMinor, CARD_ISSUER_PATTERNS) ? 1 : 0 });
+export const enrich = (r: WireRow) => ({ ...r, k: dedupeKey(r), dn: normKey(r.description), op: r.operationType ? norm(r.operationType) : null, lump: isCardLump(norm(r.description), r.amountMinor, CARD_ISSUER_PATTERNS) ? 1 : 0 });
 type Enriched = ReturnType<typeof enrich>;
 
 async function rowsBody(c: Ctx) {
@@ -61,6 +66,8 @@ importRoutes.post('/preview', async (c) => {
   const acc = id.safeParse(accountId);
   if (!acc.success) throw new HttpError(400, 'validation', 'accountId required');
   if (!(await db.owns('accounts', acc.data))) throw notFound();
+  // purchases on a card account are never the bank's card charge
+  const cardAccount = await isCardAccount(db, acc.data);
   const lumpCat = await db.first<{ id: string }>("SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'");
   const data = rows.map((r, i) => ({ i, k: r.k, dn: r.dn, op: r.op, a: r.amountMinor, d: r.date }));
   const res = await db.all<{ i: number; dup: number; man: number; cat: string | null }>(
@@ -81,7 +88,7 @@ importRoutes.post('/preview', async (c) => {
     const status: RowStatus = x.dup ? 'duplicate' : x.man ? 'matches_manual' : 'new';
     counts[status]++;
     // Same flag the commit stores (computed once in enrich), so preview and import always agree.
-    const lump = r.lump === 1;
+    const lump = r.lump === 1 && !cardAccount;
     return { row: r.row, status, kind: lump ? 'card_lump' : 'normal', categoryId: lump ? (lumpCat?.id ?? null) : x.cat };
   });
   return c.json({ rows: out, counts } satisfies PreviewResponse);
@@ -92,6 +99,10 @@ importRoutes.post('/', async (c) => {
   const b = await body(c, importCreate);
   const { db, userId } = tctx(c);
   await db.assertOwned({ accounts: [b.accountId] });
+  // card-issuer files hold a card's purchases: they go to a credit-card account, and bank files never do
+  // (a mapped 'generic' file may be either)
+  const card = await isCardAccount(db, b.accountId);
+  if (b.parserId !== 'generic' && CARD_PARSER_IDS.includes(b.parserId) !== card) throw new HttpError(400, 'wrong_account_type', card ? 'Bank files go to a bank account' : 'Card files go to a credit-card account');
   const idv = newId();
   await db.insert('imports', {
     id: idv,
@@ -112,7 +123,7 @@ importRoutes.post('/', async (c) => {
   return c.json({ importId: idv }, 201);
 });
 
-async function openImport(db: TenantDb, importId: string) {
+export async function openImport(db: TenantDb, importId: string) {
   const imp = await db.first<{ id: string; account_id: string; status: string; closing_balance_minor: number | null; closing_date: string | null; rows_total: number }>(
     'SELECT id, account_id, status, closing_balance_minor, closing_date, rows_total FROM imports WHERE household_id = ?1 AND id = ?2',
     importId,
@@ -141,9 +152,15 @@ const STAGED = `SELECT json_extract(j.value, '$.k') AS k, json_extract(j.value, 
 
 importRoutes.post('/:id/commit', async (c) => {
   const { db, userId, hh } = tctx(c);
-  const imp = await openImport(db, c.req.param('id'));
+  return c.json(await commitImport(db, hh, userId, c.req.param('id'), c.get('rid')));
+});
+
+/** Commits a staged import (used by the import page and by the file hook). */
+export async function commitImport(db: TenantDb, hh: HouseholdRow, userId: string, importId: string, rid?: string): Promise<ImportSummary> {
+  const imp = await openImport(db, importId);
   if (imp.status !== 'open') throw new HttpError(409, 'import_closed', 'Import is not open');
   const now = nowIso();
+  const cardAccount = await isCardAccount(db, imp.account_id);
   const staged = await db.first<{ n: number }>('SELECT COALESCE(SUM(json_array_length(rows_json)), 0) AS n FROM import_rows WHERE household_id = ?1 AND import_id = ?2', imp.id);
 
   // 1) pair new rows with matching manual entries (same account & amount, ±3 days); merge them.
@@ -164,10 +181,12 @@ importRoutes.post('/:id/commit', async (c) => {
       db.stmt(
         `UPDATE transactions SET
            pre_merge_json = json_object('date', date, 'value_date', value_date, 'description', description, 'description_norm', description_norm,
-                                        'reference', reference, 'operation_type', operation_type, 'balance_after_minor', balance_after_minor, 'dedupe_key', dedupe_key),
+                                        'reference', reference, 'operation_type', operation_type, 'balance_after_minor', balance_after_minor, 'dedupe_key', dedupe_key,
+                                        'captured', captured),
            date = json_extract(p.v, '$.date'), value_date = json_extract(p.v, '$.valueDate'), description = json_extract(p.v, '$.description'),
            description_norm = json_extract(p.v, '$.dn'), reference = json_extract(p.v, '$.reference'), operation_type = json_extract(p.v, '$.op'),
-           balance_after_minor = json_extract(p.v, '$.balanceMinor'), dedupe_key = json_extract(p.v, '$.k'), merged_import_id = ?2, updated_at = ?3
+           balance_after_minor = json_extract(p.v, '$.balanceMinor'), dedupe_key = json_extract(p.v, '$.k'), merged_import_id = ?2, updated_at = ?3,
+           captured = 0
          FROM (SELECT json_extract(j.value, '$.mid') AS mid, json_extract(j.value, '$.v') AS v FROM json_each(?4) j) AS p
          WHERE transactions.household_id = ?1 AND transactions.id = p.mid`,
         imp.id,
@@ -183,7 +202,7 @@ importRoutes.post('/:id/commit', async (c) => {
        SELECT substr(lower(hex(randomblob(11))), 1, 21), ?1, ?3, json_extract(j.value, '$.date'), json_extract(j.value, '$.valueDate'),
               json_extract(j.value, '$.amountMinor'), json_extract(j.value, '$.description'), json_extract(j.value, '$.dn'),
               json_extract(j.value, '$.reference'), json_extract(j.value, '$.op'),
-              CASE WHEN json_extract(j.value, '$.lump') = 1 THEN 'card_lump' ELSE 'normal' END, ?2, json_extract(j.value, '$.k'),
+              CASE WHEN json_extract(j.value, '$.lump') = 1 AND ?6 = 0 THEN 'card_lump' ELSE 'normal' END, ?2, json_extract(j.value, '$.k'),
               json_extract(j.value, '$.balanceMinor'), 'import', ?4, ?5, ?5
          FROM import_rows ir, json_each(ir.rows_json) j
         WHERE ir.household_id = ?1 AND ir.import_id = ?2 AND EXISTS (SELECT 1 FROM accounts a WHERE a.household_id = ?1 AND a.id = ?3)
@@ -193,6 +212,7 @@ importRoutes.post('/:id/commit', async (c) => {
       imp.account_id,
       userId,
       now,
+      cardAccount ? 1 : 0,
     ),
   );
   // 3) flag card lumps, 4) rules
@@ -229,8 +249,9 @@ importRoutes.post('/:id/commit', async (c) => {
   try {
     await afterTransactionsWritten(db, { importId: imp.id }, householdToday(hh));
     await afterImportCommitted(db, householdToday(hh));
+    await refreshCardPayments(db);
   } catch (e) {
-    console.error(JSON.stringify({ rid: c.get('rid'), error: 'import_postprocess', msg: String((e as Error).message).slice(0, 200) }));
+    console.error(JSON.stringify({ rid, error: 'import_postprocess', msg: String((e as Error).message).slice(0, 200) }));
   }
   await db.batch([
     db.stmt(
@@ -244,8 +265,8 @@ importRoutes.post('/:id/commit', async (c) => {
     db.audit(userId, 'import.commit', 'import', imp.id, { inserted, merged, duplicates }),
   ]);
   const row = await db.first('SELECT * FROM imports WHERE household_id = ?1 AND id = ?2', imp.id);
-  return c.json(mapImport(row!));
-});
+  return mapImport(row!);
+}
 
 importRoutes.get('/', async (c) => {
   const { db } = tctx(c);
@@ -281,7 +302,7 @@ importRoutes.delete('/:id', async (c) => {
          description = json_extract(pre_merge_json, '$.description'), description_norm = json_extract(pre_merge_json, '$.description_norm'),
          reference = json_extract(pre_merge_json, '$.reference'), operation_type = json_extract(pre_merge_json, '$.operation_type'),
          balance_after_minor = json_extract(pre_merge_json, '$.balance_after_minor'), dedupe_key = json_extract(pre_merge_json, '$.dedupe_key'),
-         merged_import_id = NULL, pre_merge_json = NULL, updated_at = ?3
+         captured = COALESCE(json_extract(pre_merge_json, '$.captured'), 0), merged_import_id = NULL, pre_merge_json = NULL, updated_at = ?3
        WHERE household_id = ?1 AND merged_import_id = ?2`,
       imp.id,
       now,
@@ -292,6 +313,7 @@ importRoutes.delete('/:id', async (c) => {
     db.audit(userId, 'import.undo', 'import', imp.id),
   ]);
   await afterImportCommitted(db, householdToday(hh));
+  await refreshCardPayments(db);
   return c.json({ ok: true });
 });
 

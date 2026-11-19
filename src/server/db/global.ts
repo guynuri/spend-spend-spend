@@ -199,6 +199,22 @@ export function globalDb(db: D1Database) {
       ).results,
     revokeInvite: (householdId: string, id: string) => db.prepare('UPDATE invites SET revoked_at = ?3 WHERE id = ?1 AND household_id = ?2 AND used_at IS NULL').bind(id, householdId, nowIso()).run(),
 
+    // ---------- phone-automation keys (capture_keys) ----------
+    /**
+     * The key behind a hook request, with the owner's current role and the household's status: a key
+     * stops working once revoked, once its user leaves the household, or if the household is disabled.
+     */
+    captureKey: (tokenHash: string) =>
+      db
+        .prepare(
+          `SELECT k.id, k.household_id, k.user_id, m.role FROM capture_keys k
+             JOIN memberships m ON m.household_id = k.household_id AND m.user_id = k.user_id
+            WHERE k.token_hash = ?1 AND k.revoked_at IS NULL`,
+        )
+        .bind(tokenHash)
+        .first<{ id: string; household_id: string; user_id: string; role: string }>(),
+    touchCaptureKey: (id: string) => db.prepare('UPDATE capture_keys SET last_used_at = ?2 WHERE id = ?1').bind(id, nowIso()).run(),
+
     // ---------- rate limits ----------
     /** Increments and returns the count for key in the current fixed window. */
     hit: async (key: string, windowMs: number) => {

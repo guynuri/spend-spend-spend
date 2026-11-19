@@ -65,6 +65,8 @@ export const txPatch = z
     recurringId: id.nullable().optional(),
     recurringDue: dateStr.nullable().optional(),
     learn: z.boolean().optional(),
+    /** Card charges: the card account it pays, or null = not a card bill (never linked automatically again). */
+    cardAccountId: id.nullable().optional(),
   })
   .strict();
 export const splitsPut = z.object({ lines: z.array(z.object({ categoryId: id.nullable(), amountMinor: minor, note: text(120).optional() }).strict()).max(30) }).strict();
@@ -151,6 +153,10 @@ export interface Tx {
   importId: string | null;
   source: 'import' | 'manual';
   balanceAfterMinor: number | null;
+  /** A bank card charge booked as the bill of this credit-card account (its purchases are the spending). */
+  cardAccountId: string | null;
+  /** Added by a phone automation (Apple Pay); replaced by the card file's row when that is imported. */
+  captured: boolean;
 }
 export interface TxList {
   items: Tx[];

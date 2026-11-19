@@ -7,10 +7,11 @@ import { setTheme, storedTheme, type Theme } from '../../theme';
 import type { Locale } from '../../../shared/money';
 import { useNavTabs, useSavePrefs } from '../../lib/prefs';
 import { PAGE_ITEMS } from '../../lib/nav';
-import { useMe } from '../../lib/session';
 import { AiSettings } from '../ai/AiSettings';
 import { SecurityCard } from './Security';
 import { RemindersCard } from './Reminders';
+import { LiveCaptureCard } from './LiveCapture';
+import { useCanWrite, useMe } from '../../lib/session';
 
 export function AppearanceCard() {
   const { t, i18n } = useTranslation();
@@ -102,12 +103,14 @@ function NavBarCard() {
 export function Component() {
   const { t } = useTranslation();
   const me = useMe();
+  const canWrite = useCanWrite();
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('settings.title')} />
       <AppearanceCard />
       <NavBarCard />
       {me?.active && <RemindersCard />}
+      {me?.active && canWrite && <LiveCaptureCard />}
       {me?.active && <AiSettings />}
       <SecurityCard />
     </div>

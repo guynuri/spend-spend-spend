@@ -55,7 +55,7 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
          LEFT JOIN transaction_splits s ON s.id = l.split_id AND s.household_id = ?1
          LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
         WHERE l.household_id = ?1 AND l.date >= ?2 AND l.date <= ?3 AND l.amount_minor < 0 AND (c.kind IS NULL OR c.kind <> 'transfer')
-          AND NOT (l.kind = 'card_lump' AND l.split_id IS NULL AND (c.id IS NULL OR c.system_key = 'card_unsplit'))`,
+          AND NOT (l.kind = 'card_lump' AND (COALESCE(c.system_key, '') = 'card_unsplit' OR (l.split_id IS NULL AND c.id IS NULL)))`,
       monthStart(month),
       monthEnd(month),
     ),
