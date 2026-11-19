@@ -88,6 +88,7 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/trends/categories': 'tenant',
   'GET /api/trends/daily': 'tenant',
   'GET /api/trends/monthly': 'tenant',
+  'GET /api/trends/occasional': 'tenant',
   'GET /api/recurring': 'tenant',
   'POST /api/recurring': 'tenant',
   'PATCH /api/recurring/:id': 'tenant',

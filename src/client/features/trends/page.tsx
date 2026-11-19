@@ -6,7 +6,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { get } from '../../api';
-import { Card, CardTitle, cx, EmptyState, ErrorState, Field, IconButton, Input, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
+import { Badge, Card, CardTitle, cx, EmptyState, ErrorState, Field, IconButton, Input, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { DateText, useFormatDate } from '../../components/DateText';
 import { CategorySelect } from '../../components/CategorySelect';
@@ -16,6 +16,9 @@ import { useMe } from '../../lib/session';
 import { addDays, dayOf, isValidDate, isValidMonth, MAX_RANGE_DAYS, monthEnd, monthOf, monthStart } from '../../../shared/dates';
 import { clampRange, parseStored, presetOf, presetRange, PRESETS, shiftRange, validRange, type Preset, type Range } from './range';
 import { formatPercent, type Locale } from '../../../shared/money';
+import { GENERAL_ID } from '../../../shared/domain/budget';
+
+type CatItem = { categoryId: string | null; spentMinor: number; share: number; occasional?: boolean; members?: { categoryId: string; spentMinor: number; share: number }[] };
 
 const LS_KEY = 'mz_trends_range';
 const load = () => {
@@ -91,34 +94,127 @@ function RangeControl({ range, today, onChange }: { range: Range; today: string;
   );
 }
 
-function ByCategory({ range: { from, to } }: { range: Range }) {
+function CatRow({ name, spentMinor, share, to, badge }: { name: string; spentMinor: number; share: number; to?: string; badge?: string }) {
   const { t, i18n } = useTranslation();
+  const body = (
+    <>
+      <div className="flex justify-between gap-2 text-sm">
+        <span className="flex min-w-0 items-center gap-1">
+          <bdi className="truncate">{name}</bdi>
+          {badge && <Badge tone="accent">{badge}</Badge>}
+        </span>
+        <span className="shrink-0 text-muted">
+          <Money minor={spentMinor} decimals={0} /> · {formatPercent(share, i18n.language as Locale)}
+        </span>
+      </div>
+      <ProgressBar value={share} label={t('trends.share')} />
+    </>
+  );
+  return to ? (
+    <Link to={to} className="block min-h-11 rounded-lg active:bg-surface-2" data-testid="trend-category">
+      {body}
+    </Link>
+  ) : (
+    <div className="min-h-11">{body}</div>
+  );
+}
+
+function ByCategory({ range: { from, to } }: { range: Range }) {
+  const { t } = useTranslation();
   const cats = useCategoryMap();
-  const q = useQuery({ queryKey: ['trends', 'categories', from, to], queryFn: () => get<{ totalMinor: number; items: { categoryId: string | null; spentMinor: number; share: number }[] }>(`/api/trends/categories?from=${from}&to=${to}`) });
+  const [openGeneral, setOpenGeneral] = useState(false);
+  const q = useQuery({ queryKey: ['trends', 'categories', from, to], queryFn: () => get<{ totalMinor: number; items: CatItem[] }>(`/api/trends/categories?from=${from}&to=${to}`) });
   if (q.isPending) return <Spinner />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   if (!q.data.items.length) return <EmptyState title={t('trends.empty')} />;
+  const link = (cid: string | null) => `/transactions?from=${from}&to=${to}${cid ? `&category=${cid}` : '&uncategorized=1'}`;
   return (
     <Card>
       <CardTitle>
         {t('trends.total')}: <Money minor={q.data.totalMinor} decimals={0} tone="out" />
       </CardTitle>
       <ul className="flex flex-col gap-2" data-testid="trend-categories">
-        {q.data.items.map((i) => (
-          <li key={i.categoryId ?? 'none'}>
-            <Link
-              to={`/transactions?from=${from}&to=${to}${i.categoryId ? `&category=${i.categoryId}` : '&uncategorized=1'}`}
-              className="block min-h-11 rounded-lg active:bg-surface-2"
-              data-testid="trend-category"
-            >
-              <div className="flex justify-between gap-2 text-sm">
-                <bdi className="truncate">{i.categoryId ? cats.get(i.categoryId)?.name : t('trends.uncategorized')}</bdi>
-                <span className="shrink-0 text-muted">
-                  <Money minor={i.spentMinor} decimals={0} /> · {formatPercent(i.share, i18n.language as Locale)}
-                </span>
-              </div>
-              <ProgressBar value={i.share} label={t('trends.share')} />
+        {q.data.items.map((i) =>
+          i.categoryId === GENERAL_ID ? (
+            <li key={GENERAL_ID} data-testid="trend-general">
+              {/* general expenses: one row; tap to see the categories inside */}
+              <button type="button" className="block w-full text-start" aria-expanded={openGeneral} onClick={() => setOpenGeneral((v) => !v)}>
+                <CatRow name={t('budget.general.name')} spentMinor={i.spentMinor} share={i.share} badge={t(openGeneral ? 'trends.hide' : 'trends.showCount', { count: i.members?.length ?? 0 })} />
+              </button>
+              {openGeneral && (
+                <ul className="ms-4 mt-1 flex flex-col gap-1 border-s border-border ps-3">
+                  {(i.members ?? []).map((m) => (
+                    <li key={m.categoryId}>
+                      <CatRow name={cats.get(m.categoryId)?.name ?? ''} spentMinor={m.spentMinor} share={m.share} to={link(m.categoryId)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ) : (
+            <li key={i.categoryId ?? 'none'}>
+              <CatRow name={i.categoryId ? (cats.get(i.categoryId)?.name ?? '') : t('trends.uncategorized')} spentMinor={i.spentMinor} share={i.share} to={link(i.categoryId)} badge={i.occasional ? t('categories.mode.occasionalShort') : undefined} />
+            </li>
+          ),
+        )}
+      </ul>
+      {q.data.items.some((i) => i.occasional) && <p className="mt-3 text-xs text-muted">{t('trends.occasionalNote')}</p>}
+    </Card>
+  );
+}
+
+/** Occasional categories by quarter, this year vs last year: lumpy spending reads better over quarters and years. */
+function OccasionalByQuarter({ initialYear }: { initialYear: string }) {
+  const { t, i18n } = useTranslation();
+  const money = useMoneyFmt();
+  const compact = useCompactMoney();
+  const [year, setYear] = useState(initialYear);
+  type Resp = { year: string; prevYear: string; items: { categoryId: string; name: string; quarters: number[]; yearMinor: number; prevYearMinor: number }[]; quarters: { quarter: number; spentMinor: number; prevSpentMinor: number }[]; yearMinor: number; prevYearMinor: number };
+  const q = useQuery({ queryKey: ['trends', 'occasional', year], queryFn: () => get<Resp>(`/api/trends/occasional?year=${year}`) });
+  if (q.isPending) return <Spinner />;
+  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
+  const d = q.data;
+  if (!d.items.length) return null;
+  const data = d.quarters.map((x) => ({ ...x, label: t('trends.quarter', { n: x.quarter }) }));
+  return (
+    <Card data-testid="trend-occasional">
+      <CardTitle>{t('trends.occasionalTitle')}</CardTitle>
+      <div className="flex items-center justify-between">
+        <IconButton label={t('trends.prevPeriod')} onClick={() => setYear(String(Number(year) - 1))} data-testid="occ-prev">
+          <ChevronLeft className="size-5 rtl:-scale-x-100" aria-hidden />
+        </IconButton>
+        <span className="font-semibold">{year}</span>
+        <IconButton label={t('trends.nextPeriod')} onClick={() => setYear(String(Number(year) + 1))} data-testid="occ-next">
+          <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />
+        </IconButton>
+      </div>
+      <p className="mb-2 text-sm">
+        <Money minor={d.yearMinor} decimals={0} className="font-semibold" /> <span className="text-muted">{t('trends.occasionalVsPrev', { year: d.prevYear, amount: money(d.prevYearMinor) })}</span>
+      </p>
+      {(d.yearMinor !== 0 || d.prevYearMinor !== 0) && (
+        <ChartBox label={t('trends.occasionalTitle')} height={200}>
+          <ResponsiveContainer>
+            <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+              <CartesianGrid stroke={C.grid} vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: C.text }} tickLine={false} axisLine={false} />
+              <YAxis tickFormatter={compact} tick={{ fill: C.text }} width={56} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => money(Number(v))} {...tooltipStyle(i18n.dir() === 'rtl')} />
+              <Legend wrapperStyle={{ direction: i18n.dir() }} />
+              <Bar dataKey="prevSpentMinor" name={d.prevYear} fill={C.muted} radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar dataKey="spentMinor" name={d.year} fill={C.warn} radius={[4, 4, 0, 0]} maxBarSize={24} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartBox>
+      )}
+      <ul className="mt-2 divide-y divide-border text-sm" data-testid="trend-occasional-items">
+        {d.items.map((i) => (
+          <li key={i.categoryId} className="flex min-h-11 items-center justify-between gap-2">
+            <Link to={`/transactions?from=${year}-01-01&to=${year}-12-31&category=${i.categoryId}`} className="min-w-0 truncate">
+              <bdi>{i.name}</bdi>
             </Link>
+            <span className="shrink-0 text-muted">
+              <Money minor={i.yearMinor} decimals={0} className="text-text" /> · {d.prevYear}: <Money minor={i.prevYearMinor} decimals={0} />
+            </span>
           </li>
         ))}
       </ul>
@@ -195,14 +291,18 @@ function OverMonths({ range: { from, to } }: { range: Range }) {
   const [cat, setCat] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ['trends', 'monthly', from, to, cat],
-    queryFn: () => get<{ points: { month: string; partial: boolean; incomeMinor?: number; expensesMinor?: number; netMinor?: number; spentMinor?: number }[] }>(`/api/trends/monthly?from=${from}&to=${to}${cat ? `&category=${cat}` : ''}`),
+    queryFn: () =>
+      get<{ points: { month: string; partial: boolean; incomeMinor?: number; expensesMinor?: number; everydayMinor?: number; occasionalMinor?: number; netMinor?: number; spentMinor?: number }[] }>(
+        `/api/trends/monthly?from=${from}&to=${to}${cat ? `&category=${cat}` : ''}`,
+      ),
   });
+  const hasOccasional = (q.data?.points ?? []).some((p) => p.occasionalMinor);
   const data = (q.data?.points ?? []).map((p) => ({ ...p, label: fmt(p.month, 'monthShortYear') }));
   const partialLabel = (l: unknown, p: readonly { payload?: { partial?: boolean } }[]) => `${String(l)}${p[0]?.payload?.partial ? ` ${t('trends.partial')}` : ''}`;
   return (
     <Card>
       <div className="mb-3">
-        <CategorySelect value={cat} onChange={setCat} emptyLabel={t('trends.allCategories')} aria-label={t('trends.category')} data-testid="trend-category-select" />
+        <CategorySelect value={cat} onChange={setCat} emptyLabel={t('trends.allCategories')} extra={[{ value: GENERAL_ID, label: t('budget.general.name') }]} aria-label={t('trends.category')} data-testid="trend-category-select" />
       </div>
       {q.isPending ? (
         <Spinner />
@@ -227,7 +327,15 @@ function OverMonths({ range: { from, to } }: { range: Range }) {
                 <Tooltip formatter={(v) => money(Number(v))} labelFormatter={partialLabel} {...tooltipStyle(i18n.dir() === 'rtl')} />
                 <Legend wrapperStyle={{ direction: i18n.dir() }} />
                 <Bar dataKey="incomeMinor" name={t('trends.income')} fill={C.good} radius={[4, 4, 0, 0]} maxBarSize={24} />
-                <Bar dataKey="expensesMinor" name={t('trends.expenses')} fill={C.bad} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                {hasOccasional ? (
+                  <>
+                    {/* everyday spending, with occasional spending (trips, gifts) stacked on top */}
+                    <Bar dataKey="everydayMinor" stackId="exp" name={t('trends.everyday')} fill={C.bad} maxBarSize={24} />
+                    <Bar dataKey="occasionalMinor" stackId="exp" name={t('trends.occasional')} fill={C.warn} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                  </>
+                ) : (
+                  <Bar dataKey="expensesMinor" name={t('trends.expenses')} fill={C.bad} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                )}
                 <Line dataKey="netMinor" name={t('trends.net')} stroke={C.accent} strokeWidth={2} />
               </ComposedChart>
             )}
@@ -281,8 +389,9 @@ export function Component() {
           {/* "This year" compares with the same months last year; everything else with the period before */}
           <ByDay range={range} yoy={presetOf(range, today) === 'year'} />
         </Tabs.Content>
-        <Tabs.Content value="months">
+        <Tabs.Content value="months" className="flex flex-col gap-4">
           <OverMonths range={range} />
+          <OccasionalByQuarter key={range.to.slice(0, 4)} initialYear={range.to.slice(0, 4)} />
         </Tabs.Content>
       </Tabs.Root>
     </div>

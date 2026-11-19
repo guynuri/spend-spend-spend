@@ -43,13 +43,27 @@ function Cats({ items }: { items: CatAmount[] }) {
     <ul className="flex flex-col gap-2">
       {items.slice(0, 10).map((c, i) => (
         <li key={i}>
-          <div className="flex justify-between text-sm">
-            <bdi>{c.name ?? t('ledger.uncategorized')}</bdi>
-            <span className="text-muted">
+          <div className="flex justify-between gap-2 text-sm">
+            <span className="flex min-w-0 items-center gap-1">
+              <bdi className="truncate">{c.name ?? t('ledger.uncategorized')}</bdi>
+              {c.occasional && <Badge tone="accent">{t('categories.mode.occasionalShort')}</Badge>}
+            </span>
+            <span className="shrink-0 text-muted">
               <Money minor={c.amountMinor} decimals={0} /> · {formatPercent(c.share, i18n.language as Locale)}
             </span>
           </div>
           <ProgressBar value={c.share} label={c.name ?? ''} />
+          {/* general expenses: what's inside the pooled line */}
+          {c.members && c.members.length > 0 && (
+            <p className="mt-0.5 text-xs text-muted" data-testid="review-general-members">
+              {c.members.map((m, k) => (
+                <span key={m.categoryId}>
+                  {k > 0 && ' · '}
+                  <bdi>{m.name}</bdi> <Money minor={m.amountMinor} decimals={0} />
+                </span>
+              ))}
+            </p>
+          )}
         </li>
       ))}
     </ul>
@@ -58,6 +72,7 @@ function Cats({ items }: { items: CatAmount[] }) {
 
 export function ChapterView({ ch, s }: { ch: Chapter; s: ReviewSnapshot }) {
   const { t, i18n } = useTranslation();
+  const pf = useParamFormatter();
   const loc = i18n.language as Locale;
   switch (ch) {
     case 'summary':
@@ -99,6 +114,11 @@ export function ChapterView({ ch, s }: { ch: Chapter; s: ReviewSnapshot }) {
         <div className="flex flex-col gap-4">
           <Stat label={t('dashboard.expenses')} value={s.spending.totalMinor} prev={s.spending.prevMinor} tone="out" />
           <CommentaryText c={s.spending.commentary} />
+          {s.spending.occasional && (
+            <p className="text-sm text-muted" data-testid="review-occasional">
+              {t(s.spending.occasional.commentary.key, pf(s.spending.occasional.commentary.params))}
+            </p>
+          )}
           <Cats items={s.spending.byCategory} />
           {s.spending.notable.length > 0 && (
             <div>
@@ -108,6 +128,18 @@ export function ChapterView({ ch, s }: { ch: Chapter; s: ReviewSnapshot }) {
                   <li key={i} className="flex justify-between gap-2 py-2">
                     <span className="min-w-0 truncate">
                       <DateText date={n.date} format="dayMonth" className="text-muted" /> · <bdi>{n.description || n.category || t('ledger.noDescription')}</bdi>
+                      {/* a line of a split charge: what it bought, and which charge it came from */}
+                      {n.via !== undefined && (
+                        <span className="text-xs text-muted">
+                          {n.description && n.category && (
+                            <>
+                              {' · '}
+                              <bdi>{n.category}</bdi>
+                            </>
+                          )}{' '}
+                          · {t('review.via')} <bdi>{n.via}</bdi>
+                        </span>
+                      )}
                     </span>
                     <Money minor={n.amountMinor} decimals={0} />
                   </li>

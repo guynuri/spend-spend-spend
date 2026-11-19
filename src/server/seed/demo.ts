@@ -15,6 +15,8 @@ export interface DemoData {
   account_balances: Row[];
   recurring_items: Row[];
   budgets: Row[];
+  general_budgets: Row[];
+  yearly_budgets: Row[];
   goals: Row[];
   goal_contributions: Row[];
   planned_expenses: Row[];
@@ -73,7 +75,7 @@ export function buildDemo(today: string, locale: Locale, cat: Map<string, string
   const yesterday = addDays(today, -1);
   const checking = newId();
   const savings = newId();
-  const d: DemoData = { accounts: [], transactions: [], transaction_splits: [], account_balances: [], recurring_items: [], budgets: [], goals: [], goal_contributions: [], planned_expenses: [] };
+  const d: DemoData = { accounts: [], transactions: [], transaction_splits: [], account_balances: [], recurring_items: [], budgets: [], general_budgets: [], yearly_budgets: [], goals: [], goal_contributions: [], planned_expenses: [] };
   const openingDate = `${firstMonth}-01`;
   d.accounts.push(
     { id: checking, name: T.checking, type: 'checking', institution: locale === 'he' ? 'בנק אוצר החייל' : 'Otsar Ha-Hayal', account_mask: '1234', opening_balance_minor: 820000, opening_date: openingDate, include_in_forecast: 1, is_liquid: 1, created_at: nowIso },
@@ -178,13 +180,15 @@ export function buildDemo(today: string, locale: Locale, cat: Map<string, string
   const bal = 820000 + d.transactions.filter((t) => t.account_id === checking).reduce((a, t) => a + (t.amount_minor as number), 0);
   d.account_balances.push({ id: newId(), account_id: checking, date: yesterday, balance_minor: bal, source: 'manual', import_id: null });
 
-  // Budgets for 12 expense categories (two over, one around 90 % in the last full month).
+  // Budgets for 11 expense categories + the general pool (two over, one around 90 % in the last full month).
   const budget = (k: string, limit: number) => cat.get(k) && d.budgets.push({ id: newId(), category_id: cat.get(k)!, effective_from: firstMonth, limit_minor: limit });
   budget('groceries', 280000);
   budget('eating_out', 70000);
   budget('transport', 150000);
   budget('leisure', 60000);
-  budget('clothing', 50000);
+  // clothing is a "general expense" (pooled, one shared limit); travel is occasional (a yearly budget)
+  d.general_budgets.push({ id: newId(), effective_from: firstMonth, limit_minor: 50000, one_time: 0 });
+  if (cat.get('travel')) d.yearly_budgets.push({ id: newId(), category_id: cat.get('travel')!, year: firstMonth.slice(0, 4), limit_minor: 1200000 });
   budget('health', 80000);
   budget('home', 60000);
   budget('cash', 90000);
@@ -215,4 +219,4 @@ function monthEndDay(m: string) {
   return clampDay(m, daysInMonth(m));
 }
 
-export const DEMO_TABLE_ORDER: (keyof DemoData)[] = ['accounts', 'recurring_items', 'planned_expenses', 'transactions', 'transaction_splits', 'account_balances', 'budgets', 'goals', 'goal_contributions'];
+export const DEMO_TABLE_ORDER: (keyof DemoData)[] = ['accounts', 'recurring_items', 'planned_expenses', 'transactions', 'transaction_splits', 'account_balances', 'budgets', 'general_budgets', 'yearly_budgets', 'goals', 'goal_contributions'];

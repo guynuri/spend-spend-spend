@@ -16,6 +16,7 @@ export const mapCategory = (r: Record<string, unknown>): Category => ({
   kind: r.kind as Category['kind'],
   grp: (r.grp as Category['grp']) ?? null,
   isDebt: r.is_debt === 1,
+  budgetMode: (r.budget_mode as Category['budgetMode']) ?? 'monthly',
   systemKey: (r.system_key as string) ?? null,
   icon: (r.icon as string) ?? null,
   sort: r.sort as number,
@@ -37,6 +38,7 @@ const locale = (c: Ctx) => {
 const usageSql = (cat: string) => `(SELECT COUNT(*) FROM transactions WHERE household_id = ?1 AND category_id = ${cat})
   + (SELECT COUNT(*) FROM transaction_splits WHERE household_id = ?1 AND category_id = ${cat})
   + (SELECT COUNT(*) FROM budgets WHERE household_id = ?1 AND category_id = ${cat})
+  + (SELECT COUNT(*) FROM yearly_budgets WHERE household_id = ?1 AND category_id = ${cat})
   + (SELECT COUNT(*) FROM recurring_items WHERE household_id = ?1 AND category_id = ${cat})
   + (SELECT COUNT(*) FROM planned_expenses WHERE household_id = ?1 AND category_id = ${cat})`;
 
@@ -122,10 +124,12 @@ categoryRoutes.post('/', async (c) => {
   if (dup?.archived && dup.kind === b.kind) {
     // A hidden category with this name and kind comes back (with the requested group / debt flag).
     await db.run(
-      `UPDATE categories SET archived = 0, grp = CASE WHEN kind = 'expense' THEN COALESCE(?3, grp) ELSE grp END, is_debt = COALESCE(?4, is_debt) WHERE household_id = ?1 AND id = ?2`,
+      `UPDATE categories SET archived = 0, grp = CASE WHEN kind = 'expense' THEN COALESCE(?3, grp) ELSE grp END, is_debt = COALESCE(?4, is_debt),
+         budget_mode = CASE WHEN kind = 'expense' AND system_key IS NULL THEN COALESCE(?5, budget_mode) ELSE budget_mode END WHERE household_id = ?1 AND id = ?2`,
       dup.id,
       b.grp ?? null,
       b.isDebt ?? null,
+      b.budgetMode ?? null,
     );
     return c.json({ id: dup.id });
   }
@@ -133,7 +137,7 @@ categoryRoutes.post('/', async (c) => {
   if (dup) throw new HttpError(409, 'name_taken', 'Name already used');
   const id = newId();
   const max = await db.first<{ m: number }>('SELECT COALESCE(MAX(sort), 0) AS m FROM categories WHERE household_id = ?1');
-  await db.insert('categories', { id, name: b.name, kind: b.kind, grp: b.kind === 'expense' ? (b.grp ?? 'variable') : null, is_debt: b.isDebt ?? 0, sort: (max?.m ?? 0) + 1 });
+  await db.insert('categories', { id, name: b.name, kind: b.kind, grp: b.kind === 'expense' ? (b.grp ?? 'variable') : null, is_debt: b.isDebt ?? 0, budget_mode: b.kind === 'expense' ? (b.budgetMode ?? 'monthly') : 'monthly', sort: (max?.m ?? 0) + 1 });
   return c.json({ id }, 201);
 });
 
@@ -147,7 +151,8 @@ categoryRoutes.patch('/:id', async (c) => {
   }
   const r = await db.run(
     `UPDATE categories SET name = COALESCE(?3, name), grp = CASE WHEN ?4 = 1 AND kind = 'expense' THEN ?5 ELSE grp END,
-       is_debt = COALESCE(?6, is_debt), archived = COALESCE(?7, archived), sort = COALESCE(?8, sort)
+       is_debt = COALESCE(?6, is_debt), archived = COALESCE(?7, archived), sort = COALESCE(?8, sort),
+       budget_mode = CASE WHEN kind = 'expense' AND system_key IS NULL THEN COALESCE(?9, budget_mode) ELSE budget_mode END
      WHERE household_id = ?1 AND id = ?2`,
     id,
     b.name ?? null,
@@ -156,6 +161,7 @@ categoryRoutes.patch('/:id', async (c) => {
     b.isDebt ?? null,
     b.archived ?? null,
     b.sort ?? null,
+    b.budgetMode ?? null,
   );
   if (!r.meta.changes) throw notFound();
   return c.json({ ok: true });

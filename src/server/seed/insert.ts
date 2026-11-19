@@ -34,5 +34,16 @@ export async function buildDemoFor(q: TenantDb, today: string, locale: Locale) {
     await q.batch(q.bulkInsertStmts('categories', Object.keys(missing[0]!), missing));
     cats = await load();
   }
-  return buildDemo(today, locale, categoryKeyMap(cats), newId, nowIso());
+  const keyMap = categoryKeyMap(cats);
+  const data = buildDemo(today, locale, keyMap, newId, nowIso());
+  // An existing household's clothing / travel may not be general / occasional (categories made before
+  // budget modes, or changed by the user): budget them the way they are actually set up.
+  const modes = new Map((await q.all<{ id: string; budget_mode: string }>('SELECT id, budget_mode FROM categories WHERE household_id = ?1')).map((r) => [r.id, r.budget_mode]));
+  const clothing = keyMap.get('clothing');
+  if (clothing && modes.get(clothing) === 'monthly') {
+    data.budgets.push(...data.general_budgets.filter((g) => g.one_time === 0).map((g) => ({ id: g.id ?? null, category_id: clothing, effective_from: g.effective_from ?? null, limit_minor: g.limit_minor ?? null })));
+    data.general_budgets = [];
+  }
+  data.yearly_budgets = data.yearly_budgets.filter((y) => modes.get(y.category_id as string) === 'occasional');
+  return data;
 }

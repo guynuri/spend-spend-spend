@@ -3,6 +3,7 @@ import { tctx } from '../ctx';
 import { monthOf } from '../../shared/dates';
 import { displayMonth, lastCompleteMonths } from '../../shared/domain/common';
 import { usualMonth } from '../../shared/domain/usual';
+import { generalName, type BudgetMode } from '../../shared/domain/budget';
 import { loadBase, pnlByMonthStmt, spentByCategoryStmt, toPnlMap, toSpentMaps } from '../db/sql/facts';
 import type { TenantDb } from '../db/tenant';
 import type { BaseFacts } from '../db/sql/facts';
@@ -54,14 +55,18 @@ dashboardRoutes.get('/', async (c) => {
 async function usualFor(db: TenantDb, base: BaseFacts, month: string) {
   const months = lastCompleteMonths(base.complete, 6, month);
   if (!months.length) return null;
+  // occasional spending (trips, gifts) is averaged over up to a year
+  const occasionalMonths = lastCompleteMonths(base.complete, 12, month);
   const [pnl, spent, now, cats] = await db.batch([
     pnlByMonthStmt(db, months[0]!, months[months.length - 1]!),
-    spentByCategoryStmt(db, months[0]!, months[months.length - 1]!),
+    spentByCategoryStmt(db, occasionalMonths[0]!, months[months.length - 1]!),
     spentByCategoryStmt(db, month, month),
-    db.stmt('SELECT id, name, system_key FROM categories WHERE household_id = ?1'),
+    db.stmt('SELECT id, name, system_key, budget_mode FROM categories WHERE household_id = ?1'),
   ]);
   const thisMonth = new Map<string, number>();
   for (const [cid, mm] of toSpentMaps(now)) thisMonth.set(cid, mm.get(month) ?? 0);
-  const categories = new Map(((cats?.results ?? []) as { id: string; name: string; system_key: string | null }[]).map((c) => [c.id, { name: c.name, system: !!c.system_key }]));
-  return usualMonth({ months, pnl: toPnlMap(pnl), spent: toSpentMaps(spent), thisMonth, categories });
+  const categories = new Map(
+    ((cats?.results ?? []) as { id: string; name: string; system_key: string | null; budget_mode: BudgetMode }[]).map((c) => [c.id, { name: c.name, system: !!c.system_key, mode: c.budget_mode }]),
+  );
+  return usualMonth({ months, occasionalMonths, pnl: toPnlMap(pnl), spent: toSpentMaps(spent), thisMonth, categories, generalName: generalName(base.locale) });
 }

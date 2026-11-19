@@ -14,6 +14,8 @@ export interface BaseFacts {
   latestTx: string | null;
   hasForecastAccount: boolean;
   hasData: boolean;
+  /** Household language (default category names, the general-expenses line). */
+  locale: string;
 }
 
 export async function loadBase(q: TenantDb, hh: HouseholdRow, now = new Date()): Promise<BaseFacts> {
@@ -43,6 +45,7 @@ export async function loadBase(q: TenantDb, hh: HouseholdRow, now = new Date()):
     latestTx: d(latest),
     hasForecastAccount: ((fa!.results[0] as { n: number }).n ?? 0) > 0,
     hasData: monthsWithTx.length > 0,
+    locale: hh.locale,
   };
 }
 
@@ -95,5 +98,20 @@ export function unsplitCardStmt(q: TenantDb, month: MonthStr) {
     monthEnd(month),
   );
 }
+
+/** Spending in occasional categories per month (expense lines, refunds included). */
+export function occasionalByMonthStmt(q: TenantDb, fromMonth: MonthStr, toMonth: MonthStr, fromDate = monthStart(fromMonth), toDate = monthEnd(toMonth)) {
+  return q.stmt(
+    `SELECT substr(l.date, 1, 7) AS m, -SUM(l.amount_minor) AS spent
+       FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+      WHERE l.household_id = ?1 AND c.kind = 'expense' AND c.budget_mode = 'occasional' AND l.date >= ?2 AND l.date <= ?3 GROUP BY m`,
+    fromDate,
+    toDate,
+  );
+}
+export const toMonthMap = (r: D1Result | undefined) => new Map(((r?.results ?? []) as { m: string; spent: number }[]).map((x) => [x.m, x.spent ?? 0]));
+
+/** SQL condition: the line is not in an occasional category (`c` = the line's category, LEFT JOINed). */
+export const NOT_OCCASIONAL = "(c.budget_mode IS NULL OR c.budget_mode <> 'occasional')";
 
 export const monthsBack = (m: MonthStr, n: number) => addMonths(m, -n);

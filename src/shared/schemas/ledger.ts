@@ -20,8 +20,12 @@ export const accountPatch = accountCreate.partial().extend({ archived: bool01.op
 export const balanceSet = z.object({ date: dateStr, balanceMinor: minor }).strict();
 
 export const categoryKind = z.enum(['income', 'expense', 'transfer']);
-export const categoryCreate = z.object({ name: text(40).min(1), kind: categoryKind, grp: z.enum(['fixed', 'variable']).nullable().optional(), isDebt: bool01.optional() }).strict();
-export const categoryPatch = z.object({ name: text(40).min(1).optional(), grp: z.enum(['fixed', 'variable']).nullable().optional(), isDebt: bool01.optional(), archived: bool01.optional(), sort: z.number().int().min(0).max(1000).optional() }).strict();
+/** How an expense category is budgeted: its own monthly line, pooled into general expenses, or yearly (occasional). */
+export const budgetMode = z.enum(['monthly', 'general', 'occasional']);
+export const categoryCreate = z.object({ name: text(40).min(1), kind: categoryKind, grp: z.enum(['fixed', 'variable']).nullable().optional(), isDebt: bool01.optional(), budgetMode: budgetMode.optional() }).strict();
+export const categoryPatch = z
+  .object({ name: text(40).min(1).optional(), grp: z.enum(['fixed', 'variable']).nullable().optional(), isDebt: bool01.optional(), budgetMode: budgetMode.optional(), archived: bool01.optional(), sort: z.number().int().min(0).max(1000).optional() })
+  .strict();
 
 export const ruleField = z.enum(['description', 'operation_type']);
 export const ruleMatch = z.enum(['contains', 'equals', 'starts_with']);
@@ -103,6 +107,8 @@ export interface Category {
   kind: 'income' | 'expense' | 'transfer';
   grp: 'fixed' | 'variable' | null;
   isDebt: boolean;
+  /** Expense categories: 'monthly' | 'general' | 'occasional' (always 'monthly' for income / transfer). */
+  budgetMode: 'monthly' | 'general' | 'occasional';
   systemKey: string | null;
   icon: string | null;
   sort: number;

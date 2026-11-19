@@ -472,7 +472,19 @@
     "ruleHelp": "Rules run on every import. Yours win over learned, AI and built-in rules; longer text wins within the same kind.",
     "showSeed": "Show built-in rules",
     "deleted": "Deleted",
-    "archivedToast": "The category is in use, so it was archived."
+    "archivedToast": "The category is in use, so it was archived.",
+    "mode": {
+      "label": "How to budget it",
+      "monthly": "Its own monthly budget",
+      "general": "General expenses (shared budget)",
+      "occasional": "Occasional (yearly budget)",
+      "monthlyHint": "A regular monthly expense (groceries, fuel): its own line and monthly budget.",
+      "generalHint": "Changes from month to month (clothing, haircuts): grouped with the other general expenses under one shared monthly budget. You still see what went to each category.",
+      "occasionalHint": "Happens a few times a year (vacations, gifts): budgeted per year, and averaged over 12 months in statistics instead of spiking one month.",
+      "monthlyShort": "Monthly",
+      "generalShort": "General",
+      "occasionalShort": "Occasional"
+    }
   },
   "import": {
     "title": "Import",
@@ -635,7 +647,25 @@
     "seeAll": "See all ({{count}})",
     "noBudgets": "No budgets yet",
     "howItWorks": "Pick a category and an amount. “Every month” repeats from this month on until you change it; “Only this month” is a one-off limit (holidays, a big purchase) that replaces the usual one for that month. Spending is tracked against it as transactions come in.",
-    "empty": "No expense categories yet."
+    "empty": "No expense categories yet.",
+    "general": {
+      "name": "General expenses",
+      "hint": "Categories set to “General expenses” share this one monthly budget. Each one's spending is still listed below."
+    },
+    "occasional": {
+      "title": "Occasional · {{year}}",
+      "hint": "Spending that comes in lumps, like vacations and gifts. It has a yearly budget, so one big month doesn't count as overspending.",
+      "ytd": "{{year}} so far:",
+      "yearAmount": "Budget for {{year}}",
+      "appliesFrom": "Applies to {{year}} and later years until you change it.",
+      "last12Hint": "You spent {{amount}} on it over the last 12 months.",
+      "setYearly": "Set yearly budget",
+      "perYear": "/ year",
+      "thisMonth": "This month",
+      "last12": "last 12 months",
+      "aboutPerMonth": "about",
+      "sheetHint": "The last 12 months. Occasional spending is compared by year, not by month."
+    }
   },
   "trends": {
     "title": "Trends",
@@ -673,7 +703,16 @@
     "perMonth": "Spending per month",
     "cumulativeTitle": "Cumulative spending",
     "partial": "(partial)",
-    "uncategorized": "Uncategorized"
+    "uncategorized": "Uncategorized",
+    "hide": "Hide",
+    "showCount_one": "{{count}} category",
+    "showCount_other": "{{count}} categories",
+    "occasionalNote": "Occasional categories (vacations, gifts) come in lumps: see them by quarter and year under “Over months”.",
+    "occasionalTitle": "Occasional spending by quarter",
+    "quarter": "Q{{n}}",
+    "occasionalVsPrev": "vs {{amount}} in {{year}}",
+    "everyday": "Everyday spending",
+    "occasional": "Occasional"
   },
   "forecast": {
     "title": "Forecast",
@@ -854,7 +893,9 @@
       "notCategorized": "Not categorized yet",
       "unassigned": "{{amount}} a month isn't in a category yet (uncategorized or unsplit card charges). Categorize it for a fuller picture.",
       "over": "already above usual",
-      "notYet": "After your first complete month of data, this shows what you usually spend per category."
+      "notYet": "After your first complete month of data, this shows what you usually spend per category.",
+      "spread_one": "averaged over {{count}} month",
+      "spread_other": "averaged over {{count}} months"
     }
   },
   "onboarding": {
@@ -934,7 +975,8 @@
     "goal_behind": "{{goal}} is behind — {{amount}} a month gets it back on track",
     "goal_milestone": "{{goal}} reached {{pct}}",
     "savings_good": "You saved {{pct}} of your income in {{month}}",
-    "under_budget": "You stayed within your budget in {{month}}"
+    "under_budget": "You stayed within your budget in {{month}}",
+    "budget_over_year": "{{category}} is over its {{year}} budget by {{amount}}"
   },
   "goals": {
     "title": "Goals",
@@ -1060,7 +1102,19 @@
         "positive": "You kept {{pct}} of your income.",
         "negative": "Spending exceeded income by {{pct}} of income."
       },
-      "wrapup": "Here are the steps that would improve your score the most."
+      "wrapup": "Here are the steps that would improve your score the most.",
+      "everyday": {
+        "up_over": "Everyday spending rose {{pct}}, and {{count}} budget categories went over their limit.",
+        "up_under": "Everyday spending rose {{pct}}, but budgeted categories stayed within their limits.",
+        "down_over": "Everyday spending fell {{pct}}, though {{count}} budget categories went over.",
+        "down_under": "Everyday spending fell {{pct}} and budgets held.",
+        "flat_over": "Everyday spending was steady; {{count}} budget categories went over.",
+        "flat_under": "Everyday spending was steady and within budget."
+      },
+      "occasional": {
+        "this": "On top of that, {{amount}} went to occasional spending ({{names}}). It has a yearly budget, so it's left out of the month-to-month comparison.",
+        "prev": "Last month included {{amount}} of occasional spending, left out of the comparison."
+      }
     },
     "h": {
       "no_score": "Not enough data for a score yet — keep importing statements.",
@@ -1101,7 +1155,8 @@
         "set_budget": "Set budgets for your top spending categories.",
         "next_review": "Import next month's statements and review it when the month ends."
       }
-    }
+    },
+    "via": "from"
   },
   "ai": {
     "title": "AI assistance",
@@ -1185,8 +1240,18 @@
     "finish": "Finish",
     "later": "Done. Tap the ⓘ next to any page title to tour that page.",
     "end": {
-      "main": { "title": "The main pages are done", "body": "Continue to the other pages, or finish and take each page’s tour later with its ⓘ button.", "more": "Continue to the other pages", "finish": "Finish — show me later" },
-      "page": { "title": "That’s this page", "body": "Tour more pages, or finish here.", "more": "Tour more pages", "finish": "Finish" }
+      "main": {
+        "title": "The main pages are done",
+        "body": "Continue to the other pages, or finish and take each page’s tour later with its ⓘ button.",
+        "more": "Continue to the other pages",
+        "finish": "Finish — show me later"
+      },
+      "page": {
+        "title": "That’s this page",
+        "body": "Tour more pages, or finish here.",
+        "more": "Tour more pages",
+        "finish": "Finish"
+      }
     },
     "progress": "Step {{n}} of {{total}}",
     "steps": {
