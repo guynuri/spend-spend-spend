@@ -26,7 +26,24 @@ export const importRoutes = tenantGroup();
 export const importProfileRoutes = tenantGroup();
 
 /** Server-side enrichment: dedupe key and normalized texts are always computed here. */
-export const enrich = (r: WireRow) => ({ ...r, k: dedupeKey(r), dn: normKey(r.description), op: r.operationType ? norm(r.operationType) : null, lump: isCardLump(norm(r.description), r.amountMinor, CARD_ISSUER_PATTERNS) ? 1 : 0 });
+/** First installment of n ("… 1/n" reference, set by cardAccountResult): an Apple Pay capture of the whole price matches it. */
+const firstOf = (ref: string | null) => {
+  const m = /(?:^|\s)1\/(\d{1,2})$/.exec(ref ?? '');
+  return m ? Number(m[1]) : 0;
+};
+export const enrich = (r: WireRow) => ({
+  ...r,
+  k: dedupeKey(r),
+  dn: normKey(r.description),
+  op: r.operationType ? norm(r.operationType) : null,
+  lump: isCardLump(norm(r.description), r.amountMinor, CARD_ISSUER_PATTERNS) ? 1 : 0,
+  inst: firstOf(r.reference),
+});
+/**
+ * A manual row this staged row replaces: same amount; or a captured (Apple Pay) purchase of the whole
+ * price that the card file bills as installment 1 of n (within ₪1 per installment for rounding).
+ */
+const MANUAL_MATCH = `(m.amount_minor = s.a OR (m.captured = 1 AND m.has_splits = 0 AND s.inst > 1 AND abs(m.amount_minor - s.a * s.inst) <= 100 * s.inst))`;
 type Enriched = ReturnType<typeof enrich>;
 
 async function rowsBody(c: Ctx) {
@@ -69,14 +86,15 @@ importRoutes.post('/preview', async (c) => {
   // purchases on a card account are never the bank's card charge
   const cardAccount = await isCardAccount(db, acc.data);
   const lumpCat = await db.first<{ id: string }>("SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'");
-  const data = rows.map((r, i) => ({ i, k: r.k, dn: r.dn, op: r.op, a: r.amountMinor, d: r.date }));
+  const data = rows.map((r, i) => ({ i, k: r.k, dn: r.dn, op: r.op, a: r.amountMinor, d: r.date, inst: r.inst }));
   const res = await db.all<{ i: number; dup: number; man: number; cat: string | null }>(
     `WITH s AS (SELECT CAST(json_extract(j.value, '$.i') AS INTEGER) AS i, json_extract(j.value, '$.k') AS k, json_extract(j.value, '$.dn') AS dn,
-                       json_extract(j.value, '$.op') AS op, json_extract(j.value, '$.a') AS a, json_extract(j.value, '$.d') AS d FROM json_each(?2) j)
+                       json_extract(j.value, '$.op') AS op, json_extract(j.value, '$.a') AS a, json_extract(j.value, '$.d') AS d,
+                       COALESCE(json_extract(j.value, '$.inst'), 0) AS inst FROM json_each(?2) j)
      SELECT s.i,
             EXISTS (SELECT 1 FROM transactions t WHERE t.household_id = ?1 AND t.account_id = ?3 AND t.dedupe_key = s.k) AS dup,
             EXISTS (SELECT 1 FROM transactions m WHERE m.household_id = ?1 AND m.account_id = ?3 AND m.source = 'manual' AND m.import_id IS NULL
-                      AND m.merged_import_id IS NULL AND m.amount_minor = s.a AND abs(julianday(m.date) - julianday(s.d)) <= 3) AS man,
+                      AND m.merged_import_id IS NULL AND ${MANUAL_MATCH} AND abs(julianday(m.date) - julianday(s.d)) <= 3) AS man,
             ${winningRuleSql({ hh: '?1', amount: 's.a', dn: 's.dn', op: 's.op', select: 'r.category_id' })} AS cat
        FROM s`,
     JSON.stringify(data),
@@ -147,6 +165,7 @@ importRoutes.post('/:id/rows', async (c) => {
 });
 
 const STAGED = `SELECT json_extract(j.value, '$.k') AS k, json_extract(j.value, '$.date') AS d, json_extract(j.value, '$.amountMinor') AS a,
+                       COALESCE(json_extract(j.value, '$.inst'), 0) AS inst,
                        json_extract(j.value, '$.row') AS rn, j.value AS v
                   FROM import_rows ir, json_each(ir.rows_json) j WHERE ir.household_id = ?1 AND ir.import_id = ?2`;
 
@@ -168,7 +187,7 @@ export async function commitImport(db: TenantDb, hh: HouseholdRow, userId: strin
     `WITH s AS (${STAGED}),
           c AS (SELECT s.k, s.v, s.rn, m.id AS mid, abs(julianday(m.date) - julianday(s.d)) AS dist
                   FROM s JOIN transactions m ON m.household_id = ?1 AND m.account_id = ?3 AND m.source = 'manual' AND m.import_id IS NULL
-                   AND m.merged_import_id IS NULL AND m.amount_minor = s.a AND abs(julianday(m.date) - julianday(s.d)) <= 3
+                   AND m.merged_import_id IS NULL AND ${MANUAL_MATCH} AND abs(julianday(m.date) - julianday(s.d)) <= 3
                  WHERE NOT EXISTS (SELECT 1 FROM transactions t WHERE t.household_id = ?1 AND t.account_id = ?3 AND t.dedupe_key = s.k)),
           r AS (SELECT c.*, ROW_NUMBER() OVER (PARTITION BY mid ORDER BY dist, rn) AS a1, ROW_NUMBER() OVER (PARTITION BY k ORDER BY dist, mid) AS a2 FROM c)
      SELECT mid, v FROM r WHERE a1 = 1 AND a2 = 1`,
@@ -182,11 +201,11 @@ export async function commitImport(db: TenantDb, hh: HouseholdRow, userId: strin
         `UPDATE transactions SET
            pre_merge_json = json_object('date', date, 'value_date', value_date, 'description', description, 'description_norm', description_norm,
                                         'reference', reference, 'operation_type', operation_type, 'balance_after_minor', balance_after_minor, 'dedupe_key', dedupe_key,
-                                        'captured', captured),
+                                        'captured', captured, 'amount_minor', amount_minor),
            date = json_extract(p.v, '$.date'), value_date = json_extract(p.v, '$.valueDate'), description = json_extract(p.v, '$.description'),
            description_norm = json_extract(p.v, '$.dn'), reference = json_extract(p.v, '$.reference'), operation_type = json_extract(p.v, '$.op'),
            balance_after_minor = json_extract(p.v, '$.balanceMinor'), dedupe_key = json_extract(p.v, '$.k'), merged_import_id = ?2, updated_at = ?3,
-           captured = 0
+           captured = 0, amount_minor = json_extract(p.v, '$.amountMinor')
          FROM (SELECT json_extract(j.value, '$.mid') AS mid, json_extract(j.value, '$.v') AS v FROM json_each(?4) j) AS p
          WHERE transactions.household_id = ?1 AND transactions.id = p.mid`,
         imp.id,
@@ -302,7 +321,8 @@ importRoutes.delete('/:id', async (c) => {
          description = json_extract(pre_merge_json, '$.description'), description_norm = json_extract(pre_merge_json, '$.description_norm'),
          reference = json_extract(pre_merge_json, '$.reference'), operation_type = json_extract(pre_merge_json, '$.operation_type'),
          balance_after_minor = json_extract(pre_merge_json, '$.balance_after_minor'), dedupe_key = json_extract(pre_merge_json, '$.dedupe_key'),
-         captured = COALESCE(json_extract(pre_merge_json, '$.captured'), 0), merged_import_id = NULL, pre_merge_json = NULL, updated_at = ?3
+         captured = COALESCE(json_extract(pre_merge_json, '$.captured'), 0),
+         amount_minor = COALESCE(json_extract(pre_merge_json, '$.amount_minor'), amount_minor), merged_import_id = NULL, pre_merge_json = NULL, updated_at = ?3
        WHERE household_id = ?1 AND merged_import_id = ?2`,
       imp.id,
       now,

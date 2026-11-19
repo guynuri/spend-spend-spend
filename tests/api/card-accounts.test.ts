@@ -97,6 +97,21 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     expect((await json('POST', '/api/imports', { cookie, body: { accountId: bank, parserId: 'max', fileName: 'x', fileHash: 'f'.repeat(64), period: null, rowsTotal: 0, rowsError: 0, closingBalance: null } })).body).toMatchObject({ error: { code: 'wrong_account_type' } });
     expect((await json('POST', '/api/imports', { cookie, body: { accountId: max, parserId: 'hapoalim', fileName: 'x', fileHash: 'f'.repeat(64), period: null, rowsTotal: 0, rowsError: 0, closingBalance: null } })).status).toBe(400);
 
+    // an Apple Pay purchase paid in 3 installments: the file's installment 1/3 replaces the capture
+    const cur = monthOf(today);
+    const [cy, cm] = cur.split('-');
+    const inst = await buy({ merchant: 'iDigital', amount: '₪1,200.00', card: 'Max •••• 1111', date: `${cur}-01` });
+    expect(inst.status).toBe(201);
+    const instFile = maxFile([[`01-${cm}-${cy}`, 'iDigital', 400]]);
+    // (the Max layout's notes column carries the installment)
+    const wbi = XLSX.read(instFile, { type: 'array' });
+    const ws = wbi.Sheets[wbi.SheetNames[0]!]!;
+    XLSX.utils.sheet_add_aoa(ws, [['תשלום 1 מתוך 3']], { origin: 'K3' });
+    const f2 = await hook('file', token, new Uint8Array(XLSX.write(wbi, { bookType: 'xlsx', type: 'array' })));
+    expect(f2.status).toBe(201);
+    const instRows = (await DB.prepare("SELECT amount_minor, captured, reference FROM transactions WHERE household_id = ?1 AND account_id = ?2 AND description = 'iDigital'").bind(o.householdId, max).all()).results;
+    expect(instRows).toEqual([{ amount_minor: -40000, captured: 0, reference: '1/3' }]);
+
     // revoking the key stops it; a viewer gets no keys
     expect((await json('DELETE', `/api/capture-keys/${key.body.id}`, { cookie })).status).toBe(200);
     expect((await buy({ merchant: 'x', amount: 1, card: 'Max' })).status).toBe(401);

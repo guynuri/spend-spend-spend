@@ -77,6 +77,8 @@ export function cardAccountResult(r: ParseResult, grid: Grid): ParseResult & { u
     const amount = txn >= 0 ? parseAmount(g[txn] ?? null) : null;
     // not billed yet: drop the row unless its shekel amount is known (it arrives with the billing file)
     if (amount === null || amount === 0 || (cur >= 0 && !SHEKEL.test(cellText(g[cur] ?? null).replace(/\s/g, '')))) return false;
+    // an installment deal: the transaction amount is the whole deal, not this installment, so it waits too
+    if (installmentOf(g, cols.description)) return false;
     const sample = grid.slice(h + 1, h + 21).map((row) => row[cols.date!] ?? null);
     const date = parseDateCell(g[cols.date!] ?? null, detectDateFormat(sample) === 'serial' ? 'dmy' : detectDateFormat(sample));
     const description = cellText(g[cols.description!] ?? null);

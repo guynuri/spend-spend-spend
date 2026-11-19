@@ -35,9 +35,15 @@ accountRoutes.get('/', async (c) => {
     db.all<Row>('SELECT * FROM accounts WHERE household_id = ?1 ORDER BY archived, created_at'),
     balancesAt(db, today),
     snapshotsAndVariance(db),
-    // card bills paid from the bank (linked card charges): they lower what the card account owes
+    // card bills paid from the bank (linked card charges): their bill-payment part lowers what the card
+    // account owes; the part no purchase explains yet ("card not split") was never owed by the account
     db.all<{ a: string; s: number }>(
-      "SELECT card_account_id AS a, -SUM(amount_minor) AS s FROM transactions WHERE household_id = ?1 AND kind = 'card_lump' AND card_account_id IS NOT NULL AND date <= ?2 GROUP BY card_account_id",
+      `SELECT t.card_account_id AS a, -SUM(sp.amount_minor) AS s FROM transactions t
+         JOIN transaction_splits sp ON sp.transaction_id = t.id AND sp.household_id = ?1
+         LEFT JOIN categories c ON c.id = sp.category_id AND c.household_id = ?1
+        WHERE t.household_id = ?1 AND t.kind = 'card_lump' AND t.card_account_id IS NOT NULL AND t.card_account_id <> 'none' AND t.date <= ?2
+          AND COALESCE(c.system_key, '') <> 'card_unsplit'
+        GROUP BY t.card_account_id`,
       today,
     ),
   ]);

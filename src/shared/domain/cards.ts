@@ -18,7 +18,11 @@ const ISSUER_WORDS: Record<CardIssuer, string[]> = {
 };
 const LETTER = 'a-z0-9\\u0590-\\u05ff';
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const WORDS = Object.entries(ISSUER_WORDS).flatMap(([k, ws]) => ws.map((w) => ({ issuer: k as CardIssuer, re: new RegExp(`(^|[^${LETTER}])${escapeRe(norm(w))}([^${LETTER}]|$)`) })));
+/** Card network names: Max and Cal issue Mastercards too, so these only count when no issuer is named. */
+const NETWORK_WORDS = new Set(['מסטרקארד', 'mastercard']);
+const WORDS = Object.entries(ISSUER_WORDS)
+  .flatMap(([k, ws]) => ws.map((w) => ({ issuer: k as CardIssuer, network: NETWORK_WORDS.has(w), re: new RegExp(`(^|[^${LETTER}])${escapeRe(norm(w))}([^${LETTER}]|$)`) })))
+  .sort((a, b) => Number(a.network) - Number(b.network));
 
 /** The issuer a card charge names, or null (e.g. a bare "visa"). */
 export function issuerOf(descriptionNorm: string): CardIssuer | null {
@@ -37,8 +41,8 @@ export interface CardAccountIn {
 
 /**
  * Which card account a bank card charge pays:
- * 1. accounts of the issuer named in the description (Isracard and Amex count as one group), or all
- *    card accounts when it names none;
+ * 1. accounts of the issuer named in the description (Isracard and Amex count as one group; when none
+ *    has that issuer, the card accounts with no issuer set), or all card accounts when it names none;
  * 2. among several, those whose last 4 digits appear in the description;
  * 3. still several: the one whose purchases in the previous month come closest to the charge, within 10 %.
  * Null when nothing fits (the charge stays "not split" until the user links it).
@@ -46,6 +50,8 @@ export interface CardAccountIn {
 export function chooseCardAccount(lump: { descriptionNorm: string; amountMinor: number; date: string }, accounts: CardAccountIn[], coveredIn: (accountId: string, month: MonthStr) => number): string | null {
   const issuer = issuerOf(lump.descriptionNorm);
   let c = issuer ? accounts.filter((a) => a.bankId && (CARD_ISSUERS as readonly string[]).includes(a.bankId) && group(a.bankId as CardIssuer) === group(issuer)) : accounts;
+  // no account of that issuer: card accounts without a known issuer may still be it (never another issuer's)
+  if (issuer && !c.length) c = accounts.filter((a) => !a.bankId || !(CARD_ISSUERS as readonly string[]).includes(a.bankId));
   if (c.length > 1) {
     const byMask = c.filter((a) => a.mask && a.mask.length >= 3 && lump.descriptionNorm.includes(a.mask));
     if (byMask.length) c = byMask;

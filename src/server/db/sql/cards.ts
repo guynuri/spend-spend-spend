@@ -21,7 +21,7 @@ interface Lump {
 }
 
 export async function refreshCardPayments(q: TenantDb): Promise<void> {
-  const [accs, lumps, cov, cats] = await q.batch([
+  const [accs, lumps, cov, cats, cur] = await q.batch([
     q.stmt("SELECT id, bank_id, account_mask FROM accounts WHERE household_id = ?1 AND type = 'credit_card' AND archived = 0"),
     // linked charges, and placeholder ones that could be linked (never a charge the user split or categorized)
     q.stmt(
@@ -29,7 +29,8 @@ export async function refreshCardPayments(q: TenantDb): Promise<void> {
         WHERE t.household_id = ?1 AND t.kind = 'card_lump' AND t.amount_minor < 0
           AND ((t.card_account_id IS NOT NULL AND t.card_account_id <> '${NEVER_LINK}')
             OR (t.card_account_id IS NULL AND t.has_splits = 0
-                AND (t.category_id IS NULL OR t.category_id IN (SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'))))`,
+                AND (t.category_id IS NULL OR t.category_id IN (SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'))))
+        ORDER BY t.date, t.id`,
     ),
     // purchases per card account and month, net of refunds
     q.stmt(
@@ -38,6 +39,13 @@ export async function refreshCardPayments(q: TenantDb): Promise<void> {
         WHERE t.household_id = ?1 GROUP BY t.account_id, m`,
     ),
     q.stmt("SELECT id, system_key FROM categories WHERE household_id = ?1 AND system_key IN ('transfer', 'card_unsplit')"),
+    // the lines linked charges are booked with now, so unchanged charges aren't rewritten on every call
+    q.stmt(
+      `SELECT s.transaction_id AS t, s.category_id AS c, s.amount_minor AS a FROM transaction_splits s
+         JOIN transactions t ON t.id = s.transaction_id AND t.household_id = ?1
+        WHERE s.household_id = ?1 AND t.kind = 'card_lump' AND t.card_account_id IS NOT NULL AND t.card_account_id <> '${NEVER_LINK}'
+        ORDER BY s.transaction_id, s.amount_minor, s.category_id`,
+    ),
   ]);
   const accounts: CardAccountIn[] = (accs!.results as { id: string; bank_id: string | null; account_mask: string | null }[]).map((a) => ({ id: a.id, bankId: a.bank_id, mask: a.account_mask }));
   const all = lumps!.results as unknown as Lump[];
@@ -48,6 +56,20 @@ export async function refreshCardPayments(q: TenantDb): Promise<void> {
   const transfer = catOf.get('transfer') ?? null;
   const unsplit = catOf.get('card_unsplit') ?? null;
   const active = new Set(accounts.map((a) => a.id));
+  const lineSig = (lines: { cat: string | null; amount: number }[]) =>
+    [...lines]
+      .sort((x, y) => x.amount - y.amount || String(x.cat).localeCompare(String(y.cat)))
+      .map((x) => `${x.cat}:${x.amount}`)
+      .join(',');
+  const curLines = new Map<string, { cat: string | null; amount: number }[]>();
+  for (const r of cur!.results as { t: string; c: string | null; a: number }[]) {
+    const list = curLines.get(r.t) ?? [];
+    list.push({ cat: r.c, amount: r.a });
+    curLines.set(r.t, list);
+  }
+  // purchases of a card account and month already paid by an earlier charge (charges run in date order),
+  // so two charges for the same cycle never book the same purchases as a transfer twice
+  const used = new Map<string, number>();
 
   const book: { id: string; acc: string; lines: { cat: string | null; amount: number }[] }[] = [];
   const unlink: string[] = [];
@@ -64,11 +86,16 @@ export async function refreshCardPayments(q: TenantDb): Promise<void> {
       acc = chooseCardAccount({ descriptionNorm: l.description_norm, amountMinor: l.amount_minor, date: l.date }, accounts, coveredIn);
       if (!acc || !firstMonthOk(acc, l.date, covered)) continue;
     }
-    const { paidMinor, unitemizedMinor } = cardPaymentParts(l.amount_minor, coveredIn(acc, cycleMonth(l.date)));
+    const cycle = `${acc}|${cycleMonth(l.date)}`;
+    const usedMinor = used.get(cycle) ?? 0;
+    const { paidMinor, unitemizedMinor } = cardPaymentParts(l.amount_minor, (covered.get(cycle) ?? 0) - usedMinor);
+    used.set(cycle, usedMinor + paidMinor);
     const lines = [
       ...(paidMinor ? [{ cat: transfer, amount: -paidMinor }] : []),
       ...(unitemizedMinor ? [{ cat: unsplit, amount: -unitemizedMinor }] : []),
     ];
+    // already booked exactly like this: nothing to write
+    if (l.card_account_id === acc && l.has_splits === 1 && l.category_id === transfer && lineSig(curLines.get(l.id) ?? []) === lineSig(lines)) continue;
     book.push({ id: l.id, acc, lines });
   }
   if (!book.length && !unlink.length) return;

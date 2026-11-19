@@ -187,9 +187,19 @@ transactionRoutes.patch('/:id', async (c) => {
     id,
   );
   if (!tx) throw notFound();
+  await db.assertOwned({ categories: [b.categoryId], accounts: [b.accountId], recurring_items: [b.recurringId] });
+  const editingCore = b.description !== undefined || b.date !== undefined || b.amountMinor !== undefined || b.direction !== undefined || b.accountId !== undefined;
+  if (editingCore && tx.source !== 'manual') throw new HttpError(400, 'imported_readonly', 'Imported fields cannot be edited');
   // A bank card charge: link it to the card account it pays, or (null) mark it as not a card bill.
   // Categorizing a linked charge by hand also unlinks it: the user books it themselves.
+  // Runs after the checks above so a refused edit never leaves the link half changed.
   const linked = !!tx.card_account_id && tx.card_account_id !== NEVER_LINK;
+  const unlinking = linked && (b.cardAccountId === null || (b.cardAccountId === undefined && b.categoryId !== undefined));
+  const staysLinked = b.cardAccountId !== undefined ? !!b.cardAccountId : linked && !unlinking;
+  // the app owns a linked charge's split lines: it stays a card charge until it is unlinked
+  if (staysLinked && b.kind === 'normal') throw new HttpError(409, 'card_payment_linked', 'This charge is itemized by its card account');
+  // the split a linked charge has is the app's and goes with the unlink; any other split must be removed first
+  if ((b.amountMinor !== undefined || b.direction !== undefined) && tx.has_splits && !unlinking) throw new HttpError(400, 'split_sum_mismatch', 'Remove the split before changing the amount');
   if (b.cardAccountId !== undefined || (linked && b.categoryId !== undefined)) {
     if (tx.kind !== 'card_lump') throw new HttpError(400, 'not_card_charge', 'Only card charges can be linked to a card account');
     if (b.cardAccountId) {
@@ -202,22 +212,21 @@ transactionRoutes.patch('/:id', async (c) => {
         b.cardAccountId,
         nowIso(),
       );
-    } else {
+    } else if (unlinking) {
       const unsplit = await db.first<{ id: string }>("SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'");
       await db.batch([db.stmt('DELETE FROM transaction_splits WHERE household_id = ?1 AND transaction_id = ?2', id), unlinkStmt(db, [id], unsplit?.id ?? null, nowIso(), true)]);
       tx.has_splits = 0;
+    } else if (!linked) {
+      // not linked: only stop automatic linking; the user's own category or split stays
+      await db.run('UPDATE transactions SET card_account_id = ?3, updated_at = ?4 WHERE household_id = ?1 AND id = ?2', id, NEVER_LINK, nowIso());
     }
   }
-  await db.assertOwned({ categories: [b.categoryId], accounts: [b.accountId], recurring_items: [b.recurringId] });
-  const editingCore = b.description !== undefined || b.date !== undefined || b.amountMinor !== undefined || b.direction !== undefined || b.accountId !== undefined;
-  if (editingCore && tx.source !== 'manual') throw new HttpError(400, 'imported_readonly', 'Imported fields cannot be edited');
   const now = nowIso();
   let amount = tx.amount_minor;
   if (b.amountMinor !== undefined || b.direction !== undefined) {
     const abs = b.amountMinor ?? Math.abs(tx.amount_minor);
     const dir = b.direction ?? (tx.amount_minor >= 0 ? 'in' : 'out');
     amount = dir === 'in' ? abs : -abs;
-    if (tx.has_splits) throw new HttpError(400, 'split_sum_mismatch', 'Remove the split before changing the amount');
   }
   const description = b.description ?? tx.description;
   const setCat = b.categoryId !== undefined;
