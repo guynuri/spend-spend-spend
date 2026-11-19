@@ -11,8 +11,9 @@ const ADD = '__add__';
  * Category picker grouped by kind; archived categories hidden unless currently selected.
  * Pickers that assign a category (no `emptyLabel`, i.e. not filters) end with "+ Add category…".
  */
-export const CategorySelect = forwardRef<HTMLSelectElement, Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'> & { value: string | null; onChange: (id: string | null) => void; emptyLabel?: string; kinds?: ('income' | 'expense' | 'transfer')[] }>(
-  function CategorySelect({ value, onChange, emptyLabel, kinds, ...rest }, ref) {
+export const CategorySelect = forwardRef<HTMLSelectElement, Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'> & { value: string | null; onChange: (id: string | null) => void; emptyLabel?: string; kinds?: ('income' | 'expense' | 'transfer')[]; extra?: { value: string; label: string }[] }>(
+  /** `extra`: options listed right after the empty one (filters only, e.g. "General expenses"). */
+  function CategorySelect({ value, onChange, emptyLabel, kinds, extra, ...rest }, ref) {
     const { t } = useTranslation();
     const q = useCategories();
     const canWrite = useCanWrite();
@@ -23,6 +24,11 @@ export const CategorySelect = forwardRef<HTMLSelectElement, Omit<SelectHTMLAttri
       <>
         <Select ref={ref} value={value ?? ''} onChange={(e) => (e.target.value === ADD ? setAdding(true) : onChange(e.target.value || null))} {...rest}>
           <option value="">{emptyLabel ?? t('ledger.uncategorized')}</option>
+          {extra?.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
           {groups.map((g) => (
             <optgroup key={g} label={t(`categories.kinds.${g}`)}>
               {cats

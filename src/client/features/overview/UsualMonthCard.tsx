@@ -7,7 +7,7 @@ import { DateText } from '../../components/DateText';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
 import { monthEnd, monthStart } from '../../../shared/dates';
-import type { UsualMonth } from '../../../shared/domain/usual';
+import type { UsualItem, UsualMonth } from '../../../shared/domain/usual';
 
 /** Fixed categorical order (styles.css --mz-cat-*): color follows the category's rank in the usual month. */
 const CAT = ['var(--mz-cat-1)', 'var(--mz-cat-2)', 'var(--mz-cat-3)', 'var(--mz-cat-4)', 'var(--mz-cat-5)', 'var(--mz-cat-6)'];
@@ -52,6 +52,9 @@ export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; mo
   const to = monthEnd(month);
   const first = u.months[0]!;
   const last = u.months[u.months.length - 1]!;
+  // general expenses open the budget (their categories are listed there); occasional ones show their last 12 months
+  const linkFor = (i: UsualItem) =>
+    i.kind === 'general' ? `/budget?month=${month}` : i.kind === 'occasional' ? `/transactions?from=${monthStart(u.occasionalMonths[0] ?? month)}&to=${to}&category=${i.categoryId}` : `/transactions?from=${from}&to=${to}&category=${i.categoryId}`;
 
   return (
     <Card data-testid="usual-card">
@@ -110,7 +113,7 @@ export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; mo
       <ul className="mt-4 flex flex-col gap-3.5" data-testid="usual-items">
         {u.items.map((i, k) => (
           <li key={i.categoryId}>
-            <Link to={`/transactions?from=${from}&to=${to}&category=${i.categoryId}`} className="block min-h-11 rounded-lg active:bg-surface-2" data-testid="usual-item">
+            <Link to={linkFor(i)} className="block min-h-11 rounded-lg active:bg-surface-2" data-testid="usual-item" data-kind={i.kind ?? 'category'}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2 text-sm">
                   <span className="size-2.5 shrink-0 rounded-full" style={{ background: CAT[k % CAT.length] }} aria-hidden />
@@ -125,6 +128,7 @@ export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; mo
               </div>
               <p className="mt-1 text-xs text-muted" data-testid="usual-this-month">
                 {t(i.shareOfIncome !== null ? 'dashboard.usual.ofIncome' : 'dashboard.usual.ofSpending', pf({ pct: i.shareOfIncome ?? i.shareOfSpending }))}
+                {i.kind === 'occasional' && <> · {t('dashboard.usual.spread', { count: u.occasionalMonths.length })}</>}
                 {' · '}
                 <span className={cx(i.over && 'text-warn')}>
                   {t(current ? 'dashboard.usual.soFar' : 'dashboard.usual.inMonth', pf({ month, amountMinor: i.thisMonthMinor }))}

@@ -10,6 +10,8 @@ export interface DefaultCategory {
   kind: 'income' | 'expense' | 'transfer';
   grp: 'fixed' | 'variable' | null;
   isDebt?: boolean;
+  /** How it is budgeted (default monthly): see BudgetMode. */
+  mode?: 'general' | 'occasional';
   systemKey?: string;
   icon: string;
   /** Not seeded: offered in the "add category" catalog instead (keeps new households short). */
@@ -39,16 +41,16 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: 'transport', en: 'Transport & fuel', he: 'תחבורה ודלק', kind: 'expense', grp: 'variable', icon: 'fuel' },
   { key: 'car', en: 'Car', he: 'רכב', kind: 'expense', grp: 'variable', icon: 'car', extra: true },
   { key: 'health', en: 'Health', he: 'בריאות', kind: 'expense', grp: 'variable', icon: 'heart-pulse' },
-  { key: 'clothing', en: 'Clothing', he: 'ביגוד והנעלה', kind: 'expense', grp: 'variable', icon: 'shirt', extra: true },
+  { key: 'clothing', en: 'Clothing', he: 'ביגוד והנעלה', kind: 'expense', grp: 'variable', icon: 'shirt', extra: true, mode: 'general' },
   { key: 'home', en: 'Home', he: 'בית', kind: 'expense', grp: 'variable', icon: 'sofa' },
   { key: 'leisure', en: 'Leisure', he: 'פנאי', kind: 'expense', grp: 'variable', icon: 'ticket' },
   { key: 'kids', en: 'Kids', he: 'ילדים', kind: 'expense', grp: 'variable', icon: 'baby', extra: true },
-  { key: 'gifts', en: 'Gifts & donations', he: 'מתנות ותרומות', kind: 'expense', grp: 'variable', icon: 'gift', extra: true },
-  { key: 'travel', en: 'Travel', he: 'חופשות', kind: 'expense', grp: 'variable', icon: 'plane', extra: true },
+  { key: 'gifts', en: 'Gifts & donations', he: 'מתנות ותרומות', kind: 'expense', grp: 'variable', icon: 'gift', extra: true, mode: 'occasional' },
+  { key: 'travel', en: 'Travel', he: 'חופשות', kind: 'expense', grp: 'variable', icon: 'plane', extra: true, mode: 'occasional' },
   { key: 'cash', en: 'Cash withdrawals', he: 'משיכות מזומן', kind: 'expense', grp: 'variable', icon: 'wallet', extra: true },
   { key: 'card_unsplit', en: 'Credit card (not split)', he: 'כרטיס אשראי (לא מפוצל)', kind: 'expense', grp: 'variable', systemKey: 'card_unsplit', icon: 'credit-card' },
   { key: 'pets', en: 'Pets', he: 'חיות מחמד', kind: 'expense', grp: 'variable', icon: 'paw-print', extra: true },
-  { key: 'personal_care', en: 'Personal care', he: 'טיפוח', kind: 'expense', grp: 'variable', icon: 'sparkles', extra: true },
+  { key: 'personal_care', en: 'Personal care', he: 'טיפוח', kind: 'expense', grp: 'variable', icon: 'sparkles', extra: true, mode: 'general' },
   { key: 'sport', en: 'Sport & fitness', he: 'ספורט וכושר', kind: 'expense', grp: 'variable', icon: 'dumbbell', extra: true },
   { key: 'other', en: 'Other', he: 'אחר', kind: 'expense', grp: 'variable', icon: 'circle-help' },
   { key: 'transfers', en: 'Internal transfers', he: 'העברות פנימיות', kind: 'transfer', grp: null, systemKey: 'transfer', icon: 'arrow-left-right' },
@@ -116,6 +118,7 @@ export const categoryRow = (d: DefaultCategory, locale: Locale, sort: number) =>
   grp: d.grp,
   is_debt: d.isDebt ? 1 : 0,
   system_key: d.systemKey ?? null,
+  budget_mode: d.mode ?? 'monthly',
   icon: d.icon,
   sort,
 });

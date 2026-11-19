@@ -4,10 +4,11 @@ import { computeForecast, type ActualIn, type ForecastView, type PlannedIn } fro
 import type { TenantDb } from '../tenant';
 import type { HouseholdRow } from '../rows';
 import { balancesAt } from './balances';
-import type { BaseFacts } from './facts';
+import { NOT_OCCASIONAL, type BaseFacts } from './facts';
 import { parseRecurring, recurringStmts } from './recurringData';
 
-const EXPENSE_LINE = "(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount_minor < 0))";
+/** Everyday variable spending for the daily baseline; occasional spending (trips, gifts) belongs in planned expenses. */
+const EXPENSE_LINE = `(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount_minor < 0)) AND ${NOT_OCCASIONAL}`;
 
 /** Loads every forecast input with a handful of queries and runs the pure engine (PLAN §10.3). */
 export async function forecastFor(q: TenantDb, hh: HouseholdRow, base: BaseFacts, horizonEnd?: string): Promise<ForecastView> {

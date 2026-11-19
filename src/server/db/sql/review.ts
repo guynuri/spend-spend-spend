@@ -2,7 +2,9 @@ import { addMonths, monthEnd, monthOf, monthStart, type MonthStr } from '../../.
 import { buildReview, type ReviewSnapshot } from '../../../shared/domain/review';
 import type { TenantDb } from '../tenant';
 import type { HouseholdRow } from '../rows';
-import { loadBase, type BaseFacts } from './facts';
+import { loadBase, occasionalByMonthStmt, toMonthMap, type BaseFacts } from './facts';
+import { GENERAL_ID, generalName } from '../../../shared/domain/budget';
+import type { CatAmount, Notable } from '../../../shared/domain/review';
 import { computeBudget } from './budget';
 import { forecastFor } from './forecast';
 import { healthBundle } from './health';
@@ -33,9 +35,9 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
   const prev = addMonths(month, -1);
   const [budget, forecast, health] = await Promise.all([computeBudget(q, base, month, 1), forecastFor(q, hh, base), healthBundle(q, base, month, 2)]);
   const { insights } = await computeInsights(q, hh, base, month, budget, forecast, health);
-  const [byCat, txs] = await q.batch([
+  const [byCat, txs, occ] = await q.batch([
     q.stmt(
-      `SELECT substr(l.date, 1, 7) AS m, l.category_id AS cid, c.name AS name,
+      `SELECT substr(l.date, 1, 7) AS m, l.category_id AS cid, c.name AS name, c.budget_mode AS mode,
               CASE WHEN c.kind = 'income' OR (l.category_id IS NULL AND l.amount_minor > 0) THEN 'income' ELSE 'expense' END AS side,
               SUM(l.amount_minor) AS amt
          FROM v_lines l LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
@@ -44,15 +46,37 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
       monthStart(month),
       monthEnd(month),
     ),
+    // Expense lines, not transactions: a split card charge shows as what it bought. An unsplit card charge
+    // (uncategorized or on the "not split" placeholder) is not a purchase and is left out.
     q.stmt(
-      `SELECT t.date, t.description, t.amount_minor AS amountMinor, c.name AS category FROM transactions t
-         LEFT JOIN categories c ON c.id = t.category_id AND c.household_id = ?1
-        WHERE t.household_id = ?1 AND t.date >= ?2 AND t.date <= ?3 AND t.amount_minor < 0 AND (c.kind IS NULL OR c.kind <> 'transfer')`,
+      `SELECT l.date, CASE WHEN l.split_id IS NULL THEN t.description ELSE COALESCE(s.note, '') END AS description,
+              CASE WHEN l.split_id IS NULL THEN NULL ELSE t.description END AS via, l.amount_minor AS amountMinor, c.name AS category
+         FROM v_lines l JOIN transactions t ON t.id = l.tx_id AND t.household_id = ?1
+         LEFT JOIN transaction_splits s ON s.id = l.split_id AND s.household_id = ?1
+         LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+        WHERE l.household_id = ?1 AND l.date >= ?2 AND l.date <= ?3 AND l.amount_minor < 0 AND (c.kind IS NULL OR c.kind <> 'transfer')
+          AND NOT (l.kind = 'card_lump' AND l.split_id IS NULL AND (c.id IS NULL OR c.system_key = 'card_unsplit'))`,
       monthStart(month),
       monthEnd(month),
     ),
+    occasionalByMonthStmt(q, prev, month),
   ]);
-  const rows = byCat!.results as { cid: string | null; name: string | null; side: string; amt: number }[];
+  const rows = byCat!.results as { cid: string | null; name: string | null; mode: string | null; side: string; amt: number }[];
+  const occMap = toMonthMap(occ);
+  // general expenses are reported as one line, with their categories inside
+  const expenseRows = rows.filter((r) => r.side === 'expense');
+  const generalRows = expenseRows.filter((r) => r.mode === 'general' && r.cid);
+  const spendingByCategory: Omit<CatAmount, 'share'>[] = expenseRows
+    .filter((r) => !(r.mode === 'general' && r.cid))
+    .map((r) => ({ categoryId: r.cid, name: r.name, amountMinor: -r.amt, ...(r.mode === 'occasional' ? { occasional: true } : {}) }));
+  if (generalRows.length)
+    spendingByCategory.push({
+      categoryId: GENERAL_ID,
+      name: generalName(base.locale),
+      amountMinor: -generalRows.reduce((a, r) => a + r.amt, 0),
+      members: generalRows.map((r) => ({ categoryId: r.cid!, name: r.name ?? '', amountMinor: -r.amt })).filter((x) => x.amountMinor !== 0).sort((a, b) => b.amountMinor - a.amountMinor),
+    });
+  const notable = (txs!.results as unknown as (Notable & { via: string | null })[]).map(({ via, ...n }) => (via === null ? n : { ...n, via }));
   const p = health.pnl;
   const cur = health.months[health.months.length - 1]!;
   const lastComplete = defaultReviewMonth(base);
@@ -64,8 +88,10 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
     spending: {
       totalMinor: p.get(month)?.expenses ?? 0,
       prevMinor: p.get(prev)?.expenses ?? 0,
-      byCategory: rows.filter((r) => r.side === 'expense').map((r) => ({ categoryId: r.cid, name: r.name, amountMinor: -r.amt })),
-      transactions: txs!.results as { date: string; description: string; amountMinor: number; category: string | null }[],
+      byCategory: spendingByCategory,
+      transactions: notable,
+      occasionalMinor: occMap.get(month) ?? 0,
+      prevOccasionalMinor: occMap.get(prev) ?? 0,
     },
     budget: { budgetedMinor: budget.totals.budgetedMinor, spentBudgetedMinor: budget.totals.spentBudgetedMinor, lines: budget.lines.map((l) => ({ name: l.name, spentMinor: l.spentMinor, limitMinor: l.limitMinor })) },
     goals: {

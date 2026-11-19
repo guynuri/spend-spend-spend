@@ -12,10 +12,23 @@ export interface Commentary {
   params: Record<string, string | number>;
 }
 export interface CatAmount {
+  /** A category id, GENERAL_ID for all general expenses together, or null (uncategorized). */
   categoryId: string | null;
   name: string | null;
   amountMinor: number;
   share: number;
+  /** General expenses: the categories inside (largest first). */
+  members?: { categoryId: string; name: string; amountMinor: number }[];
+  /** An occasional category (vacations, gifts): lumpy, budgeted per year. */
+  occasional?: boolean;
+}
+/** A notable expense: a transaction, or one line of a split one (`via` = the split transaction, e.g. a card charge). */
+export interface Notable {
+  date: string;
+  description: string;
+  amountMinor: number;
+  category: string | null;
+  via?: string;
 }
 export interface ReviewSnapshot {
   version: 1;
@@ -23,7 +36,18 @@ export interface ReviewSnapshot {
   isLatestMonth: boolean;
   summary: { score: number | null; label: Label | null; change: number | null; incomeMinor: number; expensesMinor: number; netMinor: number; headlines: Insight[]; chips: ('score_up' | 'milestone' | 'under_budget')[]; commentary: Commentary };
   income: { totalMinor: number; prevMinor: number; changePct: number | null; byCategory: CatAmount[]; commentary: Commentary };
-  spending: { totalMinor: number; prevMinor: number; changePct: number | null; budgetedMinor: number; byCategory: CatAmount[]; notable: { date: string; description: string; amountMinor: number; category: string | null }[]; commentary: Commentary };
+  spending: {
+    totalMinor: number;
+    prevMinor: number;
+    /** Change of everyday spending (without occasional categories) when there is any occasional spending, else of all spending. */
+    changePct: number | null;
+    budgetedMinor: number;
+    byCategory: CatAmount[];
+    notable: Notable[];
+    commentary: Commentary;
+    /** Occasional spending (vacations, gifts) in the month and the month before; absent in older snapshots. */
+    occasional?: { minor: number; prevMinor: number; commentary: Commentary };
+  };
   budget: { ok: number; total: number; lines: { name: string; spentMinor: number; limitMinor: number; overMinor: number }[]; commentary: Commentary };
   goals: { activeCount: number; savedMinor: number; targetMinor: number; items: { name: string; progress: number; requiredMonthlyMinor: number | null; status: GoalStatus; milestones: number[] }[]; commentary: Commentary };
   cashflow: { savingsRate: number | null; forecast: { eomMinor: number; lowMinor: number; lowDate: string } | null; upcoming: { date: string; label: string; amountMinor: number }[]; commentary: Commentary };
@@ -44,7 +68,15 @@ export interface ReviewInput {
   isLatestMonth: boolean;
   health: { score: number | null; label: Label | null; change: number | null; recommendations: Recommendation[] };
   income: { totalMinor: number; prevMinor: number; byCategory: { categoryId: string | null; name: string | null; amountMinor: number }[] };
-  spending: { totalMinor: number; prevMinor: number; byCategory: { categoryId: string | null; name: string | null; amountMinor: number }[]; transactions: { date: string; description: string; amountMinor: number; category: string | null }[] };
+  spending: {
+    totalMinor: number;
+    prevMinor: number;
+    byCategory: { categoryId: string | null; name: string | null; amountMinor: number; members?: CatAmount['members']; occasional?: boolean }[];
+    /** Expense lines: transactions, and the lines of split ones (so a split card charge counts as what it bought). */
+    transactions: Notable[];
+    occasionalMinor?: number;
+    prevOccasionalMinor?: number;
+  };
   budget: { budgetedMinor: number; spentBudgetedMinor: number; lines: { name: string; spentMinor: number; limitMinor: number | null }[] };
   goals: { activeCount: number; savedMinor: number; targetMinor: number; items: { name: string; progress: number; requiredMonthlyMinor: number | null; status: GoalStatus; milestones: { pct: number; date: string }[] }[] };
   forecast: { eomMinor: number; lowMinor: number; lowDate: string } | null;
@@ -52,7 +84,7 @@ export interface ReviewInput {
   insights: Insight[];
 }
 
-const share = (xs: { categoryId: string | null; name: string | null; amountMinor: number }[]): CatAmount[] => {
+const share = (xs: Omit<CatAmount, 'share'>[]): CatAmount[] => {
   const tot = xs.reduce((a, x) => a + x.amountMinor, 0);
   return xs.filter((x) => x.amountMinor !== 0).sort((a, b) => b.amountMinor - a.amountMinor).map((x) => ({ ...x, share: tot > 0 ? x.amountMinor / tot : 0 }));
 };
@@ -121,7 +153,12 @@ export function buildReview(i: ReviewInput): ReviewSnapshot {
   if ((i.health.change ?? 0) >= 3) chips.push('score_up');
   if (milestonesThisMonth.length) chips.push('milestone');
   if (i.budget.budgetedMinor > 0 && i.budget.spentBudgetedMinor <= i.budget.budgetedMinor) chips.push('under_budget');
-  const spendTrend = trend(i.spending.totalMinor, i.spending.prevMinor);
+  // with occasional spending (a trip) in either month, compare everyday spending: a vacation is not a habit change
+  const occ = i.spending.occasionalMinor ?? 0;
+  const prevOcc = i.spending.prevOccasionalMinor ?? 0;
+  const hasOcc = occ !== 0 || prevOcc !== 0;
+  const [cmpCur, cmpPrev] = hasOcc ? [i.spending.totalMinor - occ, i.spending.prevMinor - prevOcc] : [i.spending.totalMinor, i.spending.prevMinor];
+  const spendTrend = trend(cmpCur, cmpPrev);
   const incTrend = trend(i.income.totalMinor, i.income.prevMinor);
   const behind = i.goals.items.filter((g) => g.status === 'behind');
   const scoreDir = i.health.change === null ? 'flat' : i.health.change >= 3 ? 'up' : i.health.change <= -3 ? 'down' : 'flat';
@@ -152,11 +189,20 @@ export function buildReview(i: ReviewInput): ReviewSnapshot {
     spending: {
       totalMinor: i.spending.totalMinor,
       prevMinor: i.spending.prevMinor,
-      changePct: pct(i.spending.totalMinor, i.spending.prevMinor),
+      changePct: pct(cmpCur, cmpPrev),
       budgetedMinor: i.budget.budgetedMinor,
       byCategory: share(i.spending.byCategory),
       notable: notableTransactions(i.spending.transactions),
-      commentary: { key: `review.c.spending.${spendTrend}_${over.length ? 'over' : 'under'}`, params: { pct: Math.abs(pct(i.spending.totalMinor, i.spending.prevMinor) ?? 0), count: over.length } },
+      commentary: { key: `review.c.${hasOcc ? 'everyday' : 'spending'}.${spendTrend}_${over.length ? 'over' : 'under'}`, params: { pct: Math.abs(pct(cmpCur, cmpPrev) ?? 0), count: over.length } },
+      ...(hasOcc
+        ? {
+            occasional: {
+              minor: occ,
+              prevMinor: prevOcc,
+              commentary: occ > 0 ? { key: 'review.c.occasional.this', params: { amountMinor: occ, names: i.spending.byCategory.filter((c) => c.occasional && c.amountMinor > 0).map((c) => c.name).join(', ') } } : { key: 'review.c.occasional.prev', params: { amountMinor: prevOcc } },
+            },
+          }
+        : {}),
     },
     budget: {
       ok: budgeted.length - over.length,

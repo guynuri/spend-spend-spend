@@ -267,3 +267,31 @@ Format: date · milestone · what · why · alternatives rejected.
   Nothing is written until the user saves. PayPal stays a generic payee (never sent, never a rule).
 - Known, unrelated: `e2e/05-forecast` "card charge override" fails on main from the 18th of the
   month on (date-dependent), and is left for a separate fix.
+
+## D-R19 · 2026-11-19 · Budget modes: general expenses, occasional categories; split-aware review
+- **What:** every expense category has a `budget_mode` (migration 0016): `monthly` (default, as before),
+  `general` (pooled: one "General expenses" line with one shared monthly limit in `general_budgets`,
+  same recurring / one-time rules as `budgets`) or `occasional` (vacations, gifts: a yearly limit per
+  category in `yearly_budgets`, carried to later years until changed). Set on the category's edit sheet;
+  system categories stay `monthly`. Catalog defaults: Clothing and Personal care are general, Travel and
+  Gifts occasional (new households / newly added only; existing categories are not changed).
+- **Where it changes numbers:** Budget (general line with its categories; occasional section with
+  year-to-date vs yearly limit, this month and last 12 months; occasional spending is not "spending
+  without a budget"); health score (budget adherence via `monthlyBudgetLines`, shared with the budget
+  history; occasional spending in the savings rate / surplus replaced by its average over the complete
+  months among the last 12); usual month (general pooled; occasional averaged over up to 12 complete
+  months); pace insight and the forecast's daily variable baseline exclude occasional spending (it
+  belongs in planned expenses); new insight `budget_over_year`. Trends: general is one item (expandable),
+  occasional flagged, the months chart stacks everyday + occasional, and a per-quarter card compares
+  occasional spending with the year before (`GET /api/trends/occasional`). Totals (Income/Expenses per
+  §10.1) are unchanged everywhere: modes regroup and re-time spending, they never hide it.
+- **Review:** notable expenses are read from `v_lines`, so a split card charge appears as its lines
+  ("Groceries · from Isracard …"); an unsplit card charge is not a purchase and is left out. General
+  expenses are one line with their categories; with occasional spending in either month the commentary
+  compares everyday spending (`review.c.everyday.*`) and names the occasional amount separately.
+  Older stored snapshots render as before (new fields are optional).
+- **Name of the pooled line:** chosen by the household language (`GENERAL_NAME`), like default
+  category names, so stored review snapshots and insights stay language-neutral data.
+- **Rejected:** a hidden system category for the pool (would leak into pickers, rules and the ledger);
+  re-interpreting `budgets.limit_minor` as yearly for occasional categories (switching modes would
+  silently change the meaning of past rows).

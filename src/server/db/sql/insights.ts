@@ -5,10 +5,11 @@ import type { BudgetView } from '../../../shared/domain/budget';
 import type { ForecastView } from '../../../shared/domain/forecast';
 import type { TenantDb } from '../tenant';
 import type { HouseholdRow } from '../rows';
-import type { BaseFacts } from './facts';
+import { NOT_OCCASIONAL, type BaseFacts } from './facts';
 import type { HealthBundle } from './health';
 
-const EXPENSE_LINE = "(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount_minor < 0))";
+/** Pace compares everyday spending: occasional categories (a vacation) would swamp it. */
+const EXPENSE_LINE = `(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount_minor < 0)) AND ${NOT_OCCASIONAL}`;
 
 /** Action items for a month (PLAN §10.7) — shared by the dashboard and the monthly review. */
 export async function computeInsights(db: TenantDb, hh: HouseholdRow, base: BaseFacts, month: string, budget: BudgetView, forecast: ForecastView, health: HealthBundle) {
@@ -50,6 +51,7 @@ export async function computeInsights(db: TenantDb, hh: HouseholdRow, base: Base
     f: budget.f,
     unsplitCardMinor: budget.unsplitCardMinor,
     lines: budget.lines,
+    occasional: budget.occasional.lines,
     pace: paceDay ? { thisMinor: x.pace_this, prevMinor: x.pace_prev, day: paceDay } : null,
     suggestedCount: x.suggested,
     bigPayments: forecast.events.filter((e) => e.date >= base.today && e.date <= addDays(base.today, 7) && e.amountMinor < 0).map((e) => ({ label: e.label, date: e.date, amountMinor: e.amountMinor })),

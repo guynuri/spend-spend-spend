@@ -1,5 +1,5 @@
 /** Rule-based action items (PLAN §10.7). Params are language-neutral; the client formats them. */
-import type { BudgetLine } from './budget';
+import { GENERAL_ID, type BudgetLine, type OccasionalLine } from './budget';
 import type { GoalView } from './goals';
 
 export type Severity = 'alert' | 'warn' | 'info' | 'good';
@@ -23,6 +23,8 @@ export interface InsightInput {
   f: number | null;
   unsplitCardMinor: number;
   lines: BudgetLine[];
+  /** Occasional categories (yearly budgets) of the month's year. */
+  occasional?: OccasionalLine[];
   pace: { thisMinor: number; prevMinor: number; day: number } | null;
   suggestedCount: number;
   bigPayments: { label: string; date: string; amountMinor: number }[];
@@ -43,13 +45,15 @@ export function buildInsights(i: InsightInput): Insight[] {
   const over = i.lines.filter((l) => l.status === 'over').sort((a, b) => (a.remainingMinor ?? 0) - (b.remainingMinor ?? 0));
   over.slice(0, 3).forEach((l) => add('warn', 'budget_over', { category: l.name, amountMinor: -(l.remainingMinor ?? 0) }, `/budget?month=${i.month}`, `budget_over_${l.categoryId}`));
   if (over.length > 3) add('warn', 'budget_over_more', { count: over.length - 3 }, `/budget?month=${i.month}`);
+  for (const l of (i.occasional ?? []).filter((x) => x.status === 'over'))
+    add('warn', 'budget_over_year', { category: l.name, amountMinor: -(l.remainingMinor ?? 0), year: i.month.slice(0, 4) }, `/budget?month=${i.month}`, `budget_over_year_${l.categoryId}`);
   for (const l of i.lines) {
     if (l.avg3Minor <= 0) continue;
     let comparable: number | null = null;
     if (!i.isCurrentMonth) comparable = l.spentMinor;
     else if (i.f !== null && i.f >= 0.5) comparable = Math.round(l.spentMinor / i.f);
     if (comparable === null) continue;
-    if (comparable >= 1.3 * l.avg3Minor && comparable - l.avg3Minor >= 20000) add('info', 'category_spike', { category: l.name, amountMinor: comparable, avgMinor: l.avg3Minor }, `/transactions?category=${l.categoryId}`, `spike_${l.categoryId}`);
+    if (comparable >= 1.3 * l.avg3Minor && comparable - l.avg3Minor >= 20000) add('info', 'category_spike', { category: l.name, amountMinor: comparable, avgMinor: l.avg3Minor }, l.categoryId === GENERAL_ID ? `/budget?month=${i.month}` : `/transactions?category=${l.categoryId}`, `spike_${l.categoryId}`);
   }
   if (i.pace && i.pace.prevMinor > 0) {
     const diff = (i.pace.thisMinor - i.pace.prevMinor) / i.pace.prevMinor;

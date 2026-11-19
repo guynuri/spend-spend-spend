@@ -15,7 +15,7 @@ import { useApiMutation } from '../../lib/mutate';
 import { useCanWrite } from '../../lib/session';
 import { formatPercent, minorToInput, parseMoneyInput, type Locale } from '../../../shared/money';
 import { addMonths, monthEnd, monthStart } from '../../../shared/dates';
-import type { BudgetLine, BudgetStatus } from '../../../shared/domain/budget';
+import { GENERAL_ID, type BudgetLine, type BudgetStatus, type OccasionalLine } from '../../../shared/domain/budget';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { useBudget, type BudgetResponse } from './useBudget';
 
@@ -48,7 +48,7 @@ function BudgetForm({ line, lines, month, onDone }: { line: BudgetLine | null; l
   const [categoryId, setCategoryId] = useState(line?.categoryId ?? '');
   const [value, setValue] = useState(line?.limitMinor == null ? '' : minorToInput(line.limitMinor).replace(/\.00$/, ''));
   const [mode, setMode] = useState<Mode>(line?.oneTime ? 'once' : 'every');
-  const save = useApiMutation((item: { limitMinor: number | null; oneTime: boolean }) => put('/api/budgets', { month, items: [{ categoryId, ...item }] }), {
+  const save = useApiMutation((item: { limitMinor: number | null; oneTime: boolean }) => put('/api/budgets', { month, items: [categoryId === GENERAL_ID ? { general: true, ...item } : { categoryId, ...item }] }), {
     invalidate: [['budget'], ['me'], ['dashboard'], ['health']],
     onSuccess: onDone,
   });
@@ -116,6 +116,11 @@ function LineRow({ line, onOpen, onEdit }: { line: BudgetLine; onOpen: () => voi
             <bdi className="truncate font-medium">{line.name}</bdi>
             {line.limitMinor !== null && <Badge tone={line.oneTime ? 'accent' : 'neutral'}>{t(line.oneTime ? 'budget.oneTime' : 'budget.monthly')}</Badge>}
           </div>
+          {line.members && line.members.length > 0 && (
+            <div className="truncate text-xs text-muted" data-testid="general-members">
+              <bdi>{line.members.map((m) => m.name).join(' · ')}</bdi>
+            </div>
+          )}
           <div className="text-xs text-muted">
             <Money minor={Math.max(0, line.spentMinor)} decimals={0} /> {line.limitMinor !== null && line.remainingMinor !== null && (line.remainingMinor >= 0 ? <>· {t('budget.remaining')} <Money minor={line.remainingMinor} decimals={0} /></> : <span className="text-bad">· {t('budget.over')} <Money minor={-line.remainingMinor} decimals={0} /></span>)}
           </div>
@@ -187,7 +192,7 @@ function TopList<T>({ id, title, items, render, ulClass = 'divide-y divide-borde
   );
 }
 
-function Charts({ data }: { data: BudgetResponse }) {
+function Charts({ data, onOpen }: { data: BudgetResponse; onOpen: (l: BudgetLine) => void }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
   const money = useMoneyFmt();
@@ -219,9 +224,9 @@ function Charts({ data }: { data: BudgetResponse }) {
           title={t('budget.distribution')}
           items={dist}
           ulClass="flex flex-col gap-2"
-          render={(l) => (
-            <li key={l.categoryId}>
-              <Link to={`/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${l.categoryId}`} className="block min-h-11">
+          render={(l) => {
+            const inner = (
+              <>
                 <div className="flex justify-between text-sm">
                   <bdi>{l.name}</bdi>
                   <span className="text-muted">
@@ -229,16 +234,32 @@ function Charts({ data }: { data: BudgetResponse }) {
                   </span>
                 </div>
                 <ProgressBar value={l.spentMinor / total} label={l.name} />
-              </Link>
-            </li>
-          )}
+              </>
+            );
+            return (
+              <li key={l.categoryId}>
+                {l.members ? (
+                  <button type="button" className="block min-h-11 w-full text-start" onClick={() => onOpen(l)}>
+                    {inner}
+                  </button>
+                ) : (
+                  <Link to={`/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${l.categoryId}`} className="block min-h-11">
+                    {inner}
+                  </Link>
+                )}
+              </li>
+            );
+          }}
         />
       )}
     </>
   );
 }
 
-function CategorySheet({ line, data, onClose }: { line: BudgetLine | null; data: BudgetResponse; onClose: () => void }) {
+/** What the category sheet shows: a monthly line, the general pool (with its categories), or an occasional category. */
+type SheetLine = Pick<BudgetLine, 'categoryId' | 'name' | 'members'> & { limitMinor?: number | null; oneTime?: boolean; occasional?: boolean };
+
+function CategorySheet({ line, data, onClose }: { line: SheetLine | null; data: BudgetResponse; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
   const money = useMoneyFmt();
@@ -260,13 +281,147 @@ function CategorySheet({ line, data, onClose }: { line: BudgetLine | null; data:
               </ComposedChart>
             </ResponsiveContainer>
           </ChartBox>
-          {line.limitMinor !== null && <p className="text-xs text-muted">{line.oneTime ? t('budget.onceHint', { month: fmt(data.month, 'month') }) : t('budget.appliesFrom', { month: fmt(data.month, 'month') })}</p>}
-          <Link to={`/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${line.categoryId}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-surface-2 px-4 font-medium">
-            {t('budget.viewTransactions')}
-          </Link>
+          {line.occasional && <p className="text-xs text-muted">{t('budget.occasional.sheetHint')}</p>}
+          {line.limitMinor != null && <p className="text-xs text-muted">{line.oneTime ? t('budget.onceHint', { month: fmt(data.month, 'month') }) : t('budget.appliesFrom', { month: fmt(data.month, 'month') })}</p>}
+          {line.members ? (
+            <>
+              <p className="text-xs text-muted">{t('budget.general.hint')}</p>
+              <ul className="divide-y divide-border" data-testid="general-breakdown">
+                {line.members.map((m) => (
+                  <li key={m.categoryId}>
+                    <Link to={`/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${m.categoryId}`} className="flex min-h-11 items-center justify-between gap-2 text-sm">
+                      <bdi className="truncate">{m.name}</bdi>
+                      <span className="shrink-0 text-muted">
+                        <Money minor={m.spentMinor} decimals={0} /> · {t('budget.avg3')} <Money minor={m.avg3Minor} decimals={0} />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <Link
+              to={line.occasional ? `/transactions?from=${monthStart(addMonths(data.month, -11))}&to=${monthEnd(data.month)}&category=${line.categoryId}` : `/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${line.categoryId}`}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-surface-2 px-4 font-medium"
+            >
+              {t('budget.viewTransactions')}
+            </Link>
+          )}
         </div>
       )}
     </Sheet>
+  );
+}
+
+/** Yearly limit of an occasional category: applies to this year and later years until changed. */
+function YearlyForm({ line, year, month, onDone }: { line: OccasionalLine; year: string; month: string; onDone: () => void }) {
+  const { t } = useTranslation();
+  const money0 = useMoneyFmt(0);
+  const [value, setValue] = useState(line.yearLimitMinor == null ? '' : minorToInput(line.yearLimitMinor).replace(/\.00$/, ''));
+  const save = useApiMutation((limitMinor: number | null) => put('/api/budgets', { month, items: [{ categoryId: line.categoryId, limitMinor, yearly: true }] }), {
+    invalidate: [['budget'], ['me'], ['dashboard'], ['health']],
+    onSuccess: onDone,
+  });
+  const minor = value.trim() === '' ? null : parseMoneyInput(value);
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (minor !== null && minor >= 0) save.mutate(minor);
+      }}
+    >
+      <Field label={t('budget.occasional.yearAmount', { year })} htmlFor="yb-amt">
+        <AmountInput id="yb-amt" autoFocus value={value} onChange={(e) => setValue(e.target.value)} data-testid="yearly-input" placeholder="0" />
+      </Field>
+      <p className="text-xs text-muted">{t('budget.occasional.appliesFrom', { year })}</p>
+      {line.last12Minor > 0 && <p className="text-xs text-muted">{t('budget.occasional.last12Hint', { amount: iso(money0(line.last12Minor)) })}</p>}
+      <div className="flex flex-wrap justify-between gap-2">
+        {line.yearLimitMinor != null ? (
+          <Button variant="ghost" className="text-bad" busy={save.isPending} onClick={() => save.mutate(null)} data-testid="yearly-remove">
+            {t('budget.removeLimit')}
+          </Button>
+        ) : (
+          <span />
+        )}
+        <Button type="submit" busy={save.isPending} disabled={minor === null || minor < 0} data-testid="yearly-save">
+          {t('common.save')}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Occasional spending (vacations, gifts): year to date against a yearly budget, never month by month. */
+function OccasionalCard({ data, onOpen }: { data: BudgetResponse; onOpen: (l: OccasionalLine) => void }) {
+  const { t } = useTranslation();
+  const canWrite = useCanWrite();
+  const [editing, setEditing] = useState<OccasionalLine | null>(null);
+  const o = data.occasional;
+  if (!o.lines.length) return null;
+  return (
+    <Card data-testid="budget-occasional">
+      <CardTitle>
+        {t('budget.occasional.title', { year: o.year })} · <Money minor={o.totals.ytdMinor} decimals={0} className="text-muted" />
+        {o.totals.yearBudgetedMinor > 0 && (
+          <>
+            {' / '}
+            <Money minor={o.totals.yearBudgetedMinor} decimals={0} className="text-muted" />
+          </>
+        )}
+      </CardTitle>
+      <p className="text-xs text-muted">{t('budget.occasional.hint')}</p>
+      <ul className="divide-y divide-border">
+        {o.lines.map((l) => (
+          <li key={l.categoryId} className="py-3" data-testid="occasional-line" data-status={l.status ?? 'none'}>
+            <div className="flex items-center justify-between gap-2">
+              <button type="button" onClick={() => onOpen(l)} className="min-h-11 min-w-0 flex-1 text-start">
+                <bdi className="block truncate font-medium">{l.name}</bdi>
+                <div className="text-xs text-muted">
+                  {t('budget.occasional.ytd', { year: o.year })} <Money minor={Math.max(0, l.ytdMinor)} decimals={0} />
+                  {l.remainingMinor !== null &&
+                    (l.remainingMinor >= 0 ? (
+                      <>
+                        {' '}
+                        · {t('budget.remaining')} <Money minor={l.remainingMinor} decimals={0} />
+                      </>
+                    ) : (
+                      <span className="text-bad">
+                        {' '}
+                        · {t('budget.over')} <Money minor={-l.remainingMinor} decimals={0} />
+                      </span>
+                    ))}
+                </div>
+              </button>
+              <StatusBadge status={l.status} />
+              {canWrite ? (
+                <button type="button" className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-medium text-accent" data-testid="yearly-edit" onClick={() => setEditing(l)}>
+                  {l.yearLimitMinor === null ? (
+                    t('budget.occasional.setYearly')
+                  ) : (
+                    <>
+                      <Money minor={l.yearLimitMinor} decimals={0} />
+                      {t('budget.occasional.perYear')}
+                      <Pencil className="size-3.5" aria-label={t('budget.edit')} />
+                    </>
+                  )}
+                </button>
+              ) : (
+                l.yearLimitMinor !== null && <Money minor={l.yearLimitMinor} decimals={0} className="text-sm" />
+              )}
+            </div>
+            {l.yearLimitMinor !== null && <ProgressBar value={l.utilization ?? 0} tone={l.status ? TONE[l.status] : 'accent'} label={l.name} />}
+            <div className="mt-1 text-xs text-muted">
+              {t('budget.occasional.thisMonth')} <Money minor={l.monthMinor} decimals={0} /> · {t('budget.occasional.last12')} <Money minor={l.last12Minor} decimals={0} /> ({t('budget.occasional.aboutPerMonth')}{' '}
+              <Money minor={Math.round(l.last12Minor / 12)} decimals={0} />)
+            </div>
+          </li>
+        ))}
+      </ul>
+      <Sheet open={!!editing} onOpenChange={(v) => !v && setEditing(null)} title={editing?.name ?? ''} testId="yearly-sheet">
+        {editing && <YearlyForm line={editing} year={o.year} month={data.month} onDone={() => setEditing(null)} />}
+      </Sheet>
+    </Card>
   );
 }
 
@@ -276,7 +431,7 @@ export function Component() {
   const [sp, setSp] = useSearchParams();
   const q = useBudget(sp.get('month'));
   const money0 = useMoneyFmt(0);
-  const [open, setOpen] = useState<BudgetLine | null>(null);
+  const [open, setOpen] = useState<SheetLine | null>(null);
   const [editing, setEditing] = useState<BudgetLine | 'new' | null>(null);
   const loc = i18n.language as Locale;
   if (q.isPending) return <Spinner />;
@@ -390,7 +545,8 @@ export function Component() {
           render={row}
         />
       )}
-      <Charts data={d} />
+      <OccasionalCard data={d} onOpen={(l) => setOpen({ categoryId: l.categoryId, name: l.name, occasional: true })} />
+      <Charts data={d} onOpen={setOpen} />
       <CategorySheet line={open} data={d} onClose={() => setOpen(null)} />
       <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title={editing === 'new' || editing?.limitMinor == null ? t('budget.add') : t('budget.edit')} testId="budget-sheet">
         {editing && <BudgetForm key={editing === 'new' ? 'new' : editing.categoryId} line={editing === 'new' ? null : editing} lines={d.lines} month={d.month} onDone={() => setEditing(null)} />}

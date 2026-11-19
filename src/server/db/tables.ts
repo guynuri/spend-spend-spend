@@ -9,6 +9,8 @@ export const TENANT_TABLES = [
   'goal_contributions',
   'goals',
   'budgets',
+  'general_budgets',
+  'yearly_budgets',
   'transaction_splits',
   'transactions',
   'planned_expenses',

@@ -17,6 +17,7 @@ import type { Category, Rule } from '../../../shared/schemas/ledger';
 const KINDS: Category['kind'][] = ['expense', 'income', 'transfer'];
 const MATCHES: Rule['match'][] = ['contains', 'equals', 'starts_with'];
 const SIGNS: Rule['sign'][] = ['any', 'in', 'out'];
+const MODES: Category['budgetMode'][] = ['monthly', 'general', 'occasional'];
 
 function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
   const { t } = useTranslation();
@@ -25,8 +26,9 @@ function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
   const kind = cat.kind;
   const [grp, setGrp] = useState<'fixed' | 'variable'>(cat.grp ?? 'variable');
   const [isDebt, setIsDebt] = useState(cat.isDebt);
-  const save = useApiMutation(() => patch(`/api/categories/${cat.id}`, { name: name.trim(), ...(kind === 'expense' ? { grp, isDebt } : {}) }), {
-    invalidate: [['categories'], ...LEDGER_DEPENDENT],
+  const [mode, setMode] = useState<Category['budgetMode']>(cat.budgetMode);
+  const save = useApiMutation(() => patch(`/api/categories/${cat.id}`, { name: name.trim(), ...(kind === 'expense' ? { grp, isDebt, ...(cat.systemKey ? {} : { budgetMode: mode }) } : {}) }), {
+    invalidate: [['categories'], ['budget'], ['dashboard'], ['health'], ['trends'], ...LEDGER_DEPENDENT],
     onSuccess: onDone,
     successKey: 'ledger.saved',
   });
@@ -57,6 +59,17 @@ function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
               <option value="variable">{t('categories.variable')}</option>
             </Select>
           </Field>
+          {!cat.systemKey && (
+            <Field label={t('categories.mode.label')} htmlFor="cat-mode" hint={<span data-testid="category-mode-hint">{t(`categories.mode.${mode}Hint`)}</span>}>
+              <Select id="cat-mode" value={mode} onChange={(e) => setMode(e.target.value as Category['budgetMode'])} data-testid="category-mode">
+                {MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {t(`categories.mode.${m}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <div>
             <Checkbox label={t('categories.isDebt')} checked={isDebt} onChange={setIsDebt} />
             <p className="ps-8 text-xs text-muted">{t('categories.isDebtHint')}</p>
@@ -215,6 +228,7 @@ export function Component() {
                     >
                       <span dir="auto">{c.name}</span>
                       {c.grp && <span className="text-xs text-muted">· {t(`categories.${c.grp}`)}</span>}
+                      {c.kind === 'expense' && c.budgetMode !== 'monthly' && <Badge tone="accent">{t(`categories.mode.${c.budgetMode}Short`)}</Badge>}
                       {c.systemKey && <Badge>{t('categories.system')}</Badge>}
                     </button>
                   </li>

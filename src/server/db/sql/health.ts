@@ -1,10 +1,10 @@
 import { addMonths, minDate, monthEnd, monthRange, monthStart, type MonthStr } from '../../../shared/dates';
 import { lastCompleteMonths, mean } from '../../../shared/domain/common';
-import { limitFor, type BudgetRow } from '../../../shared/domain/budget';
+import { GENERAL_ID, monthlyBudgetLines, type BudgetCategoryIn, type BudgetMode, type BudgetRow } from '../../../shared/domain/budget';
 import { goalView, goalsSummary, type ContributionIn, type GoalIn, type GoalView } from '../../../shared/domain/goals';
 import { computeHealth, recommendations, type HealthInput, type HealthResult, type Recommendation } from '../../../shared/domain/health';
 import type { TenantDb } from '../tenant';
-import { pnlByMonthStmt, spentByCategoryStmt, toPnlMap, toSpentMaps, type BaseFacts } from './facts';
+import { occasionalByMonthStmt, pnlByMonthStmt, spentByCategoryStmt, toMonthMap, toPnlMap, toSpentMaps, type BaseFacts } from './facts';
 
 /** Liquid funds (Σ max(0, balance) of is_liquid accounts) at several dates, in one query. */
 export function liquidAtStmt(q: TenantDb, dates: string[]) {
@@ -44,7 +44,7 @@ export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthS
   const months = monthRange(addMonths(toMonth, -(n - 1)), toMonth);
   const from = addMonths(months[0]!, -2);
   const ends = months.map((m) => minDate(monthEnd(m), base.today));
-  const [pnl, debt, liquid, budgets, spent, goals, contribs, liquidCount] = await q.batch([
+  const [pnl, debt, liquid, budgets, spent, goals, contribs, liquidCount, general, cats, occasional] = await q.batch([
     pnlByMonthStmt(q, from, toMonth),
     q.stmt(
       `SELECT substr(l.date, 1, 7) AS m, -SUM(l.amount_minor) AS debt FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
@@ -58,34 +58,47 @@ export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthS
     q.stmt("SELECT * FROM goals WHERE household_id = ?1 AND status <> 'archived' ORDER BY priority, created_at"),
     q.stmt('SELECT goal_id, date, amount_minor FROM goal_contributions WHERE household_id = ?1'),
     q.stmt('SELECT COUNT(*) AS n FROM accounts WHERE household_id = ?1 AND is_liquid = 1 AND archived = 0'),
+    q.stmt(`SELECT '${GENERAL_ID}' AS category_id, effective_from, limit_minor, one_time FROM general_budgets WHERE household_id = ?1`),
+    q.stmt("SELECT id, name, grp, archived, budget_mode FROM categories WHERE household_id = ?1 AND kind = 'expense'"),
+    // occasional spending is spread over 12 months, so a month back to 11 months before the window
+    occasionalByMonthStmt(q, addMonths(from, -11), toMonth),
   ]);
   const p = toPnlMap(pnl);
   const debtMap = new Map((debt!.results as { m: string; debt: number }[]).map((r) => [r.m, r.debt]));
   const liqMap = new Map((liquid!.results as { dt: string; liquid: number }[]).map((r) => [r.dt, r.liquid]));
   const hasLiquid = ((liquidCount!.results[0] as { n: number }).n ?? 0) > 0;
   const rows = budgets!.results as unknown as BudgetRow[];
+  const generalRows = general!.results as unknown as BudgetRow[];
+  const categories: BudgetCategoryIn[] = (cats!.results as { id: string; name: string; grp: 'fixed' | 'variable' | null; archived: number; budget_mode: BudgetMode }[]).map((c) => ({ id: c.id, name: c.name, grp: c.grp, archived: c.archived === 1, mode: c.budget_mode }));
   const byCat = toSpentMaps(spent);
+  const occ = toMonthMap(occasional);
+  /**
+   * Expenses of month x with occasional spending (vacations, gifts) replaced by its average over the
+   * complete months among the 12 ending with x — one trip should not sink a month's savings rate.
+   */
+  const smoothedExpenses = (x: MonthStr) => {
+    const o = occ.get(x) ?? 0;
+    const ms = monthRange(addMonths(x, -11), x).filter((m) => base.complete.includes(m));
+    const avg = ms.length ? ms.reduce((a, m) => a + (occ.get(m) ?? 0), 0) / ms.length : o;
+    return (p.get(x)?.expenses ?? 0) - o + Math.round(avg);
+  };
   const gs = goals!.results as unknown as GoalIn[];
   const cs = contribs!.results as unknown as ContributionIn[];
   const out: HealthMonth[] = months.map((m, i) => {
     const window = [addMonths(m, -2), addMonths(m, -1), m].filter((x) => base.complete.includes(x));
     const income = window.reduce((s, x) => s + (p.get(x)?.income ?? 0), 0);
-    const expenses = window.reduce((s, x) => s + (p.get(x)?.expenses ?? 0), 0);
+    const expenses = window.reduce((s, x) => s + smoothedExpenses(x), 0);
     let ok = 0;
     let total = 0;
     let over = 0;
     let budgeted = 0;
     let spentB = 0;
-    const cats = new Set(rows.map((r) => r.category_id));
-    for (const c of cats) {
-      const l = limitFor(rows, c, m);
-      if (l === null) continue;
+    for (const l of monthlyBudgetLines(categories, rows, generalRows, (cid, mm) => byCat.get(cid)?.get(mm) ?? 0, m)) {
       total++;
-      const s = byCat.get(c)?.get(m) ?? 0;
-      budgeted += l;
-      spentB += s;
-      if (s <= l) ok++;
-      else over += s - l;
+      budgeted += l.limit;
+      spentB += l.spent;
+      if (l.spent <= l.limit) ok++;
+      else over += l.spent - l.limit;
     }
     const asOfEnd = ends[i]!;
     const views = gs.filter((g) => g.start_date <= asOfEnd).map((g) => goalView(g, cs, asOfEnd));
@@ -108,7 +121,7 @@ export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthS
   const current = out[out.length - 1]!;
   const prev = out[out.length - 2];
   const goalViews = gs.map((g) => goalView(g, cs, base.today));
-  const surplus = mean(lastCompleteMonths(base.complete, 3).map((m) => (p.get(m)?.income ?? 0) - (p.get(m)?.expenses ?? 0)));
+  const surplus = mean(lastCompleteMonths(base.complete, 3).map((m) => (p.get(m)?.income ?? 0) - smoothedExpenses(m)));
   return {
     months: out,
     current,
