@@ -12,6 +12,7 @@ import { applyRulesStmt } from '../db/sql/rules';
 import { TX_COLS, mapTx } from '../db/sql/txmap';
 import { afterTransactionsWritten } from '../db/sql/linking';
 import type { TenantDb } from '../db/tenant';
+import { NEVER_LINK, refreshCardPayments, unlinkStmt } from '../db/sql/cards';
 import type { Ctx } from '../types';
 
 export const transactionRoutes = tenantGroup();
@@ -172,6 +173,7 @@ transactionRoutes.post('/', async (c) => {
   });
   if (!b.categoryId) await (await applyRulesStmt(db, { kind: 'ids', ids: [id] }, now)).run();
   await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));
+  await refreshCardPayments(db);
   const row = await db.first(`SELECT ${TX_COLS} FROM transactions t WHERE t.household_id = ?1 AND t.id = ?2`, id);
   return c.json(mapTx(row!), 201);
 });
@@ -180,21 +182,51 @@ transactionRoutes.patch('/:id', async (c) => {
   const b = await body(c, txPatch);
   const { db, hh } = tctx(c);
   const id = c.req.param('id');
-  const tx = await db.first<{ id: string; source: string; amount_minor: number; description: string; has_splits: number; category_id: string | null }>(
-    'SELECT id, source, amount_minor, description, has_splits, category_id FROM transactions WHERE household_id = ?1 AND id = ?2',
+  const tx = await db.first<{ id: string; source: string; amount_minor: number; description: string; has_splits: number; category_id: string | null; kind: string; card_account_id: string | null }>(
+    'SELECT id, source, amount_minor, description, has_splits, category_id, kind, card_account_id FROM transactions WHERE household_id = ?1 AND id = ?2',
     id,
   );
   if (!tx) throw notFound();
   await db.assertOwned({ categories: [b.categoryId], accounts: [b.accountId], recurring_items: [b.recurringId] });
   const editingCore = b.description !== undefined || b.date !== undefined || b.amountMinor !== undefined || b.direction !== undefined || b.accountId !== undefined;
   if (editingCore && tx.source !== 'manual') throw new HttpError(400, 'imported_readonly', 'Imported fields cannot be edited');
+  // A bank card charge: link it to the card account it pays, or (null) mark it as not a card bill.
+  // Categorizing a linked charge by hand also unlinks it: the user books it themselves.
+  // Runs after the checks above so a refused edit never leaves the link half changed.
+  const linked = !!tx.card_account_id && tx.card_account_id !== NEVER_LINK;
+  const unlinking = linked && (b.cardAccountId === null || (b.cardAccountId === undefined && b.categoryId !== undefined));
+  const staysLinked = b.cardAccountId !== undefined ? !!b.cardAccountId : linked && !unlinking;
+  // the app owns a linked charge's split lines: it stays a card charge until it is unlinked
+  if (staysLinked && b.kind === 'normal') throw new HttpError(409, 'card_payment_linked', 'This charge is itemized by its card account');
+  // the split a linked charge has is the app's and goes with the unlink; any other split must be removed first
+  if ((b.amountMinor !== undefined || b.direction !== undefined) && tx.has_splits && !unlinking) throw new HttpError(400, 'split_sum_mismatch', 'Remove the split before changing the amount');
+  if (b.cardAccountId !== undefined || (linked && b.categoryId !== undefined)) {
+    if (tx.kind !== 'card_lump') throw new HttpError(400, 'not_card_charge', 'Only card charges can be linked to a card account');
+    if (b.cardAccountId) {
+      const acc = await db.first<{ type: string; archived: number }>('SELECT type, archived FROM accounts WHERE household_id = ?1 AND id = ?2', b.cardAccountId);
+      if (!acc) throw notFound();
+      if (acc.type !== 'credit_card' || acc.archived) throw new HttpError(400, 'not_card_account', 'Not an active credit-card account');
+      await db.run(
+        "UPDATE transactions SET card_account_id = ?3, has_splits = 0, updated_at = ?4 WHERE household_id = ?1 AND id = ?2 AND kind = 'card_lump'",
+        id,
+        b.cardAccountId,
+        nowIso(),
+      );
+    } else if (unlinking) {
+      const unsplit = await db.first<{ id: string }>("SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'");
+      await db.batch([db.stmt('DELETE FROM transaction_splits WHERE household_id = ?1 AND transaction_id = ?2', id), unlinkStmt(db, [id], unsplit?.id ?? null, nowIso(), true)]);
+      tx.has_splits = 0;
+    } else if (!linked) {
+      // not linked: only stop automatic linking; the user's own category or split stays
+      await db.run('UPDATE transactions SET card_account_id = ?3, updated_at = ?4 WHERE household_id = ?1 AND id = ?2', id, NEVER_LINK, nowIso());
+    }
+  }
   const now = nowIso();
   let amount = tx.amount_minor;
   if (b.amountMinor !== undefined || b.direction !== undefined) {
     const abs = b.amountMinor ?? Math.abs(tx.amount_minor);
     const dir = b.direction ?? (tx.amount_minor >= 0 ? 'in' : 'out');
     amount = dir === 'in' ? abs : -abs;
-    if (tx.has_splits) throw new HttpError(400, 'split_sum_mismatch', 'Remove the split before changing the amount');
   }
   const description = b.description ?? tx.description;
   const setCat = b.categoryId !== undefined;
@@ -281,6 +313,7 @@ transactionRoutes.patch('/:id', async (c) => {
     }
   }
   if (editingCore) await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));
+  await refreshCardPayments(db);
   const row = await db.first(`SELECT ${TX_COLS} FROM transactions t WHERE t.household_id = ?1 AND t.id = ?2`, id);
   const splits = await loadSplits(db, [id]);
   return c.json({ tx: mapTx(row!, splits.get(id) ?? []), learned, similar });
@@ -321,6 +354,7 @@ transactionRoutes.delete('/:id', async (c) => {
     db.stmt('DELETE FROM transactions WHERE household_id = ?1 AND id = ?2', id),
   ]);
   await db.audit(userId, 'transaction.delete', 'transaction', id).run();
+  await refreshCardPayments(db);
   return c.json({ ok: true });
 });
 
@@ -328,8 +362,10 @@ transactionRoutes.put('/:id/splits', async (c) => {
   const b = await body(c, splitsPut);
   const { db } = tctx(c);
   const id = c.req.param('id');
-  const tx = await db.first<{ amount_minor: number }>('SELECT amount_minor FROM transactions WHERE household_id = ?1 AND id = ?2', id);
+  const tx = await db.first<{ amount_minor: number; card_account_id: string | null }>('SELECT amount_minor, card_account_id FROM transactions WHERE household_id = ?1 AND id = ?2', id);
   if (!tx) throw notFound();
+  // a linked card charge is booked by the app from the card account's purchases
+  if (tx.card_account_id && tx.card_account_id !== NEVER_LINK) throw new HttpError(409, 'card_payment_linked', 'This charge is itemized by its card account');
   await db.assertOwned({ categories: b.lines.map((l) => l.categoryId) });
   if (b.lines.length === 1) throw new HttpError(400, 'split_min_lines', 'A split needs at least two lines');
   if (b.lines.length && !splitSumOk(b.lines, tx.amount_minor)) throw new HttpError(400, 'split_sum_mismatch', 'Split lines must sum to the transaction amount', { expected: tx.amount_minor });
@@ -354,7 +390,7 @@ transactionRoutes.get('/:id/split-suggestion', async (c) => {
   // No payee to match on: an empty description would match every other description-less split.
   if (tx.kind !== 'card_lump' && !tx.description_norm) return c.json({ suggestion: null });
   const prev = await db.first<{ id: string; date: string; amount_minor: number }>(
-    `SELECT id, date, amount_minor FROM transactions WHERE household_id = ?1 AND has_splits = 1 AND id <> ?2
+    `SELECT id, date, amount_minor FROM transactions WHERE household_id = ?1 AND has_splits = 1 AND id <> ?2 AND (card_account_id IS NULL OR card_account_id = 'none')
        AND (CASE WHEN ?3 = 'card_lump' THEN kind = 'card_lump' ELSE description_norm = ?4 END)
      ORDER BY date DESC, id DESC LIMIT 1`,
     id,

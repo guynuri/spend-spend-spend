@@ -87,13 +87,17 @@ export function toSpentMaps(r: D1Result | undefined) {
 
 /**
  * Card charges still waiting to be split: not split, and still uncategorized or on the "card (not
- * split)" placeholder. A charge the user put in one real category as a whole is done.
+ * split)" placeholder. A charge the user put in one real category as a whole is done. A charge linked
+ * to a card account counts with its part no purchase explains yet ("not itemized", D-R20).
  */
 export function unsplitCardStmt(q: TenantDb, month: MonthStr) {
   return q.stmt(
-    `SELECT COALESCE(-SUM(t.amount_minor), 0) AS s, COUNT(*) AS n FROM transactions t
-      WHERE t.household_id = ?1 AND t.kind = 'card_lump' AND t.has_splits = 0 AND t.date >= ?2 AND t.date <= ?3
-        AND (t.category_id IS NULL OR t.category_id IN (SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'card_unsplit'))`,
+    `SELECT COALESCE(-SUM(l.amount_minor), 0) AS s, COUNT(DISTINCT l.tx_id) AS n FROM v_lines l
+       LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+      WHERE l.household_id = ?1 AND l.kind = 'card_lump' AND l.amount_minor < 0 AND l.date >= ?2 AND l.date <= ?3
+        AND ((l.split_id IS NULL AND (l.category_id IS NULL OR c.system_key = 'card_unsplit'))
+          OR (l.split_id IS NOT NULL AND c.system_key = 'card_unsplit'
+              AND EXISTS (SELECT 1 FROM transactions t WHERE t.household_id = ?1 AND t.id = l.tx_id AND t.card_account_id IS NOT NULL AND t.card_account_id <> 'none')))`,
     monthStart(month),
     monthEnd(month),
   );

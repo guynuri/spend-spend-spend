@@ -193,7 +193,17 @@
     "demo_read_only": "The tour shows demo data, which can’t be changed.",
     "too_many_reminders": "You have reached the maximum number of reminders.",
     "too_many_devices": "Too many devices have notifications on. Remove one first.",
-    "push_unavailable": "Notifications are not set up on this server."
+    "push_unavailable": "Notifications are not set up on this server.",
+    "wrong_budget_mode": "This category is budgeted differently (general expenses or yearly).",
+    "wrong_account_type": "Card files go to a credit-card account, bank files to a bank account.",
+    "not_card_charge": "Only a card charge can be linked to a card account.",
+    "not_card_account": "That isn't an active credit-card account.",
+    "card_payment_linked": "This card charge is itemized by its card account. Unlink it first to split it by hand.",
+    "too_many_keys": "You already have 5 keys. Revoke one first.",
+    "invalid_key": "Unknown or revoked key.",
+    "unknown_card": "No credit-card account matches that card.",
+    "unrecognized_file": "This file needs a column mapping: import it once on the Import page.",
+    "which_account": "No single account fits this file: import it on the Import page."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -341,7 +351,16 @@
     "todoUncategorized_one": "{{count}} transaction without a category",
     "todoUncategorized_other": "{{count}} transactions without a category",
     "todoShow": "Show",
-    "todoDismiss": "Hide until something new comes up"
+    "todoDismiss": "Hide until something new comes up",
+    "captured": "Apple Pay",
+    "cardBill": {
+      "label": "Pays the bill of",
+      "none": "Not a card bill (I'll categorize it)",
+      "linkedHint": "The purchases on that card account are the spending; this charge only pays them, so it isn't counted again.",
+      "unlinkedHint": "Pick the card account it pays, so its purchases count instead of this lump.",
+      "unitemized": "Not itemized yet, still counted as spending:",
+      "covered": "Fully covered by the purchases on {{account}}."
+    }
   },
   "split": {
     "title": "Split transaction",
@@ -410,7 +429,8 @@
     },
     "investmentHint": "The value moves with the market, so update it by hand with “Set balance” (e.g. once a month). Categorize money you move here as “Savings & investments”: it then isn't counted as spending.",
     "deleted": "Account deleted",
-    "archivedToast": "The account has transactions, so it was archived."
+    "archivedToast": "The account has transactions, so it was archived.",
+    "cardHint": "Pick the card company. Its purchases come from Apple Pay (Settings → Live card tracking), its files, or +. The monthly card charge in your bank file is then matched as the bill automatically, so nothing is counted twice."
   },
   "categories": {
     "title": "Categories & rules",
@@ -580,7 +600,7 @@
     "undone": "Undone",
     "fileErrors": {
       "not_card": "This isn't a card statement we recognize (Isracard, American Express, Max or Cal).",
-      "card_file": "This is a credit-card statement. Card imports aren't supported yet: import your bank account file, where the monthly card charge appears.",
+      "card_file": "This is a credit-card file: import it into a credit-card account.",
       "file_too_large": "The file is larger than 5 MB.",
       "file_type": "Choose an .xlsx, .xls or .csv file.",
       "unsupported_file": "This file can't be read. Export it again from the bank as Excel or CSV.",
@@ -1376,5 +1396,52 @@
         "body": "Your own nudges, e.g. to import a fresh statement weekly or log today’s spending. They pop up here and, if you allow notifications, on this phone."
       }
     }
+  },
+  "live": {
+    "title": "Live card tracking",
+    "intro": "Card purchases go to a credit-card account: Apple Pay adds them as you pay, the card company's file fills in the rest, and the monthly card charge in your bank file is matched to them as the bill, so nothing is counted twice.",
+    "noCards": "First add a credit-card account for each card (type Credit card, with its card company).",
+    "addCard": "Go to Accounts",
+    "keyTitle": "1. Your personal key",
+    "keyBody": "The shortcuts use it to add purchases and files for you. It can only add, never read your data. Each person in the household makes their own, and you can revoke one any time.",
+    "keyLabel": "Name (e.g. the phone)",
+    "keyLabelPlaceholder": "My iPhone",
+    "create": "Create a key",
+    "showOnce": "Copy it now: it's shown only this once. Paste it into the shortcut steps below.",
+    "key": "Key",
+    "yourKey": "<your key>",
+    "unnamed": "Key",
+    "lastUsed": "Last used",
+    "neverUsed": "Not used yet",
+    "revoke": "Revoke key",
+    "applePayTitle": "2. Apple Pay purchases, automatically",
+    "applePayBody": "An automation on your iPhone sends each Apple Pay purchase here the moment you pay. Set it up once:",
+    "urlPurchase": "Address for purchases",
+    "applePay": {
+      "s1": "Open the Shortcuts app → Automation → + (New Automation).",
+      "s2": "Choose “Transaction”. Under Cards, select your credit cards. Leave the other options as they are.",
+      "s3": "Choose “Run Immediately” (and turn off “Notify When Run” if you like), then Next → “New Blank Automation”.",
+      "s4": "Add the action “Get Contents of URL” and paste the address above.",
+      "s5": "Tap the arrow to show more: Method “POST”. Under Headers add “Authorization” with the value “Bearer {{key}}”.",
+      "s6": "Request Body “JSON”, with three Text fields: “merchant” = Shortcut Input → Merchant, “amount” = Shortcut Input → Amount, “card” = Shortcut Input → Card or Pass.",
+      "s7": "Optional: add “Get Dictionary Value” (key “message”) from Contents of URL, then “Show Notification” with it, to see each purchase as it's added.",
+      "s8": "Tap Done. Pay once with Apple Pay and look at Transactions: the purchase appears on that card's account."
+    },
+    "applePayNote": "Purchases in foreign currency are skipped: their shekel amount comes with the card file. A purchase added this way is replaced by the card file's row when you import it, keeping its category.",
+    "shareTitle": "3. Send a bank or card file from the Share button",
+    "shareBody": "A shortcut in the Share sheet sends an Excel you downloaded (Max, Isracard, Cal or your bank) straight to the app. Set it up once:",
+    "urlFile": "Address for files",
+    "share": {
+      "s1": "In Shortcuts, tap + to make a new shortcut and name it “Send to Money Money Money”.",
+      "s2": "Open its details (ⓘ) and turn on “Show in Share Sheet”, accepting Files.",
+      "s3": "Add “Get Contents of URL” and paste the address above.",
+      "s4": "Show more: Method “POST”. Headers: “Authorization” = “Bearer {{key}}”, and “X-File-Name” = Shortcut Input → Name.",
+      "s5": "Request Body “File”, and choose Shortcut Input.",
+      "s6": "Add “Get Dictionary Value” (key “message”) and “Show Notification” with it.",
+      "s7": "From then on: download the Excel in the card company's or bank's app or website, tap Share → “Send to Money Money Money”."
+    },
+    "sharePrivacy": "Unlike the Import page, this sends the file to the app's server. It is read in memory and never stored; only the transactions are saved. A file the app doesn't recognize, or one that fits more than one account, has to go through the Import page once.",
+    "monthlyTitle": "4. Once a month",
+    "monthlyBody": "Apple Pay can't see online purchases or the physical card: the card file fills them in. A monthly “Import statements” reminder (Reminders above) helps. Until it's imported, any part of a card charge no known purchase explains is shown as “not itemized yet” and still counted as spending."
   }
 }

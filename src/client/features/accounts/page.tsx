@@ -81,6 +81,11 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
           {t('accounts.investmentHint')}
         </p>
       )}
+      {type === 'credit_card' && (
+        <p className="text-xs text-muted" data-testid="card-hint">
+          {t('accounts.cardHint')}
+        </p>
+      )}
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1 text-sm font-medium">{t('accounts.institution')}</legend>
         <div className="flex flex-wrap gap-1.5" data-testid="bank-picker">

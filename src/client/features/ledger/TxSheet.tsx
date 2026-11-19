@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Scissors, Trash2 } from 'lucide-react';
 import { del, patch, post } from '../../api';
 import { Sheet } from '../../components/Sheet';
-import { Badge, Button, Field, Textarea } from '../../components/ui';
+import { Badge, Button, Field, Select, Textarea } from '../../components/ui';
 import { CategorySelect } from '../../components/CategorySelect';
 import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
@@ -58,7 +58,16 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
   });
   const saveNotes = useApiMutation((n: string) => patch<{ tx: Tx }>(`/api/transactions/${current!.id}`, { notes: n || null }), { invalidate: [['transactions']], successKey: 'ledger.saved', onSuccess: (r) => setCurrent(r.tx) });
   const remove = useApiMutation(() => del(`/api/transactions/${current!.id}`), { invalidate: [...LEDGER_DEPENDENT], onSuccess: onClose });
+  // a bank card charge paid to a credit-card account: the account's purchases are the spending (D-R20)
+  const link = useApiMutation((cardAccountId: string | null) => patch<PatchRes>(`/api/transactions/${current!.id}`, { cardAccountId }), {
+    invalidate: [...LEDGER_DEPENDENT, ['accounts']],
+    successKey: 'ledger.saved',
+    onSuccess: (r) => setCurrent(r.tx),
+  });
+  const cardAccounts = accounts.filter((a) => a.type === 'credit_card' && !a.archived);
   const tx0 = current;
+  const linkedTo = tx0?.cardAccountId ? accounts.find((a) => a.id === tx0.cardAccountId) : null;
+  const unitemized = tx0?.cardAccountId ? -tx0.splits.filter((x) => x.categoryId && cats.get(x.categoryId)?.systemKey === 'card_unsplit').reduce((a, x) => a + x.amountMinor, 0) : 0;
   const account = accounts.find((a) => a.id === tx0?.accountId);
   const sourceKey = tx0?.categorySource === 'rule' ? 'ledger.byRule' : tx0?.categorySource === 'ai' ? 'ledger.byAi' : tx0?.categorySource === 'user' ? 'ledger.byYou' : null;
   return (
@@ -76,11 +85,32 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
               <div className="mt-1 flex flex-wrap gap-1">
                 {tx0.kind === 'card_lump' && <Badge tone="accent">{t('ledger.cardLump')}</Badge>}
                 {tx0.source === 'manual' && <Badge>{t('ledger.manual')}</Badge>}
-                {tx0.hasSplits && <Badge tone="accent">{t('ledger.splitBadge')}</Badge>}
+                {tx0.hasSplits && !tx0.cardAccountId && <Badge tone="accent">{t('ledger.splitBadge')}</Badge>}
+                {tx0.captured && <Badge>{t('ledger.captured')}</Badge>}
               </div>
             </div>
             <Money minor={tx0.amountMinor} className="text-xl font-bold" tone signed />
           </div>
+          {tx0.kind === 'card_lump' && (cardAccounts.length > 0 || linkedTo) && (
+            <div className="flex flex-col gap-2 rounded-xl bg-surface-2 p-3 text-sm" data-testid="tx-card-link">
+              <Field label={t('ledger.cardBill.label')} htmlFor="tx-card-acc" hint={t(tx0.cardAccountId ? 'ledger.cardBill.linkedHint' : 'ledger.cardBill.unlinkedHint')}>
+                <Select id="tx-card-acc" value={tx0.cardAccountId ?? ''} disabled={!canWrite || link.isPending} onChange={(e) => link.mutate(e.target.value || null)} data-testid="tx-card-account">
+                  <option value="">{t('ledger.cardBill.none')}</option>
+                  {cardAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {tx0.cardAccountId && unitemized > 0 && (
+                <p className="text-warn" data-testid="tx-unitemized">
+                  {t('ledger.cardBill.unitemized')} <Money minor={unitemized} decimals={0} />
+                </p>
+              )}
+              {tx0.cardAccountId && unitemized === 0 && <p className="text-good">{t('ledger.cardBill.covered', { account: linkedTo?.name ?? '' })}</p>}
+            </div>
+          )}
           {!tx0.hasSplits && (
             <Field label={t('ledger.category')} htmlFor="tx-cat" hint={sourceKey ? t(sourceKey) : undefined}>
               <CategorySelect id="tx-cat" data-testid="tx-category" value={tx0.categoryId} disabled={!canWrite || setCat.isPending} onChange={(v) => setCat.mutate({ categoryId: v })} />
@@ -102,7 +132,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
               </div>
             </div>
           )}
-          {tx0.hasSplits && (
+          {tx0.hasSplits && !tx0.cardAccountId && (
             <ul className="divide-y divide-border rounded-xl border border-border" data-testid="tx-split-lines">
               {tx0.splits.map((s, i) => (
                 <li key={s.id ?? i} className="flex justify-between gap-2 px-3 py-2 text-sm">
@@ -115,7 +145,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
               ))}
             </ul>
           )}
-          {canWrite && (
+          {canWrite && !tx0.cardAccountId && (
             <Button variant="secondary" onClick={() => setSplitting(true)} data-testid="tx-split">
               <Scissors className="size-4" aria-hidden />
               {t('ledger.split')}

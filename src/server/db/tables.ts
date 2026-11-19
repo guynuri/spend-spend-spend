@@ -4,6 +4,7 @@
  */
 export const TENANT_TABLES = [
   'reminders',
+  'capture_keys',
   'ai_usage',
   'reviews',
   'goal_contributions',

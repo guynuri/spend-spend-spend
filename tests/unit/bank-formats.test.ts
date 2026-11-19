@@ -6,7 +6,7 @@ import { toGrid } from '../../src/shared/import/grid';
 import { pickParser } from '../../src/shared/import/registry';
 import { findProfile, guessMapping, headerSignature, mappingValid, parseWithMapping, type Mapping } from '../../src/shared/import/generic';
 import { dedupeKey } from '../../src/shared/import/dedupe';
-import { FORMAT_PARSERS, PARSER_IDS } from '../../src/shared/import/formats';
+import { CARD_PARSER_IDS, FORMAT_PARSERS, PARSER_IDS } from '../../src/shared/import/formats';
 import { decideParse, type Parsed } from '../../src/client/features/import/parseFile';
 import { BANKS, bankUrl, inferAccount } from '../../src/shared/banks';
 import type { Cell } from '../../src/shared/import/types';
@@ -157,10 +157,11 @@ describe('known bank / card layouts', () => {
     expect(parseWithMapping(g, fixed).rows.map((x) => x.amountMinor)).toEqual([-9000, 5000]);
   });
 
-  it('card layouts parse but the import route does not accept them', () => {
+  it('card layouts are importable, into credit-card accounts only (D-R20)', () => {
     const cards = FORMAT_PARSERS.filter((p) => p.card).map((p) => p.id);
     expect(cards).toEqual(['isracard', 'max', 'cal']);
-    expect(PARSER_IDS.some((id) => cards.includes(id))).toBe(false);
+    expect([...CARD_PARSER_IDS]).toEqual(cards);
+    expect(cards.every((id) => PARSER_IDS.includes(id))).toBe(true);
     expect(PARSER_IDS).toContain('hapoalim');
   });
 
