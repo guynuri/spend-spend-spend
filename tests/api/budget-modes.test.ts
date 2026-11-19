@@ -56,6 +56,8 @@ describe('budget modes: general expenses and occasional categories', () => {
     expect((await get(`${String(Number(m.slice(0, 4)) + 1)}-06`)).occasional.lines.find((l) => l.categoryId === vac.body.id)!.yearLimitMinor).toBe(1000000); // carries to later years
     expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: m, items: [{ categoryId: vac.body.id, limitMinor: 5 }] } })).body).toMatchObject({ error: { code: 'wrong_budget_mode' } });
     expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: m, items: [{ categoryId: eating.id, limitMinor: 5 }] } })).status).toBe(400);
+    // ...but a monthly limit left over from before the mode change can still be removed
+    expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: m, items: [{ categoryId: eating.id, limitMinor: null }] } })).status).toBe(200);
     const groceries = await byName('Groceries');
     expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: m, items: [{ categoryId: groceries.id, limitMinor: 5, yearly: true }] } })).status).toBe(400);
 

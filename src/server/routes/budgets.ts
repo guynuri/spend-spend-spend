@@ -44,6 +44,8 @@ budgetRoutes.put('/', async (c) => {
   if (cats.some((k) => k.kind !== 'expense')) throw new HttpError(400, 'not_expense_category', 'Only expense categories can be budgeted');
   const mode = new Map(cats.map((k) => [k.id, k.budget_mode]));
   for (const i of catItems) {
+    // removing a monthly limit is always allowed (e.g. one left over from before the category changed mode)
+    if (!('yearly' in i) && i.limitMinor === null) continue;
     const want = 'yearly' in i ? 'occasional' : 'monthly';
     if (mode.get(i.categoryId) !== want) throw new HttpError(400, 'wrong_budget_mode', want === 'occasional' ? 'Yearly budgets are for occasional categories' : 'This category is budgeted with the general expenses or yearly');
   }

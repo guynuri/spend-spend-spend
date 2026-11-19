@@ -21,7 +21,7 @@ export async function forecastFor(q: TenantDb, hh: HouseholdRow, base: BaseFacts
     q.stmt("SELECT id, name, amount_minor, date, account_id, card_recurring_id, status FROM planned_expenses WHERE household_id = ?1 AND status = 'planned'"),
     q.stmt(
       `SELECT t.id, t.date, t.amount_minor, t.account_id, t.recurring_id, t.planned_id, t.source,
-              (c.kind = 'expense' OR (t.category_id IS NULL AND t.has_splits = 0 AND t.amount_minor < 0)) AS is_exp
+              ((c.kind = 'expense' OR (t.category_id IS NULL AND t.has_splits = 0 AND t.amount_minor < 0)) AND ${NOT_OCCASIONAL}) AS is_exp
          FROM transactions t JOIN accounts a ON a.id = t.account_id AND a.household_id = ?1 AND a.include_in_forecast = 1 AND a.archived = 0
          LEFT JOIN categories c ON c.id = t.category_id AND c.household_id = ?1
         WHERE t.household_id = ?1 AND t.date > ?2 AND t.date <= ?3`,
