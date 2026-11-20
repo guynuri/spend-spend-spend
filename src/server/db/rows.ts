@@ -13,4 +13,7 @@ export interface HouseholdRow {
   forecast_daily_variable_minor: number | null;
   locale: string;
   created_at: string;
+  /** iCloud links of the shared purchase / file shortcuts (D-R21). */
+  shortcut_purchase_link: string | null;
+  shortcut_file_link: string | null;
 }

@@ -27,6 +27,7 @@ export function householdMembers(db: D1Database, householdId: string) {
       g.createInvite({ ...p, householdId }),
     revokeInvite: (id: string) => g.revokeInvite(householdId, id),
     update: (p: Parameters<typeof g.updateHousehold>[1]) => g.updateHousehold(householdId, p),
+    setShortcutLinks: (p: Parameters<typeof g.setShortcutLinks>[1]) => g.setShortcutLinks(householdId, p),
     setAi: (enabled: boolean, userId: string, provider: string) => g.setAi(householdId, enabled, userId, provider),
     setSampleData: (v: boolean) => g.setSampleData(householdId, v).run(),
     setSampleDataStmt: (v: boolean) => g.setSampleData(householdId, v),

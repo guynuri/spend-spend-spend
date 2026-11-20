@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 import { cardPaymentParts, chooseCardAccount, cycleMonth, issuerOf } from '../../src/shared/domain/cards';
-import { matchCaptureCard, parsePaidAmount } from '../../src/shared/domain/capture';
+import { matchCaptureCard, parsePaidAmount, readPurchase } from '../../src/shared/domain/capture';
 import { cardAccountResult, installmentOf } from '../../src/shared/import/cardAccount';
 import { pickParser } from '../../src/shared/import/registry';
 import { sniffFile } from '../../src/shared/import/sniff';
@@ -108,5 +108,20 @@ describe('card files into a card account', () => {
     expect(installmentOf(['תשלום 3 מתוך 12'], 0)).toBeNull();
     expect(installmentOf(['x', '2 מתוך 6'])).toEqual({ k: 2, n: 6 });
     expect(installmentOf(['x', 'רגילה'])).toBeNull();
+  });
+});
+
+describe('reading a purchase from a shortcut, whatever its shape (D-R21)', () => {
+  it('our own JSON, Wallet dictionaries, nested, "Key: value" lines and plain text', () => {
+    expect(readPurchase('{"merchant":"Shufersal","amount":"₪45.90","card":"Max"}')).toEqual({ merchant: 'Shufersal', amount: '₪45.90', card: 'Max', date: null });
+    expect(readPurchase({ Merchant: 'Cafe', Amount: '₪12.00', 'Card or Pass': 'Max •••• 1111', Name: 'Max' })).toEqual({ merchant: 'Cafe', amount: '₪12.00', card: 'Max •••• 1111', date: null });
+    expect(readPurchase({ transaction: { merchant: 'Cafe', amount: 12 } })).toMatchObject({ merchant: 'Cafe', amount: 12 });
+    expect(readPurchase('Merchant: Cafe Nero\nAmount: ₪18.50\nCard or Pass: Isracard')).toEqual({ merchant: 'Cafe Nero', amount: '₪18.50', card: 'Isracard', date: null });
+    expect(readPurchase('Cafe Nero ₪18.50')).toMatchObject({ merchant: 'Cafe Nero', amount: '₪18.50' });
+    expect(readPurchase([{ merchant: 'A', amount: 1 }])).toMatchObject({ merchant: 'A' });
+    expect(readPurchase('')).toBeNull();
+    expect(readPurchase('hello')).toBeNull();
+    expect(readPurchase({ foo: 1 })).toBeNull();
+    expect(readPurchase({ merchant: 'A', amount: 1, date: 'yesterday' })!.date).toBeNull();
   });
 });

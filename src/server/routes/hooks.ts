@@ -7,16 +7,15 @@
  * The key is add-only: these routes create rows and answer with a one-line message, never read data.
  */
 import { Hono, type Context } from 'hono';
-import { z } from 'zod';
 import type { AppCtx } from '../types';
-import { HttpError, body } from '../http';
+import { HttpError } from '../http';
 import { rateLimit } from '../middleware/auth';
 import { hookAuth } from '../middleware/hook';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
-import { dateStr } from '../../shared/schemas/common';
 import { normKey } from '../../shared/normalize';
-import { matchCaptureCard, parsePaidAmount } from '../../shared/domain/capture';
+import { matchCaptureCard, parsePaidAmount, readPurchase } from '../../shared/domain/capture';
+import { isValidDate } from '../../shared/dates';
 import { inferAccount } from '../../shared/banks';
 import { formatMoney } from '../../shared/money';
 import { sniffFile } from '../../shared/import/sniff';
@@ -35,6 +34,7 @@ const MSG = {
   en: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} at ${merchant} → ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'Already added',
+    unreadable: 'Could not read the purchase. In Money Money Money → Settings → Live card tracking, use “Didn’t work?” for the step-by-step setup.',
     foreign: 'Foreign-currency purchase: it will arrive with the card file',
     noCard: (card: string) => `No credit-card account matches “${card}”. Add one in Money Money Money → Accounts.`,
     imported: (n: number, dup: number, account: string) => `${n} new transaction${n === 1 ? '' : 's'} imported into ${account}${dup ? ` (${dup} already there)` : ''}`,
@@ -44,6 +44,7 @@ const MSG = {
   he: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} ב־${merchant} ← ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'כבר נוסף',
+    unreadable: 'לא הצלחנו לקרוא את הקנייה. ב־Money Money Money ← הגדרות ← מעקב חי אחר הכרטיס, „לא עבד?” מציג את ההגדרה צעד אחר צעד.',
     foreign: 'קנייה במטבע חוץ: היא תגיע עם קובץ הכרטיס',
     noCard: (card: string) => `אין חשבון כרטיס אשראי שמתאים ל„${card}”. אפשר להוסיף ב־Money Money Money ← חשבונות.`,
     imported: (n: number, dup: number, account: string) => `${n} תנועות חדשות יובאו ל${account}${dup ? ` (${dup} כבר היו)` : ''}`,
@@ -57,21 +58,14 @@ async function auth(c: Context<AppCtx>) {
   return { ...r, msg: MSG[r.hh.locale === 'he' ? 'he' : 'en'] };
 }
 
-const purchase = z
-  .object({
-    merchant: z.string().trim().min(1).max(300),
-    amount: z.union([z.string().max(40), z.number()]),
-    /** Wallet's card / pass name, e.g. "Max Visa •••• 1234". */
-    card: z.string().max(100).nullable().optional(),
-    date: dateStr.optional(),
-  })
-  .strict();
-
 hookRoutes.post('/purchase', async (c) => {
   const { db, hh, userId, msg } = await auth(c);
-  const b = await body(c, purchase);
-  const amt = parsePaidAmount(b.amount);
-  if (!amt) throw new HttpError(400, 'validation', 'Unreadable amount');
+  // JSON from our own steps, or whatever the shared shortcut passes on (readPurchase)
+  const raw = await c.req.text();
+  if (raw.length > 20_000) throw new HttpError(413, 'body_too_large', 'Body too large');
+  const b = readPurchase(raw);
+  const amt = b ? parsePaidAmount(b.amount) : null;
+  if (!b || !amt) throw new HttpError(400, 'unreadable_purchase', msg.unreadable);
   if (amt.currency === 'foreign') return c.json({ status: 'skipped', message: msg.foreign });
   const accounts = await db.all<{ id: string; name: string; bank_id: string | null; account_mask: string | null }>(
     "SELECT id, name, bank_id, account_mask FROM accounts WHERE household_id = ?1 AND type = 'credit_card' AND archived = 0",
@@ -82,7 +76,7 @@ hookRoutes.post('/purchase', async (c) => {
   );
   if (!accountId) throw new HttpError(422, 'unknown_card', msg.noCard(b.card ?? ''));
   const today = householdToday(hh);
-  const date = b.date && b.date <= today ? b.date : today;
+  const date = b.date && isValidDate(b.date) && b.date <= today ? b.date : today;
   const amount = -amt.minor;
   const now = nowIso();
   const account = accounts.find((a) => a.id === accountId)!;

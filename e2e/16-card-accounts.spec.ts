@@ -55,3 +55,33 @@ test('live card tracking: create a key (shown once), see the setup steps, revoke
   await card.getByTestId('live-revoke').first().click();
   await expect(card.getByTestId('live-keys')).toBeHidden();
 });
+
+test('owner publishes the shared shortcut: one-tap install first, the manual steps behind "Didn\'t work?"', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/settings');
+  const setup = page.getByTestId('live-setup-purchase');
+  // no link yet: the manual steps are shown, and the owner can publish a link
+  await expect(page.getByTestId('live-install-purchase')).toHaveCount(0);
+  await setup.getByTestId('live-publish-purchase').locator('summary').click();
+  await setup.getByTestId('live-link-input-purchase').fill('https://example.com/not-a-shortcut');
+  await expect(setup.getByTestId('live-link-save-purchase')).toBeDisabled();
+  const link = 'https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef';
+  await setup.getByTestId('live-link-input-purchase').fill(link);
+  await setup.getByTestId('live-link-save-purchase').click();
+  // now: install button + the few automation steps; the full steps are collapsed
+  await expect(page.getByTestId('live-install-purchase')).toHaveAttribute('href', link);
+  await expect(page.getByTestId('live-quick-purchase')).toContainText('Run Shortcut');
+  const manual = page.getByTestId('live-manual-purchase');
+  await expect(manual.getByText('Get Contents of URL').first()).toBeHidden();
+  await manual.locator('summary').click();
+  await expect(manual.getByText('Get Contents of URL').first()).toBeVisible();
+  await manual.locator('summary').click();
+  await expectNoHorizontalOverflow(page);
+  await page.getByTestId('live-quick-purchase').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'e2e/screenshots/en/state-live-quick.png' });
+  // remove it again (other specs see the default state)
+  const publish = setup.getByTestId('live-publish-purchase');
+  if (!(await publish.evaluate((d) => (d as HTMLDetailsElement).open))) await publish.locator('summary').click();
+  await setup.getByTestId('live-link-remove-purchase').click();
+  await expect(page.getByTestId('live-install-purchase')).toHaveCount(0);
+});

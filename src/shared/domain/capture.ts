@@ -44,3 +44,60 @@ export function matchCaptureCard(cardName: string | null | undefined, accounts: 
   }
   return accounts.length === 1 ? accounts[0]!.id : null;
 }
+
+export interface PurchaseIn {
+  merchant: string;
+  amount: string | number;
+  card: string | null;
+  date: string | null;
+}
+
+const MERCHANT_KEY = /^(merchant|merchant name|business|בית עסק|שם בית עסק|name|שם)$/;
+const AMOUNT_KEY = /^(amount|price|total|סכום)$/;
+const CARD_KEY = /^(card|card or pass|pass|card name|כרטיס|כרטיס או כרטיס|wallet card)$/;
+const AMOUNT_IN_TEXT = /(?:[₪$€£]\s*)?\d[\d.,]*(?:\s*(?:₪|ש"?״?ח|ils|nis|usd|eur|\$|€|£))?/i;
+
+/**
+ * A purchase from a phone automation, in whatever shape the shortcut sent it (D-R21): our own JSON
+ * ({ merchant, amount, card }), Wallet's transaction as a dictionary (Merchant / Amount / Card or Pass,
+ * any case, possibly under "transaction"), "Key: value" lines, or plain text with an amount in it.
+ * Null when no merchant and amount can be found.
+ */
+export function readPurchase(raw: unknown, depth = 0): PurchaseIn | null {
+  if (depth > 3 || raw === null || raw === undefined) return null;
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (!s || s.length > 2000) return null;
+    if (s.startsWith('{') || s.startsWith('[')) {
+      try {
+        return readPurchase(JSON.parse(s), depth + 1);
+      } catch {
+        /* not JSON: read it as text */
+      }
+    }
+    const lines = s.split(/\r?\n/).map((l) => /^\s*([^:]{1,30}):\s*(.+)$/.exec(l)).filter((m): m is RegExpExecArray => !!m);
+    if (lines.length >= 2) return readPurchase(Object.fromEntries(lines.map((m) => [m[1]!, m[2]!])), depth + 1);
+    const m = AMOUNT_IN_TEXT.exec(s);
+    const merchant = m ? (s.slice(0, m.index) + s.slice(m.index + m[0].length)).replace(/\s+/g, ' ').replace(/^[\s,·:-]+|[\s,·:-]+$/g, '') : '';
+    return m && merchant ? { merchant: merchant.slice(0, 300), amount: m[0], card: null, date: null } : null;
+  }
+  if (Array.isArray(raw)) return raw.length ? readPurchase(raw[0], depth + 1) : null;
+  if (typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const pick = (re: RegExp) => Object.entries(o).find(([k]) => re.test(k.trim().toLowerCase()))?.[1];
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
+  const merchant = str(pick(MERCHANT_KEY));
+  const amount = pick(AMOUNT_KEY);
+  if (merchant && (typeof amount === 'string' || typeof amount === 'number')) {
+    const date = str(pick(/^date$/));
+    return { merchant: merchant.slice(0, 300), amount: typeof amount === 'string' ? amount.slice(0, 40) : amount, card: str(pick(CARD_KEY)).slice(0, 100) || null, date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null };
+  }
+  // one level down: { transaction: {...} } or { "Shortcut Input": "..." }
+  for (const v of Object.values(o)) {
+    if (v && (typeof v === 'object' || typeof v === 'string')) {
+      const r = readPurchase(v, depth + 1);
+      if (r) return r;
+    }
+  }
+  return null;
+}

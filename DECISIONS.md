@@ -339,3 +339,22 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Setup:** Settings → "Live card tracking": key management and step-by-step Shortcuts instructions
   (Wallet "Transaction" automation, a Share-sheet shortcut). An iCloud shortcut link can't be produced
   from here; the instructions are untested on a device.
+
+## D-R21 · 2026-11-20 · One-tap shortcut install, manual steps as the fallback
+- **What iOS allows:** automations can't be shared or imported (each person creates theirs on the
+  phone), and since iOS 15 a shortcut installs only from an iCloud link made on an Apple device — a
+  server can't produce a signed `.shortcut` file. So the long part moves into a *shortcut* shared by
+  iCloud link, and the automation shrinks to "Run Shortcut" with the transaction as input.
+- **Household link:** the owner builds each shortcut once (steps in Settings, with an Import Question
+  on the key so the shared copy carries none) and pastes its iCloud link (`households.shortcut_*_link`,
+  migration 0018; only `https://www.icloud.com/shortcuts/<32 hex>`; owner-only PATCH). Members then see
+  "Install the shortcut" (paste your key when asked; creating a key copies it) plus four automation
+  steps; the full manual setup stays behind "Didn't work?". Without a link everyone sees the manual
+  steps, and the owner sees how to publish one.
+- **Tolerant hook:** how the shortcut receives Wallet's transaction isn't documented, so
+  `POST /api/hook/purchase` reads our JSON, a Wallet-style dictionary (Merchant / Amount / Card or Pass,
+  any case, possibly nested), "Key: value" lines or plain text with an amount (`readPurchase`). Anything
+  else → 400 `unreadable_purchase`, whose message points to the manual setup.
+- **Not verified on a device:** whether "Request Body: File = Shortcut Input" in the shared shortcut
+  sends the transaction in one of those shapes. Community reports also mention Wallet automations
+  occasionally passing an empty merchant / 0 amount; those are refused, not stored.

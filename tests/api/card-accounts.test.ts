@@ -112,12 +112,29 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const instRows = (await DB.prepare("SELECT amount_minor, captured, reference FROM transactions WHERE household_id = ?1 AND account_id = ?2 AND description = 'iDigital'").bind(o.householdId, max).all()).results;
     expect(instRows).toEqual([{ amount_minor: -40000, captured: 0, reference: '1/3' }]);
 
+    // the shared shortcut may pass Wallet's transaction as it is: a dictionary, or text
+    const wallet = await hook('purchase', token, JSON.stringify({ Merchant: 'Aroma', Amount: '₪18.00', 'Card or Pass': 'Max •••• 1111' }));
+    expect(wallet.status).toBe(201);
+    expect((await hook('purchase', token, 'Merchant: Cafe Cafe\nAmount: ₪22.50\nCard or Pass: Max')).status).toBe(201);
+    const bad = await hook('purchase', token, 'nothing useful');
+    expect(bad.status).toBe(400);
+    expect(bad.body.error?.code).toBe('unreadable_purchase');
+
+    // the household's shared shortcut links: owner sets, everyone reads, only iCloud links
+    const link = 'https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef';
+    expect((await json('PATCH', '/api/household', { cookie, body: { shortcutPurchaseLink: link } })).status).toBe(200);
+    expect((await json('PATCH', '/api/household', { cookie, body: { shortcutFileLink: 'https://evil.example/x' } })).status).toBe(400);
+    expect((await json<{ shortcutLinks: Record<string, string | null> }>('GET', '/api/household', { cookie })).body.shortcutLinks).toEqual({ purchase: link, file: null });
+
     // revoking the key stops it; a viewer gets no keys
     expect((await json('DELETE', `/api/capture-keys/${key.body.id}`, { cookie })).status).toBe(200);
     expect((await buy({ merchant: 'x', amount: 1, card: 'Max' })).status).toBe(401);
     const viewer = await makeUser('Viewer');
     await addMember(o.householdId, viewer, 'viewer');
     expect((await json('POST', '/api/capture-keys', { cookie: await sessionFor(viewer, o.householdId), body: {} })).status).toBe(403);
+    const member = await makeUser('Member');
+    await addMember(o.householdId, member, 'member');
+    expect((await json('PATCH', '/api/household', { cookie: await sessionFor(member, o.householdId), body: { shortcutPurchaseLink: null } })).status).toBe(403);
     // the hook needs no CSRF headers, and a session cookie alone doesn't open it
     expect((await call('POST', '/api/hook/purchase', { cookie, body: { merchant: 'x', amount: 1 } })).status).toBe(401);
   });

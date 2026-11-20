@@ -167,6 +167,15 @@ export function globalDb(db: D1Database) {
         )
         .bind(id, p.name ?? null, p.currency ?? null, p.timezone ?? null, p.safetyBufferMinor ?? null, p.forecastDailyVariableMinor ?? null, p.clearDailyVariable ? 1 : 0)
         .run(),
+    /** undefined keeps a link, null removes it. */
+    setShortcutLinks: (id: string, p: { purchase?: string | null; file?: string | null }) =>
+      db
+        .prepare(
+          `UPDATE households SET shortcut_purchase_link = CASE WHEN ?2 = 1 THEN ?3 ELSE shortcut_purchase_link END,
+             shortcut_file_link = CASE WHEN ?4 = 1 THEN ?5 ELSE shortcut_file_link END WHERE id = ?1`,
+        )
+        .bind(id, p.purchase !== undefined ? 1 : 0, p.purchase ?? null, p.file !== undefined ? 1 : 0, p.file ?? null)
+        .run(),
     setHouseholdStatus: (id: string, status: 'active' | 'disabled') => db.prepare('UPDATE households SET status = ?2 WHERE id = ?1').bind(id, status).run(),
     setSampleData: (id: string, v: boolean) => db.prepare('UPDATE households SET has_sample_data = ?2 WHERE id = ?1').bind(id, v ? 1 : 0),
     setAi: (id: string, enabled: boolean, userId: string, provider: string) =>
