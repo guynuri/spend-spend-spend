@@ -19,6 +19,9 @@ export const householdRoutes = tenantGroup();
 
 const members = (c: Ctx) => tctx(c).db.members;
 
+/** A shared shortcut's iCloud link (and nothing else: it is shown to every member as a link). */
+const SHORTCUT_LINK = z.string().regex(/^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/);
+
 householdRoutes.get('/', (c) => {
   const { hh, role } = tctx(c);
   return c.json({
@@ -31,6 +34,7 @@ householdRoutes.get('/', (c) => {
     hasSampleData: hh.has_sample_data === 1,
     aiEnabled: hh.ai_enabled === 1,
     aiConsentAt: hh.ai_consent_at,
+    shortcutLinks: { purchase: hh.shortcut_purchase_link ?? null, file: hh.shortcut_file_link ?? null },
     role,
   });
 });
@@ -45,13 +49,21 @@ householdRoutes.patch('/', async (c) => {
         timezone: z.string().min(3).max(60).refine((tz) => { try { new Intl.DateTimeFormat('en', { timeZone: tz }); return true; } catch { return false; } }).optional(),
         safetyBufferMinor: z.number().int().min(0).max(1e11).optional(),
         forecastDailyVariableMinor: z.number().int().min(0).max(1e9).nullable().optional(),
+        /** iCloud links of the household's shared shortcuts (owner only); null removes one. */
+        shortcutPurchaseLink: SHORTCUT_LINK.nullable().optional(),
+        shortcutFileLink: SHORTCUT_LINK.nullable().optional(),
       })
       .strict(),
   );
   const { db, userId, role } = tctx(c);
   // Forecast settings (safety cushion, daily estimate) are planning: members may change them. Name, currency, timezone: owners.
   if ((b.name ?? b.currency ?? b.timezone) !== undefined && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
-  await members(c).update({ ...b, clearDailyVariable: b.forecastDailyVariableMinor === null, forecastDailyVariableMinor: b.forecastDailyVariableMinor ?? undefined });
+  const { shortcutPurchaseLink, shortcutFileLink, ...rest } = b;
+  if (shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) {
+    if (role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
+    await members(c).setShortcutLinks({ purchase: shortcutPurchaseLink, file: shortcutFileLink });
+  }
+  await members(c).update({ ...rest, clearDailyVariable: b.forecastDailyVariableMinor === null, forecastDailyVariableMinor: b.forecastDailyVariableMinor ?? undefined });
   await db.audit(userId, 'household.update', 'household', db.householdId).run();
   return c.json({ ok: true });
 });

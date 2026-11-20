@@ -6,12 +6,13 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Check, Copy, KeyRound, Trash2 } from 'lucide-react';
-import { del, get, post } from '../../api';
+import { Check, Copy, Download, KeyRound, Trash2 } from 'lucide-react';
+import { del, get, patch, post } from '../../api';
 import { Button, Card, CardTitle, ErrorState, Field, IconButton, Input, Spinner } from '../../components/ui';
 import { DateText } from '../../components/DateText';
 import { useApiMutation } from '../../lib/mutate';
 import { useAccounts } from '../../lib/queries';
+import { useRole } from '../../lib/session';
 
 interface CaptureKey {
   id: string;
@@ -20,6 +21,103 @@ interface CaptureKey {
   lastUsedAt: string | null;
 }
 const QK = ['capture-keys'];
+type Kind = 'purchase' | 'file';
+const LINK = /^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/;
+
+/** The household's shared shortcuts (iCloud links the owner published once). */
+function useShortcutLinks() {
+  return useQuery({ queryKey: ['household'], queryFn: () => get<{ shortcutLinks: Record<Kind, string | null> }>('/api/household') });
+}
+
+/**
+ * Owner only: build the shortcut once (steps), then paste its iCloud link so everyone in the household
+ * installs it with one tap. Shows the current link with a way to replace or remove it.
+ */
+function PublishLink({ kind, link }: { kind: Kind; link: string | null }) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState('');
+  const save = useApiMutation((v: string | null) => patch('/api/household', { [kind === 'purchase' ? 'shortcutPurchaseLink' : 'shortcutFileLink']: v }), {
+    invalidate: [['household']],
+    successKey: 'ledger.saved',
+    onSuccess: () => setValue(''),
+  });
+  const ok = LINK.test(value.trim());
+  return (
+    <details className="rounded-xl border border-border p-3" data-testid={`live-publish-${kind}`}>
+      <summary className="min-h-11 cursor-pointer content-center font-medium">{t(link ? 'live.publish.change' : 'live.publish.title')}</summary>
+      <div className="mt-2 flex flex-col gap-2">
+        <p className="text-muted">{t('live.publish.body')}</p>
+        <Steps section={kind === 'purchase' ? 'buildPurchase' : 'buildFile'} count={7} />
+        <Field label={t('live.publish.label')} htmlFor={`live-link-${kind}`} error={value.trim() && !ok ? t('live.publish.invalid') : undefined}>
+          <Input id={`live-link-${kind}`} dir="ltr" inputMode="url" placeholder={t('live.publish.placeholder')} value={value} onChange={(e) => setValue(e.target.value)} data-testid={`live-link-input-${kind}`} />
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={!ok} busy={save.isPendingWith((v) => v !== null)} onClick={() => save.mutate(value.trim())} data-testid={`live-link-save-${kind}`}>
+            {t('common.save')}
+          </Button>
+          {link && (
+            <Button size="sm" variant="ghost" className="text-bad" busy={save.isPendingWith((v) => v === null)} onClick={() => save.mutate(null)} data-testid={`live-link-remove-${kind}`}>
+              {t('live.publish.remove')}
+            </Button>
+          )}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * One shortcut's setup: with a published link, install in one tap (it asks for the key) plus the few
+ * phone-side steps Apple doesn't let any app do; the full manual steps stay one tap away. Without a link,
+ * the manual steps (and, for the owner, how to publish one).
+ */
+function ShortcutSetup({ kind, link, keyShown, isOwner }: { kind: Kind; link: string | null; keyShown: string; isOwner: boolean }) {
+  const { t } = useTranslation();
+  const manual = <Steps section={kind === 'purchase' ? 'applePay' : 'share'} count={kind === 'purchase' ? 8 : 7} values={{ key: keyShown }} />;
+  return (
+    <div className="flex flex-col gap-3" data-testid={`live-setup-${kind}`}>
+      {link ? (
+        <>
+          <div className="flex flex-col gap-2 rounded-xl bg-accent/5 p-3" data-testid={`live-quick-${kind}`}>
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-accent-fg"
+              data-testid={`live-install-${kind}`}
+            >
+              <Download className="size-4" aria-hidden />
+              {t(kind === 'purchase' ? 'live.quick.installPurchase' : 'live.quick.installFile')}
+            </a>
+            <p>{t('live.quick.pasteKey')}</p>
+            {kind === 'purchase' ? (
+              <>
+                <p className="font-medium">{t('live.quick.automationTitle')}</p>
+                <Steps section="quickPurchase" count={4} />
+                <p className="text-xs text-muted">{t('live.quick.testPurchase')}</p>
+              </>
+            ) : (
+              <p>{t('live.quick.useFile')}</p>
+            )}
+          </div>
+          <details className="rounded-xl border border-border p-3" data-testid={`live-manual-${kind}`}>
+            <summary className="min-h-11 cursor-pointer content-center font-medium">{t('live.quick.didntWork')}</summary>
+            <div className="mt-2 flex flex-col gap-2">
+              <p className="text-muted">{t('live.quick.manualIntro')}</p>
+              {manual}
+            </div>
+          </details>
+        </>
+      ) : (
+        <>
+          {!isOwner && <p className="text-xs text-muted">{t('live.quick.askOwner')}</p>}
+          {manual}
+        </>
+      )}
+      {isOwner && <PublishLink kind={kind} link={link} />}
+    </div>
+  );
+}
 
 function CopyRow({ label, value, testId }: { label: string; value: string; testId: string }) {
   const { t } = useTranslation();
@@ -67,14 +165,21 @@ export function LiveCaptureCard() {
   const cards = (useAccounts().data?.accounts ?? []).filter((a) => a.type === 'credit_card' && !a.archived);
   const [label, setLabel] = useState('');
   const [fresh, setFresh] = useState<string | null>(null);
+  // only say the key is on the clipboard when it is (Safari refuses a write that isn't right after a tap)
+  const [copied, setCopied] = useState(false);
   const create = useApiMutation(() => post<{ id: string; token: string }>('/api/capture-keys', { label: label.trim() || undefined }), {
     invalidate: [QK],
     onSuccess: (r) => {
       setFresh(r.token);
       setLabel('');
+      setCopied(false);
+      // ready to paste when the shortcut asks for it
+      void navigator.clipboard?.writeText(r.token).then(() => setCopied(true), () => {});
     },
   });
   const revoke = useApiMutation((id: string) => del(`/api/capture-keys/${id}`), { invalidate: [QK] });
+  const links = useShortcutLinks().data?.shortcutLinks ?? { purchase: null, file: null };
+  const isOwner = useRole() === 'owner';
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   const keyShown = fresh ?? t('live.yourKey');
   return (
@@ -126,7 +231,7 @@ export function LiveCaptureCard() {
           )}
           {fresh ? (
             <div className="flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 p-3" data-testid="live-fresh">
-              <p className="font-medium">{t('live.showOnce')}</p>
+              <p className="font-medium">{t(copied ? 'live.showOnceCopied' : 'live.showOnce')}</p>
               <CopyRow label={t('live.key')} value={fresh} testId="live-token" />
             </div>
           ) : (
@@ -147,7 +252,7 @@ export function LiveCaptureCard() {
           <h3 className="font-semibold">{t('live.applePayTitle')}</h3>
           <p className="text-muted">{t('live.applePayBody')}</p>
           <CopyRow label={t('live.urlPurchase')} value={`${origin}/api/hook/purchase`} testId="live-url-purchase" />
-          <Steps section="applePay" count={8} values={{ key: keyShown }} />
+          <ShortcutSetup kind="purchase" link={links.purchase} keyShown={keyShown} isOwner={isOwner} />
           <p className="text-xs text-muted">{t('live.applePayNote')}</p>
         </section>
 
@@ -155,7 +260,7 @@ export function LiveCaptureCard() {
           <h3 className="font-semibold">{t('live.shareTitle')}</h3>
           <p className="text-muted">{t('live.shareBody')}</p>
           <CopyRow label={t('live.urlFile')} value={`${origin}/api/hook/file`} testId="live-url-file" />
-          <Steps section="share" count={7} values={{ key: keyShown }} />
+          <ShortcutSetup kind="file" link={links.file} keyShown={keyShown} isOwner={isOwner} />
           <p className="text-xs text-muted">{t('live.sharePrivacy')}</p>
         </section>
 

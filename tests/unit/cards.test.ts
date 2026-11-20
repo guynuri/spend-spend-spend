@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 import { cardPaymentParts, chooseCardAccount, cycleMonth, issuerOf } from '../../src/shared/domain/cards';
-import { matchCaptureCard, parsePaidAmount } from '../../src/shared/domain/capture';
+import { matchCaptureCard, parsePaidAmount, readPurchase } from '../../src/shared/domain/capture';
 import { cardAccountResult, installmentOf } from '../../src/shared/import/cardAccount';
 import { pickParser } from '../../src/shared/import/registry';
 import { sniffFile } from '../../src/shared/import/sniff';
@@ -108,5 +108,30 @@ describe('card files into a card account', () => {
     expect(installmentOf(['תשלום 3 מתוך 12'], 0)).toBeNull();
     expect(installmentOf(['x', '2 מתוך 6'])).toEqual({ k: 2, n: 6 });
     expect(installmentOf(['x', 'רגילה'])).toBeNull();
+  });
+});
+
+describe('reading a purchase from a shortcut, whatever its shape (D-R21)', () => {
+  it('our own JSON, Wallet dictionaries, nested, "Key: value" lines and plain text', () => {
+    expect(readPurchase('{"merchant":"Shufersal","amount":"₪45.90","card":"Max"}')).toEqual({ merchant: 'Shufersal', amount: '₪45.90', card: 'Max', date: null });
+    expect(readPurchase({ Merchant: 'Cafe', Amount: '₪12.00', 'Card or Pass': 'Max •••• 1111', Name: 'Max' })).toEqual({ merchant: 'Cafe', amount: '₪12.00', card: 'Max •••• 1111', date: null });
+    expect(readPurchase({ transaction: { merchant: 'Cafe', amount: 12 } })).toMatchObject({ merchant: 'Cafe', amount: 12 });
+    expect(readPurchase('Merchant: Cafe Nero\nAmount: ₪18.50\nCard or Pass: Isracard')).toEqual({ merchant: 'Cafe Nero', amount: '₪18.50', card: 'Isracard', date: null });
+    expect(readPurchase('Cafe Nero ₪18.50')).toMatchObject({ merchant: 'Cafe Nero', amount: '₪18.50' });
+    expect(readPurchase([{ merchant: 'A', amount: 1 }])).toMatchObject({ merchant: 'A' });
+    expect(readPurchase('')).toBeNull();
+    expect(readPurchase('hello')).toBeNull();
+    expect(readPurchase({ foo: 1 })).toBeNull();
+    expect(readPurchase({ merchant: 'A', amount: 1, date: 'yesterday' })!.date).toBeNull();
+    // an empty merchant is refused, not pieced together from the card name
+    expect(readPurchase({ Merchant: '', Amount: '₪18.00', 'Card or Pass': 'Max •••• 1111' })).toBeNull();
+    // a bare "Name" (the card's) doesn't beat "Merchant"
+    expect(readPurchase({ Name: 'Max •••• 1111', Merchant: 'Cafe', Amount: '₪18' })).toMatchObject({ merchant: 'Cafe' });
+    // digits in the merchant aren't the amount
+    expect(readPurchase('7-Eleven ₪12.00')).toMatchObject({ merchant: '7-Eleven', amount: '₪12.00' });
+    expect(readPurchase('Cafe 22 $18.50')).toMatchObject({ amount: '$18.50' });
+    // form fields, and JSON longer than the plain-text limit
+    expect(readPurchase('merchant=Cafe&amount=12')).toMatchObject({ merchant: 'Cafe', amount: '12' });
+    expect(readPurchase(JSON.stringify({ merchant: 'Cafe', amount: '₪12', note: 'x'.repeat(2100) }))).toMatchObject({ merchant: 'Cafe' });
   });
 });

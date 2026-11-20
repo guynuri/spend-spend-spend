@@ -203,7 +203,8 @@
     "invalid_key": "Unknown or revoked key.",
     "unknown_card": "No credit-card account matches that card.",
     "unrecognized_file": "This file needs a column mapping: import it once on the Import page.",
-    "which_account": "No single account fits this file: import it on the Import page."
+    "which_account": "No single account fits this file: import it on the Import page.",
+    "unreadable_purchase": "Could not read the purchase from the shortcut."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -1407,7 +1408,8 @@
     "keyLabel": "Name (e.g. the phone)",
     "keyLabelPlaceholder": "My iPhone",
     "create": "Create a key",
-    "showOnce": "Copy it now: it's shown only this once. Paste it into the shortcut steps below.",
+    "showOnce": "Copy your new key now: it's shown only this once. Keep it until the shortcut asks for it.",
+    "showOnceCopied": "Your new key is copied. It's shown only this once: keep it until the shortcut asks for it.",
     "key": "Key",
     "yourKey": "<your key>",
     "unnamed": "Key",
@@ -1442,6 +1444,50 @@
     },
     "sharePrivacy": "Unlike the Import page, this sends the file to the app's server. It is read in memory and never stored; only the transactions are saved. A file the app doesn't recognize, or one that fits more than one account, has to go through the Import page once.",
     "monthlyTitle": "4. Once a month",
-    "monthlyBody": "Apple Pay can't see online purchases or the physical card: the card file fills them in. A monthly “Import statements” reminder (Reminders above) helps. Until it's imported, any part of a card charge no known purchase explains is shown as “not itemized yet” and still counted as spending."
+    "monthlyBody": "Apple Pay can't see online purchases or the physical card: the card file fills them in. A monthly “Import statements” reminder (Reminders above) helps. Until it's imported, any part of a card charge no known purchase explains is shown as “not itemized yet” and still counted as spending.",
+    "quick": {
+      "installPurchase": "Install the Apple Pay shortcut",
+      "installFile": "Install the “Send to Money Money Money” shortcut",
+      "pasteKey": "When Shortcuts asks for your key, paste it (creating a key above copies it).",
+      "automationTitle": "Then make the automation. Apple doesn't let any app share automations, so this part is done on the phone:",
+      "testPurchase": "Test it with a real Apple Pay purchase: a notification shows what was added. (Running the shortcut by hand sends an empty purchase.)",
+      "useFile": "Then, in the card company's or bank's app or website, download the Excel and tap Share → “Send to Money Money Money”.",
+      "didntWork": "Didn't work? Show the step-by-step setup",
+      "manualIntro": "Instead of the shortcut, the automation can send the purchase itself. Delete the automation you made, then:",
+      "askOwner": "Your household's owner can make this a one-tap install from this page."
+    },
+    "quickPurchase": {
+      "s1": "Shortcuts → Automation → + → “Transaction” (called “Wallet” on newer iOS).",
+      "s2": "Select your credit cards, choose “Run Immediately”, then Next → “New Blank Automation”.",
+      "s3": "Add the action “Run Shortcut” and choose “Money Money Money – Apple Pay”.",
+      "s4": "Tap the arrow on that action, set Input to “Shortcut Input”, and tap Done."
+    },
+    "publish": {
+      "title": "Make this a one-tap install for your household",
+      "change": "Change or remove the shared shortcut",
+      "body": "Build the shortcut once on your iPhone, then share its iCloud link here. Everyone in the household then installs it with one tap and pastes their own key: yours is never shared.",
+      "label": "The shortcut's iCloud link",
+      "invalid": "Paste the link from Share → Copy iCloud Link (https://www.icloud.com/shortcuts/…).",
+      "remove": "Remove the link",
+      "placeholder": "https://www.icloud.com/shortcuts/…"
+    },
+    "buildPurchase": {
+      "s1": "In Shortcuts, tap + to make a new shortcut and name it exactly “Money Money Money – Apple Pay”.",
+      "s2": "Add a “Text” action and paste your key into it.",
+      "s3": "Add “Get Contents of URL” with the address for purchases. Show more: Method “POST”; Headers: “Authorization” = “Bearer ” followed by the Text; Request Body “File” = Shortcut Input.",
+      "s4": "Add “Get Dictionary Value” (key “message”) from Contents of URL, then “Show Notification” with it.",
+      "s5": "Open the shortcut's details (ⓘ) → Setup → add an Import Question on the Text action: “Paste your Money Money Money key”. The shared copy then has no key in it.",
+      "s6": "Make your own automation with the steps above and test it with a real Apple Pay purchase.",
+      "s7": "Share → “Copy iCloud Link”, and paste the link below."
+    },
+    "buildFile": {
+      "s1": "In Shortcuts, tap + to make a new shortcut and name it “Send to Money Money Money”.",
+      "s2": "Open its details (ⓘ) and turn on “Show in Share Sheet”, accepting Files.",
+      "s3": "Add a “Text” action and paste your key into it.",
+      "s4": "Add “Get Contents of URL” with the address for files. Show more: Method “POST”; Headers: “Authorization” = “Bearer ” followed by the Text, and “X-File-Name” = Shortcut Input → Name; Request Body “File” = Shortcut Input.",
+      "s5": "Add “Get Dictionary Value” (key “message”) and “Show Notification” with it.",
+      "s6": "In the details (ⓘ) → Setup, add an Import Question on the Text action: “Paste your Money Money Money key”.",
+      "s7": "Share → “Copy iCloud Link”, and paste the link below."
+    }
   }
 }
