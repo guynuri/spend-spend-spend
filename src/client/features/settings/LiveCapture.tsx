@@ -52,11 +52,11 @@ function PublishLink({ kind, link }: { kind: Kind; link: string | null }) {
           <Input id={`live-link-${kind}`} dir="ltr" inputMode="url" placeholder={t('live.publish.placeholder')} value={value} onChange={(e) => setValue(e.target.value)} data-testid={`live-link-input-${kind}`} />
         </Field>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={!ok} busy={save.isPending} onClick={() => save.mutate(value.trim())} data-testid={`live-link-save-${kind}`}>
+          <Button size="sm" disabled={!ok} busy={save.isPendingWith((v) => v !== null)} onClick={() => save.mutate(value.trim())} data-testid={`live-link-save-${kind}`}>
             {t('common.save')}
           </Button>
           {link && (
-            <Button size="sm" variant="ghost" className="text-bad" busy={save.isPending} onClick={() => save.mutate(null)} data-testid={`live-link-remove-${kind}`}>
+            <Button size="sm" variant="ghost" className="text-bad" busy={save.isPendingWith((v) => v === null)} onClick={() => save.mutate(null)} data-testid={`live-link-remove-${kind}`}>
               {t('live.publish.remove')}
             </Button>
           )}
@@ -165,13 +165,16 @@ export function LiveCaptureCard() {
   const cards = (useAccounts().data?.accounts ?? []).filter((a) => a.type === 'credit_card' && !a.archived);
   const [label, setLabel] = useState('');
   const [fresh, setFresh] = useState<string | null>(null);
+  // only say the key is on the clipboard when it is (Safari refuses a write that isn't right after a tap)
+  const [copied, setCopied] = useState(false);
   const create = useApiMutation(() => post<{ id: string; token: string }>('/api/capture-keys', { label: label.trim() || undefined }), {
     invalidate: [QK],
     onSuccess: (r) => {
       setFresh(r.token);
       setLabel('');
+      setCopied(false);
       // ready to paste when the shortcut asks for it
-      void navigator.clipboard?.writeText(r.token).catch(() => {});
+      void navigator.clipboard?.writeText(r.token).then(() => setCopied(true), () => {});
     },
   });
   const revoke = useApiMutation((id: string) => del(`/api/capture-keys/${id}`), { invalidate: [QK] });
@@ -228,7 +231,7 @@ export function LiveCaptureCard() {
           )}
           {fresh ? (
             <div className="flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 p-3" data-testid="live-fresh">
-              <p className="font-medium">{t('live.showOnce')}</p>
+              <p className="font-medium">{t(copied ? 'live.showOnceCopied' : 'live.showOnce')}</p>
               <CopyRow label={t('live.key')} value={fresh} testId="live-token" />
             </div>
           ) : (

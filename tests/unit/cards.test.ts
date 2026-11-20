@@ -123,5 +123,15 @@ describe('reading a purchase from a shortcut, whatever its shape (D-R21)', () =>
     expect(readPurchase('hello')).toBeNull();
     expect(readPurchase({ foo: 1 })).toBeNull();
     expect(readPurchase({ merchant: 'A', amount: 1, date: 'yesterday' })!.date).toBeNull();
+    // an empty merchant is refused, not pieced together from the card name
+    expect(readPurchase({ Merchant: '', Amount: '₪18.00', 'Card or Pass': 'Max •••• 1111' })).toBeNull();
+    // a bare "Name" (the card's) doesn't beat "Merchant"
+    expect(readPurchase({ Name: 'Max •••• 1111', Merchant: 'Cafe', Amount: '₪18' })).toMatchObject({ merchant: 'Cafe' });
+    // digits in the merchant aren't the amount
+    expect(readPurchase('7-Eleven ₪12.00')).toMatchObject({ merchant: '7-Eleven', amount: '₪12.00' });
+    expect(readPurchase('Cafe 22 $18.50')).toMatchObject({ amount: '$18.50' });
+    // form fields, and JSON longer than the plain-text limit
+    expect(readPurchase('merchant=Cafe&amount=12')).toMatchObject({ merchant: 'Cafe', amount: '12' });
+    expect(readPurchase(JSON.stringify({ merchant: 'Cafe', amount: '₪12', note: 'x'.repeat(2100) }))).toMatchObject({ merchant: 'Cafe' });
   });
 });
