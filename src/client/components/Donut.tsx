@@ -6,12 +6,14 @@ import { OTHER_SLOT, slotVar } from '../../shared/categoryLook';
 import { donutSlices, type DonutInput } from '../../shared/donut';
 import { formatPercent, type Locale } from '../../shared/money';
 
-const SIZE = 200;
-const STROKE = 26;
-const R = (SIZE - STROKE) / 2;
+const SIZE = 208;
+const STROKE = 20;
+/** Room for the selected slice to grow without clipping. */
+const PAD = 5;
+const R = (SIZE - STROKE) / 2 - PAD;
 const CIRC = 2 * Math.PI * R;
-/** Surface gap between segments, in px along the ring. */
-const GAP = 3;
+/** Visible gap between two rounded segment ends, in px along the ring. */
+const GAP = 6;
 
 /**
  * Spending split into a ring: up to five categories in their own colours plus "Other", the total (or the
@@ -25,10 +27,15 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
   const total = slices.reduce((a, s) => a + s.valueMinor, 0);
   const [active, setActive] = useState<string | null>(null);
   const sel = slices.find((s) => s.id === active) ?? null;
+  // Rounded, pill-shaped segments: each round cap reaches STROKE / 2 past the dash, so the dash is
+  // shortened by a full STROKE plus the gap and shifted by half of that. A slice too small for its caps
+  // becomes a dot (a near-zero dash with round caps).
+  const many = slices.length > 1;
   let offset = 0;
   const arcs = slices.map((s) => {
     const len = total > 0 ? (s.valueMinor / total) * CIRC : 0;
-    const arc = { s, start: offset, len: Math.max(0, len - (slices.length > 1 ? GAP : 0)) };
+    const trim = many ? STROKE + GAP : 0;
+    const arc = { s, start: offset + (many ? trim / 2 : 0), len: Math.max(0.01, len - trim) };
     offset += len;
     return arc;
   });
@@ -45,7 +52,8 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
               r={R}
               fill="none"
               stroke={slotVar(s.slot)}
-              strokeWidth={active === s.id ? STROKE + 6 : STROKE}
+              strokeWidth={active === s.id ? STROKE + 8 : STROKE}
+              strokeLinecap={many ? 'round' : 'butt'}
               strokeDasharray={`${len} ${CIRC - len}`}
               strokeDashoffset={-start}
               opacity={active && active !== s.id ? 0.35 : 1}
