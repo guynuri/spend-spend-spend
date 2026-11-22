@@ -8,7 +8,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, LineCh
 import { get } from '../../api';
 import { Badge, Card, CardTitle, cx, EmptyState, ErrorState, Field, IconButton, Input, PageHeader, ProgressBar, Select, Spinner } from '../../components/ui';
 import { Money } from '../../components/Money';
-import { DateText, useFormatDate } from '../../components/DateText';
+import { useFormatDate } from '../../components/DateText';
 import { CategorySelect } from '../../components/CategorySelect';
 import { C, ChartBox, tooltipStyle, useCompactMoney, useMoneyFmt } from '../../components/charts';
 import { useCategoryMap } from '../../lib/queries';
@@ -16,8 +16,9 @@ import { CategoryIcon } from '../../components/CategoryIcon';
 import { Donut } from '../../components/Donut';
 import { colorSlotOf, OTHER_SLOT } from '../../../shared/categoryLook';
 import type { Category } from '../../../shared/schemas/ledger';
-import { useMe } from '../../lib/session';
-import { addDays, dayOf, isValidDate, isValidMonth, MAX_RANGE_DAYS, monthEnd, monthOf, monthStart } from '../../../shared/dates';
+import { useMe, useStatsCal } from '../../lib/session';
+import { addDays, dayOf, isValidDate, isValidMonth, MAX_RANGE_DAYS } from '../../../shared/dates';
+import { PeriodLabel } from '../../components/PeriodLabel';
 import { clampRange, parseStored, presetOf, presetRange, PRESETS, shiftRange, validRange, type Preset, type Range } from './range';
 import { formatPercent, type Locale } from '../../../shared/money';
 import { GENERAL_ID } from '../../../shared/domain/budget';
@@ -43,18 +44,21 @@ const store = (v: string) => {
 
 function RangeLabel({ range: { from, to } }: { range: Range }) {
   const fmt = useFormatDate();
-  const whole = from === monthStart(monthOf(from)) && to === monthEnd(monthOf(to));
-  if (whole && monthOf(from) === monthOf(to)) return <DateText date={from} format="month" />;
-  const sameYear = from.slice(0, 4) === to.slice(0, 4);
-  if (whole) return <>{`${fmt(from, sameYear ? 'monthShort' : 'month')} – ${fmt(to, 'month')}`}</>;
+  const S = useStatsCal();
+  const [fm, tm] = [S.of(from), S.of(to)];
+  const whole = from === S.start(fm) && to === S.end(tm);
+  if (whole && fm === tm) return <PeriodLabel month={fm} cal={S} />;
+  const sameYear = fm.slice(0, 4) === tm.slice(0, 4);
+  if (whole) return <>{`${fmt(`${fm}-01`, sameYear ? 'monthShort' : 'month')} – ${fmt(`${tm}-01`, 'month')}`}</>;
   return <>{`${fmt(from, sameYear ? 'dayMonth' : 'short')} – ${fmt(to, sameYear ? 'long' : 'short')}`}</>;
 }
 
 /** One period control for every chart on the page: presets, custom dates, and back/forward. */
 function RangeControl({ range, today, onChange }: { range: Range; today: string; onChange: (r: Range) => void }) {
   const { t } = useTranslation();
+  const S = useStatsCal();
   const [custom, setCustom] = useState(false);
-  const sel = custom ? 'custom' : (presetOf(range, today) ?? 'custom');
+  const sel = custom ? 'custom' : (presetOf(range, today, S) ?? 'custom');
   const max = MAX_RANGE_DAYS - 1;
   return (
     <div className="flex flex-col gap-2" data-testid="trend-range" data-tour="trend-range">
@@ -65,7 +69,7 @@ function RangeControl({ range, today, onChange }: { range: Range; today: string;
         onChange={(e) => {
           const v = e.target.value;
           setCustom(v === 'custom');
-          if (v !== 'custom') onChange(presetRange(v as Preset, today));
+          if (v !== 'custom') onChange(presetRange(v as Preset, today, S));
         }}
       >
         {[...PRESETS, 'custom'].map((p) => (
@@ -85,13 +89,13 @@ function RangeControl({ range, today, onChange }: { range: Range; today: string;
         </div>
       )}
       <div className="flex items-center justify-between">
-        <IconButton label={t('trends.prevPeriod')} onClick={() => onChange(shiftRange(range, -1))} data-testid="month-prev">
+        <IconButton label={t('trends.prevPeriod')} onClick={() => onChange(shiftRange(range, -1, S))} data-testid="month-prev">
           <ChevronLeft className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
         <span className="text-center font-semibold" data-testid="trend-range-label">
           <RangeLabel range={range} />
         </span>
-        <IconButton label={t('trends.nextPeriod')} onClick={() => onChange(shiftRange(range, 1))} data-testid="month-next">
+        <IconButton label={t('trends.nextPeriod')} onClick={() => onChange(shiftRange(range, 1, S))} data-testid="month-next">
           <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
       </div>
@@ -277,6 +281,7 @@ type DayPoint = { start: string; partial: boolean; spentMinor: number; cumulativ
 function ByDay({ range: { from, to }, yoy }: { range: Range; yoy: boolean }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
+  const S = useStatsCal();
   const money = useMoneyFmt();
   const compact = useCompactMoney();
   const q = useQuery({ queryKey: ['trends', 'daily', from, to, yoy], queryFn: () => get<{ granularity: 'day' | 'week' | 'month'; points: DayPoint[] }>(`/api/trends/daily?from=${from}&to=${to}${yoy ? '&compare=yoy' : ''}`) });
@@ -284,8 +289,9 @@ function ByDay({ range: { from, to }, yoy }: { range: Range; yoy: boolean }) {
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const g = q.data.granularity;
   if (!q.data.points.some((p) => p.spentMinor || p.prevCumulativeMinor)) return <EmptyState title={t('trends.empty')} />;
-  const oneMonth = monthOf(from) === monthOf(to);
-  const data = q.data.points.map((p) => ({ ...p, label: g === 'month' ? fmt(p.start, 'monthShortYear') : g === 'day' && oneMonth ? String(dayOf(p.start)) : fmt(p.start, 'dayMonth') }));
+  // day numbers alone only read well inside one calendar month
+  const oneMonth = from.slice(0, 7) === to.slice(0, 7);
+  const data = q.data.points.map((p) => ({ ...p, label: g === 'month' ? fmt(`${S.of(p.start)}-01`, 'monthShortYear') : g === 'day' && oneMonth ? String(dayOf(p.start)) : fmt(p.start, 'dayMonth') }));
   const title = t(g === 'day' ? 'trends.perDay' : g === 'week' ? 'trends.perWeek' : 'trends.perMonth');
   const tip = {
     formatter: (v: unknown) => money(Number(v)),
@@ -400,19 +406,20 @@ export function Component() {
   const { t, i18n } = useTranslation();
   const me = useMe();
   const today = me?.active?.today ?? new Date().toISOString().slice(0, 10);
+  const S = useStatsCal();
   const [sp, setSp] = useSearchParams();
   const tab = sp.get('tab') ?? 'category';
   const month = sp.get('month');
-  // URL (from/to, or a legacy ?month=) wins; else this device's last choice; else this month
+  // URL (from/to, or a legacy ?month=) wins; else this device's last choice; else this period
   const range =
-    parseStored(`${sp.get('from')}..${sp.get('to')}`, today) ??
-    (month && isValidMonth(month) ? { from: monthStart(month), to: monthEnd(month) } : null) ??
-    parseStored(load(), today) ??
-    presetRange('month', today);
+    parseStored(`${sp.get('from')}..${sp.get('to')}`, today, S) ??
+    (month && isValidMonth(month) ? { from: S.start(month), to: S.end(month) } : null) ??
+    parseStored(load(), today, S) ??
+    presetRange('month', today, S);
   const setRange = (r: Range) => {
     if (!validRange(r)) return;
     setSp({ tab, from: r.from, to: r.to }, { replace: true });
-    store(presetOf(r, today) ?? `${r.from}..${r.to}`);
+    store(presetOf(r, today, S) ?? `${r.from}..${r.to}`);
   };
   const trig = (_v: string) => cx('min-h-11 flex-1 rounded-lg px-3 text-sm font-medium data-[state=active]:bg-surface data-[state=active]:text-text data-[state=active]:shadow-sm', 'text-muted');
   return (

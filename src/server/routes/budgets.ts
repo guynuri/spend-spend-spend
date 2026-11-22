@@ -14,8 +14,8 @@ budgetRoutes.get('/', async (c) => {
   const { db, hh } = tctx(c);
   const qv = query(c, z.object({ month: monthStr.optional() }));
   const base = await loadBase(db, hh);
-  const month = qv.month ?? displayMonth(base.today, base.latestTx).month;
-  return c.json({ ...(await computeBudget(db, base, month)), asOf: base.asOf, today: base.today });
+  const month = qv.month ?? displayMonth(base.today, base.latestTx, base.cal).month;
+  return c.json({ ...(await computeBudget(db, base, month)), period: { start: base.cal.start(month), end: base.cal.end(month), startDay: base.cal.day }, asOf: base.asOf, today: base.today });
 });
 
 /**

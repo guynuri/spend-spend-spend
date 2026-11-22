@@ -1,4 +1,4 @@
-import { addDays, addMonths, dayOf, minDate, monthOf, monthStart } from '../../../shared/dates';
+import { addDays, addMonths, minDate } from '../../../shared/dates';
 import { lastCompleteMonths } from '../../../shared/domain/common';
 import { buildInsights } from '../../../shared/domain/insights';
 import type { BudgetView } from '../../../shared/domain/budget';
@@ -13,9 +13,12 @@ const EXPENSE_LINE = `(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount
 
 /** Action items for a month (PLAN §10.7) — shared by the dashboard and the monthly review. */
 export async function computeInsights(db: TenantDb, hh: HouseholdRow, base: BaseFacts, month: string, budget: BudgetView, forecast: ForecastView, health: HealthBundle) {
-  const cur = monthOf(base.today);
-  const paceDay = month === cur && monthOf(base.asOf) === cur ? dayOf(minDate(base.asOf, base.today)) : null;
+  const { cal } = base;
+  const cur = cal.of(base.today);
+  // pace: the first `paceDay` days of this period vs the same days of the previous one
+  const paceDay = month === cur && cal.of(base.asOf) === cur ? cal.dayIn(minDate(base.asOf, base.today)) : null;
   const prevM = addMonths(cur, -1);
+  const upTo = (m: string) => minDate(addDays(cal.start(m), (paceDay ?? 1) - 1), cal.end(m));
   const [extra] = await db.batch([
     db.stmt(
       `SELECT (SELECT COUNT(*) FROM transactions WHERE household_id = ?1 AND category_id IS NULL AND has_splits = 0 AND date >= ?2) AS uncategorized,
@@ -26,10 +29,10 @@ export async function computeInsights(db: TenantDb, hh: HouseholdRow, base: Base
               (SELECT COALESCE(-SUM(l.amount_minor), 0) FROM v_lines l LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
                  WHERE l.household_id = ?1 AND ${EXPENSE_LINE} AND l.date >= ?5 AND l.date <= ?6) AS pace_prev`,
       addDays(base.today, -60),
-      monthStart(cur),
-      `${cur}-${String(paceDay ?? 1).padStart(2, '0')}`,
-      monthStart(prevM),
-      `${prevM}-${String(Math.min(paceDay ?? 1, 28)).padStart(2, '0')}`,
+      cal.start(cur),
+      upTo(cur),
+      cal.start(prevM),
+      upTo(prevM),
     ),
   ]);
   const x = extra!.results[0] as { uncategorized: number; suggested: number; accounts: number; pace_this: number; pace_prev: number };

@@ -11,7 +11,7 @@ export interface MeHousehold {
 export interface MeResponse {
   user: { id: string; displayName: string; isSuperAdmin: boolean; locale: 'en' | 'he' | null; theme: 'light' | 'dark' | 'system' | null };
   households: MeHousehold[];
-  active: { id: string; name: string; currency: string; timezone: string; hasSampleData: boolean; aiEnabled: boolean; today: string } | null;
+  active: { id: string; name: string; currency: string; timezone: string; hasSampleData: boolean; aiEnabled: boolean; today: string; periodStartDay: number; statsByPeriod: boolean } | null;
   role: Role | null;
   features: { ai: boolean };
   /** reviewDue: month (YYYY-MM) whose monthly review is ready and not yet completed/dismissed. */

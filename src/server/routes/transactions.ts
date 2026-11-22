@@ -4,7 +4,7 @@ import { HttpError, body, notFound, query } from '../http';
 import { bulkCategorize, splitsPut, txCreate, txPatch, txQuery, undoLearn, type SplitLine, type TxList } from '../../shared/schemas/ledger';
 import { csvCell, isCardLump, isGenericPayee, learnedRuleFor, scaleSplit, splitSumOk } from '../../shared/domain/ledger';
 import { norm, normKey } from '../../shared/normalize';
-import { monthEnd, monthOf, monthStart } from '../../shared/dates';
+import { householdCals } from '../db/sql/facts';
 import { CARD_ISSUER_PATTERNS, DEFAULT_CATEGORIES } from '../seed/defaults';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
@@ -34,8 +34,10 @@ function decodeCursor(s: string): [string, number] | null {
 function filterSql(c: Ctx) {
   const f = query(c, txQuery);
   const today = householdToday(tctx(c).hh);
-  const from = f.from ?? monthStart(monthOf(today));
-  const to = f.to ?? monthEnd(monthOf(today));
+  // default: the current budget period (pay day)
+  const { cal } = householdCals(tctx(c).hh);
+  const from = f.from ?? cal.start(cal.of(today));
+  const to = f.to ?? cal.end(cal.of(today));
   const where: string[] = ['t.household_id = ?1', 't.date >= ?2', 't.date <= ?3'];
   const params: (string | number)[] = [from, to];
   const p = () => `?${params.length + 2}`; // ?1 is the household id

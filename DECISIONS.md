@@ -384,3 +384,23 @@ Format: date · milestone · what · why · alternatives rejected.
   the migration risk now.
 - **Emoji:** `categories.emoji`, one emoji checked by `isEmoji` (no zod in the client bundle). Default
   catalog categories get an emoji and colour (also backfilled by name for existing households).
+
+## D-R23 · 2026-11-22 · Pay-day periods
+- **What:** `households.period_start_day` (1–28, migration 0020) makes every budget "month" run from
+  that day to the day before it next month. One helper, `shared/period.ts` (`Cal`: `of`, `start`, `end`,
+  `days`, `dayIn`, `sql`), replaces the calendar-month arithmetic in the money math; day 1 is exactly the
+  old behaviour (same SQL), so nothing changes for households that don't set it.
+- **Labels:** a period keeps a 'YYYY-MM' label so every month-keyed table (budgets, reviews, yearly
+  limits) still works. Start day ≤ 15 → the month it starts in; > 15 → the month it mostly covers
+  (25 Oct – 24 Nov is "November"). The UI shows the dates next to the name when the day isn't the 1st.
+- **What follows the pay day:** budget (lines, pace, f), Overview, forecast ("month end" = period end,
+  horizon = end of the next period, daily baseline over complete periods), health score, insights
+  (pace compares the same number of days into each period), monthly review (a review opens once a
+  period ends), nav badges, the ledger's default range and its month stepping.
+- **Statistics:** `stats_by_period` (default on) decides whether Trends groups by the same periods or by
+  calendar months; the user asked for this choice. Occasional categories' quarterly view stays on
+  calendar quarters.
+- **Unchanged on purpose:** recurring due dates, card billing cycles and goal contributions stay
+  calendar-based — they describe real-world dates, not budget months.
+- **Changing the day:** a setting, not history: past budgets keep their 'YYYY-MM' rows and are read
+  over the new periods. Stored review snapshots keep the numbers they were saved with.

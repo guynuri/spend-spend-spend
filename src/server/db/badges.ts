@@ -1,4 +1,4 @@
-import { addDays, monthOf } from '../../shared/dates';
+import { addDays } from '../../shared/dates';
 import type { TenantDb } from './tenant';
 import type { HouseholdRow } from './rows';
 import { loadBase } from './sql/facts';
@@ -12,6 +12,6 @@ export async function loadBadges(q: TenantDb, hh: HouseholdRow, today: string) {
     addDays(today, -60),
   );
   const base = await loadBase(q, hh);
-  const b = base.hasData ? await computeBudget(q, base, monthOf(today), 1) : null;
+  const b = base.hasData ? await computeBudget(q, base, base.cal.of(today), 1) : null;
   return { uncategorized: r?.n ?? 0, overBudget: (b?.totals.counts.over ?? 0) > 0, reviewDue: base.hasData ? await reviewDue(q, base) : null };
 }

@@ -132,6 +132,19 @@
       "cardDaily": "Add today's transactions",
       "cardDailyBody": "Anything you paid today? It takes a few seconds.",
       "cardDailyOpen": "Add a transaction"
+    },
+    "payday": {
+      "title": "Your month starts on",
+      "body": "Pick your pay day and your budget month runs from one pay day to the next: budgets, the home screen, the forecast and the monthly review all follow it.",
+      "day": "Pay day",
+      "calendar": "The 1st (calendar months)",
+      "nth": "Day {{day}} of the month",
+      "example": "This month: {{from}} – {{to}} (shown as {{month}})",
+      "stats": "Statistics (Trends) go by",
+      "statsPeriod": "Pay day",
+      "statsCalendar": "Calendar months",
+      "statsHint": "Budgets always follow your pay day; this only changes how Trends groups months.",
+      "ownerOnly": "Only an owner can change this."
     }
   },
   "pwa": {

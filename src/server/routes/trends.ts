@@ -3,7 +3,7 @@ import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { query } from '../http';
 import { dateStr, id, monthStr } from '../../shared/schemas/common';
-import { addDays, addMonths, dayOfWeek, daysBetween, MAX_RANGE_DAYS, monthDiff, monthEnd, monthOf, monthRange, monthStart } from '../../shared/dates';
+import { addDays, addMonths, dayOfWeek, daysBetween, MAX_RANGE_DAYS, monthDiff, monthOf, monthRange } from '../../shared/dates';
 import { displayMonth } from '../../shared/domain/common';
 import { loadBase, occasionalByMonthStmt, pnlByMonthStmt, toMonthMap, toPnlMap } from '../db/sql/facts';
 import { GENERAL_ID } from '../../shared/domain/budget';
@@ -22,8 +22,10 @@ async function resolveRange(c: Parameters<typeof tctx>[0]) {
   const qv = query(c, rangeQ);
   const base = await loadBase(db, hh);
   if (qv.from && qv.to) return { db, base, compare: qv.compare, from: qv.from, to: qv.to };
-  const month = qv.month ?? displayMonth(base.today, base.latestTx).month;
-  return { db, base, compare: qv.compare, from: monthStart(month), to: monthEnd(month) };
+  // statistics periods: pay-day periods or calendar months, as the household chose
+  const S = base.statsCal;
+  const month = qv.month ?? displayMonth(base.today, base.latestTx, S).month;
+  return { db, base, compare: qv.compare, from: S.start(month), to: S.end(month) };
 }
 
 trendRoutes.get('/categories', async (c) => {
@@ -79,10 +81,11 @@ trendRoutes.get('/daily', async (c) => {
   const { db, base, compare, from, to } = await resolveRange(c);
   const span = daysBetween(from, to) + 1;
   const granularity = span <= 35 ? 'day' : span <= 190 ? 'week' : 'month';
-  const [fm, tm] = [monthOf(from), monthOf(to)];
-  const wholeMonths = from === monthStart(fm) && to === monthEnd(tm);
+  const S = base.statsCal;
+  const [fm, tm] = [S.of(from), S.of(to)];
+  const wholeMonths = from === S.start(fm) && to === S.end(tm);
   const shift = compare === 'yoy' ? 12 : monthDiff(fm, tm) + 1;
-  const [pFrom, pTo] = wholeMonths ? [monthStart(addMonths(fm, -shift)), monthEnd(addMonths(tm, -shift))] : [addDays(from, -span), addDays(from, -1)];
+  const [pFrom, pTo] = wholeMonths ? [S.start(addMonths(fm, -shift)), S.end(addMonths(tm, -shift))] : [addDays(from, -span), addDays(from, -1)];
   // weeks: both periods use the current period's weekday offset so bucket i lines up
   const off = dayOfWeek(from);
   // nominal bucket i of a period starting at `start`: [first, last] day
@@ -92,10 +95,10 @@ trendRoutes.get('/daily', async (c) => {
       const s = addDays(start, 7 * i - off);
       return [s, addDays(s, 6)];
     }
-    const m = addMonths(monthOf(start), i);
-    return [monthStart(m), monthEnd(m)];
+    const m = addMonths(S.of(start), i);
+    return [S.start(m), S.end(m)];
   };
-  const idx = (d: string, start: string) => (granularity === 'day' ? daysBetween(start, d) : granularity === 'week' ? Math.floor((daysBetween(start, d) + off) / 7) : monthDiff(monthOf(start), monthOf(d)));
+  const idx = (d: string, start: string) => (granularity === 'day' ? daysBetween(start, d) : granularity === 'week' ? Math.floor((daysBetween(start, d) + off) / 7) : monthDiff(S.of(start), S.of(d)));
   const rows = await db.all<{ d: string; spent: number }>(
     `SELECT l.date AS d, -SUM(l.amount_minor) AS spent FROM v_lines l LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
       WHERE l.household_id = ?1 AND ${EXPENSE_LINE} AND l.date >= ?2 AND l.date <= ?3 GROUP BY l.date`,
@@ -129,17 +132,18 @@ trendRoutes.get('/monthly', async (c) => {
   // category: a category id, or GENERAL_ID for all general expenses together
   const qv = query(c, rangeQ.and(z.object({ months: z.coerce.number().int().min(2).max(24).optional(), category: id.optional() })));
   const base = await loadBase(db, hh);
-  const toM = qv.to ? monthOf(qv.to) : base.today.slice(0, 7);
-  const fromM = qv.from ? monthOf(qv.from) : addMonths(toM, -((qv.months ?? 12) - 1));
-  const [from, to] = [qv.from ?? monthStart(fromM), qv.to ?? monthEnd(toM)];
-  const months = monthRange(fromM, toM).map((m) => ({ month: m, partial: from > monthStart(m) || to < monthEnd(m) }));
+  const S = base.statsCal;
+  const toM = qv.to ? S.of(qv.to) : S.of(base.today);
+  const fromM = qv.from ? S.of(qv.from) : addMonths(toM, -((qv.months ?? 12) - 1));
+  const [from, to] = [qv.from ?? S.start(fromM), qv.to ?? S.end(toM)];
+  const months = monthRange(fromM, toM).map((m) => ({ month: m, partial: from > S.start(m) || to < S.end(m) }));
   if (qv.category) {
     const rows = await db.all<{ m: string; spent: number }>(
       qv.category === GENERAL_ID
-        ? `SELECT substr(l.date, 1, 7) AS m, -SUM(l.amount_minor) AS spent FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+        ? `SELECT ${S.sql('l.date')} AS m, -SUM(l.amount_minor) AS spent FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
             WHERE l.household_id = ?1 AND c.kind = 'expense' AND c.budget_mode = 'general' AND ?2 = ?2 AND l.date >= ?3 AND l.date <= ?4 GROUP BY m`
-        : `SELECT substr(l.date, 1, 7) AS m, -SUM(l.amount_minor) AS spent FROM v_lines l
-            WHERE l.household_id = ?1 AND l.category_id = ?2 AND l.date >= ?3 AND l.date <= ?4 GROUP BY m`,
+        : `SELECT ${S.sql('l.date')} AS m, -SUM(l.amount_minor) AS spent FROM v_lines l
+            WHERE l.household_id = ?1 AND (l.category_id = ?2 OR l.sub_category_id = ?2) AND l.date >= ?3 AND l.date <= ?4 GROUP BY m`,
       qv.category,
       from,
       to,
@@ -147,7 +151,7 @@ trendRoutes.get('/monthly', async (c) => {
     const mm = new Map(rows.map((r) => [r.m, r.spent]));
     return c.json({ categoryId: qv.category, points: months.map((p) => ({ ...p, spentMinor: mm.get(p.month) ?? 0 })) });
   }
-  const [res, occ] = await db.batch([pnlByMonthStmt(db, fromM, toM, from, to), occasionalByMonthStmt(db, fromM, toM, from, to)]);
+  const [res, occ] = await db.batch([pnlByMonthStmt(db, S, fromM, toM, from, to), occasionalByMonthStmt(db, S, fromM, toM, from, to)]);
   const pnl = toPnlMap(res);
   const om = toMonthMap(occ);
   return c.json({

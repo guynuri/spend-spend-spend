@@ -12,7 +12,7 @@ import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT, useAccounts, useCategoryMap } from '../../lib/queries';
-import { useCanWrite } from '../../lib/session';
+import { useCal, useCanWrite } from '../../lib/session';
 import type { Tx, TxList } from '../../../shared/schemas/ledger';
 import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
@@ -20,6 +20,7 @@ import { AddTxSheet } from './AddTxSheet';
 import { TodoCard } from './TodoCard';
 import { TxTitle, useTxTitle } from '../../components/TxTitle';
 import { CategoryIcon } from '../../components/CategoryIcon';
+import { PeriodLabel } from '../../components/PeriodLabel';
 
 function CategoryLabel({ tx }: { tx: Tx }) {
   const { t } = useTranslation();
@@ -71,7 +72,8 @@ export function Component() {
   const toast = useToast();
   const canWrite = useCanWrite();
   const fmt = useFormatDate();
-  const { f, set, isMonth, shiftMonth, apiQuery, activeCount } = useLedgerFilters();
+  const { f, set, isMonth, period, shiftMonth, apiQuery, activeCount } = useLedgerFilters();
+  const cal = useCal();
   const accounts = useAccounts();
   const title = useTxTitle();
   const accMap = new Map((accounts.data?.accounts ?? []).map((a) => [a.id, a.name]));
@@ -155,7 +157,7 @@ export function Component() {
           <ChevronLeft className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
         <div className="text-center font-semibold" data-testid="ledger-range">
-          {isMonth ? <DateText date={f.from.slice(0, 7)} format="month" /> : `${fmt(f.from)} – ${fmt(f.to)}`}
+          {isMonth ? <PeriodLabel month={period} cal={cal} /> : `${fmt(f.from)} – ${fmt(f.to)}`}
         </div>
         <IconButton label={t('ledger.nextMonth')} onClick={() => shiftMonth(1)} data-testid="month-next">
           <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />

@@ -109,3 +109,21 @@ test('a due reminder shows on Overview and its links land in the right place', a
   // clean up for later specs
   sql('DELETE FROM reminders');
 });
+
+test('pay day: the month runs from pay day to pay day on Budget and Transactions', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/settings');
+  const card = page.getByTestId('payday-card');
+  await card.getByTestId('payday-day').selectOption('10');
+  await expect(card.getByTestId('payday-example')).toContainText('10');
+  await card.getByTestId('payday-save').click();
+  await page.goto('/budget');
+  await expect(page.getByTestId('budget-month').getByTestId('period-label')).toContainText(/10 .* – 9 /);
+  await page.goto('/transactions');
+  await expect(page.getByTestId('ledger-range')).toContainText(/10 .* – 9 /);
+  // back to calendar months for the other specs
+  await page.goto('/settings');
+  await page.getByTestId('payday-card').getByTestId('payday-day').selectOption('1');
+  await page.getByTestId('payday-card').getByTestId('payday-save').click();
+  await expect(page.getByTestId('payday-card').getByTestId('payday-save')).toBeDisabled();
+});

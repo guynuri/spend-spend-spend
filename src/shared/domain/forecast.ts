@@ -1,5 +1,6 @@
 /** End-of-month forecast and lowest point (PLAN §10.3). Pure, integer agorot throughout. */
-import { addDays, addMonths, daysBetween, monthEnd, monthOf, type DateStr } from '../dates';
+import { addDays, addMonths, daysBetween, type DateStr } from '../dates';
+import { CALENDAR, type Cal } from '../period';
 import { isStale } from './common';
 import { occurrences, type Occurrence, type Override, type RecItem, type Settled } from './recurring';
 import { norm } from '../normalize';
@@ -39,6 +40,8 @@ export interface ForecastInput {
   safetyBuffer: number;
   /** Extra horizon (e.g. today + 45 for the upcoming list). */
   horizonEnd?: DateStr;
+  /** Budget periods (pay day); "month end" is the end of the current period. Default: calendar months. */
+  cal?: Cal;
 }
 export type EventType = 'income' | 'recurring' | 'card' | 'planned' | 'actual';
 export interface ForecastEvent {
@@ -90,8 +93,9 @@ export function baselineDaily(b: ForecastInput['baseline']): { daily: number; lo
 export function computeForecast(inp: ForecastInput): ForecastView {
   const T = inp.today;
   const A = inp.asOf;
-  const EOM = monthEnd(monthOf(T));
-  const E0 = monthEnd(addMonths(monthOf(T), 1));
+  const cal = inp.cal ?? CALENDAR;
+  const EOM = cal.end(cal.of(T));
+  const E0 = cal.end(addMonths(cal.of(T), 1));
   const H = inp.horizonEnd && inp.horizonEnd > E0 ? inp.horizonEnd : E0;
   const stale = isStale(T, A);
   const base: Omit<ForecastView, 'series' | 'eom' | 'low' | 'lowHorizon' | 'afterNextCard' | 'belowZero' | 'belowBuffer' | 'breakdown' | 'events' | 'missed' | 'overdue' | 'monthEvents'> = {

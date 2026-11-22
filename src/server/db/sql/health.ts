@@ -1,4 +1,4 @@
-import { addMonths, minDate, monthEnd, monthRange, monthStart, type MonthStr } from '../../../shared/dates';
+import { addMonths, minDate, monthRange, type MonthStr } from '../../../shared/dates';
 import { lastCompleteMonths, mean } from '../../../shared/domain/common';
 import { GENERAL_ID, monthlyBudgetLines, type BudgetCategoryIn, type BudgetMode, type BudgetRow } from '../../../shared/domain/budget';
 import { goalView, goalsSummary, type ContributionIn, type GoalIn, type GoalView } from '../../../shared/domain/goals';
@@ -43,25 +43,26 @@ export interface HealthBundle {
 export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthStr, n = 6): Promise<HealthBundle> {
   const months = monthRange(addMonths(toMonth, -(n - 1)), toMonth);
   const from = addMonths(months[0]!, -2);
-  const ends = months.map((m) => minDate(monthEnd(m), base.today));
+  const { cal } = base;
+  const ends = months.map((m) => minDate(cal.end(m), base.today));
   const [pnl, debt, liquid, budgets, spent, goals, contribs, liquidCount, general, cats, occasional] = await q.batch([
-    pnlByMonthStmt(q, from, toMonth),
+    pnlByMonthStmt(q, cal, from, toMonth),
     q.stmt(
-      `SELECT substr(l.date, 1, 7) AS m, -SUM(l.amount_minor) AS debt FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+      `SELECT ${cal.sql('l.date')} AS m, -SUM(l.amount_minor) AS debt FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
         WHERE l.household_id = ?1 AND c.is_debt = 1 AND c.kind = 'expense' AND l.date >= ?2 AND l.date <= ?3 GROUP BY m`,
-      monthStart(from),
-      monthEnd(toMonth),
+      cal.start(from),
+      cal.end(toMonth),
     ),
     liquidAtStmt(q, ends),
     q.stmt('SELECT category_id, effective_from, limit_minor, one_time FROM budgets WHERE household_id = ?1'),
-    spentByCategoryStmt(q, months[0]!, toMonth),
+    spentByCategoryStmt(q, cal, months[0]!, toMonth),
     q.stmt("SELECT * FROM goals WHERE household_id = ?1 AND status <> 'archived' ORDER BY priority, created_at"),
     q.stmt('SELECT goal_id, date, amount_minor FROM goal_contributions WHERE household_id = ?1'),
     q.stmt('SELECT COUNT(*) AS n FROM accounts WHERE household_id = ?1 AND is_liquid = 1 AND archived = 0'),
     q.stmt(`SELECT '${GENERAL_ID}' AS category_id, effective_from, limit_minor, one_time FROM general_budgets WHERE household_id = ?1`),
     q.stmt("SELECT id, name, grp, archived, budget_mode FROM categories WHERE household_id = ?1 AND kind = 'expense' AND parent_id IS NULL"),
     // occasional spending is spread over 12 months, so a month back to 11 months before the window
-    occasionalByMonthStmt(q, addMonths(from, -11), toMonth),
+    occasionalByMonthStmt(q, cal, addMonths(from, -11), toMonth),
   ]);
   const p = toPnlMap(pnl);
   const debtMap = new Map((debt!.results as { m: string; debt: number }[]).map((r) => [r.m, r.debt]));

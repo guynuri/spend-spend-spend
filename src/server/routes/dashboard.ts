@@ -1,6 +1,5 @@
 import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
-import { monthOf } from '../../shared/dates';
 import { displayMonth, lastCompleteMonths } from '../../shared/domain/common';
 import { usualMonth } from '../../shared/domain/usual';
 import { generalName, type BudgetMode } from '../../shared/domain/budget';
@@ -19,8 +18,8 @@ export const dashboardRoutes = tenantGroup();
 dashboardRoutes.get('/', async (c) => {
   const { db, hh } = tctx(c);
   const base = await loadBase(db, hh);
-  const dm = displayMonth(base.today, base.latestTx);
-  const cur = monthOf(base.today);
+  const dm = displayMonth(base.today, base.latestTx, base.cal);
+  const cur = base.cal.of(base.today);
   const [budget, forecast, health, usual] = await Promise.all([computeBudget(db, base, dm.month, 1), forecastFor(db, hh, base), healthBundle(db, base, dm.month, 6), usualFor(db, base, dm.month)]);
   const { insights, actual, x } = await computeInsights(db, hh, base, dm.month, budget, forecast, health);
   const isCurrent = dm.month === cur;
@@ -28,6 +27,7 @@ dashboardRoutes.get('/', async (c) => {
   const { series: _series, ...fc } = forecast;
   return c.json({
     month: dm.month,
+    period: { start: base.cal.start(dm.month), end: base.cal.end(dm.month), startDay: base.cal.day },
     isLatestData: dm.isLatestData,
     today: base.today,
     asOf: base.asOf,
@@ -58,9 +58,9 @@ async function usualFor(db: TenantDb, base: BaseFacts, month: string) {
   // occasional spending (trips, gifts) is averaged over up to a year
   const occasionalMonths = lastCompleteMonths(base.complete, 12, month);
   const [pnl, spent, now, cats] = await db.batch([
-    pnlByMonthStmt(db, months[0]!, months[months.length - 1]!),
-    spentByCategoryStmt(db, occasionalMonths[0]!, months[months.length - 1]!),
-    spentByCategoryStmt(db, month, month),
+    pnlByMonthStmt(db, base.cal, months[0]!, months[months.length - 1]!),
+    spentByCategoryStmt(db, base.cal, occasionalMonths[0]!, months[months.length - 1]!),
+    spentByCategoryStmt(db, base.cal, month, month),
     db.stmt('SELECT id, name, system_key, budget_mode FROM categories WHERE household_id = ?1'),
   ]);
   const thisMonth = new Map<string, number>();

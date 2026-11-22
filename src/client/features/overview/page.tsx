@@ -10,7 +10,7 @@ import { DateText } from '../../components/DateText';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT } from '../../lib/queries';
 import { TourCtx } from '../../lib/tour';
-import { useIsOwner } from '../../lib/session';
+import { useCal, useIsOwner } from '../../lib/session';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
 import type { ForecastView } from '../../../shared/domain/forecast';
@@ -24,6 +24,7 @@ import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { ReviewDueCard } from '../review/DueCard';
 import { ReminderCards } from './ReminderCards';
 import { UsualMonthCard } from './UsualMonthCard';
+import { PeriodLabel } from '../../components/PeriodLabel';
 import type { UsualMonth } from '../../../shared/domain/usual';
 
 interface Dashboard {
@@ -116,6 +117,7 @@ function ForecastSummary({ f }: { f: ForecastView }) {
 export function Component() {
   const { t, i18n } = useTranslation();
   const pf = useParamFormatter();
+  const cal = useCal();
   const q = useQuery({ queryKey: ['dashboard'], queryFn: () => get<Dashboard>('/api/dashboard') });
   if (q.isPending) return <Spinner />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -130,7 +132,7 @@ export function Component() {
   const b = d.budget.totals;
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('dashboard.title')} subtitle={<DateText date={d.month} format="month" />} />
+      <PageHeader title={t('dashboard.title')} subtitle={<PeriodLabel month={d.month} cal={cal} />} />
       <ReviewDueCard />
       <ReminderCards />
       {d.isLatestData && (
