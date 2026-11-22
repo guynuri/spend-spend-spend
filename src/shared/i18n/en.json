@@ -229,7 +229,8 @@
     "unreadable_purchase": "Could not read the purchase from the shortcut.",
     "bad_parent": "A subcategory goes inside an active main category of the same type.",
     "has_subcategories": "This category has subcategories, so it stays a main category.",
-    "subcategory_budget": "Subcategories share their main category’s budget. Set the budget on the main category."
+    "subcategory_budget": "Subcategories share their main category’s budget. Set the budget on the main category.",
+    "not_a_member": "That person isn’t a member of this household."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -456,7 +457,10 @@
     "investmentHint": "The value moves with the market, so update it by hand with “Set balance” (e.g. once a month). Categorize money you move here as “Savings & investments”: it then isn't counted as spending.",
     "deleted": "Account deleted",
     "archivedToast": "The account has transactions, so it was archived.",
-    "cardHint": "Pick the card company. Its purchases come from Apple Pay (Settings → Live card tracking), its files, or +. The monthly card charge in your bank file is then matched as the bill automatically, so nothing is counted twice."
+    "cardHint": "Pick the card company. Its purchases come from Apple Pay (Settings → Live card tracking), its files, or +. The monthly card charge in your bank file is then matched as the bill automatically, so nothing is counted twice.",
+    "owner": "Whose account",
+    "ownerHint": "Spending on it counts for this person in “Who paid”. On a shared account, what someone adds by hand counts for them.",
+    "shared": "Shared"
   },
   "categories": {
     "title": "Categories & rules",
@@ -1590,6 +1594,10 @@
       "left": "Left this month",
       "top": "Where it went",
       "range": "{{from}} – {{to}}"
+    },
+    "who": {
+      "title": "Who paid this month",
+      "shared": "Shared"
     }
   },
   "quick": {

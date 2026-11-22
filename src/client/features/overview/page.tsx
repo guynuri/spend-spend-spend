@@ -24,6 +24,7 @@ import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { ReviewDueCard } from '../review/DueCard';
 import { ReminderCards } from './ReminderCards';
 import { RecapCard } from './RecapCard';
+import { WhoPaid } from './WhoPaid';
 import { UsualMonthCard } from './UsualMonthCard';
 import { Hero } from './Hero';
 import { Donut } from '../../components/Donut';
@@ -252,8 +253,8 @@ function GoalsMini({ goals }: { goals: Dashboard['goals'] }) {
  * Home is a list of widgets (D-R24). The order below is the default; it is kept as data so a later
  * "customize Home" (pick, drop and reorder widgets) only has to store another list.
  */
-type WidgetId = 'hero' | 'donut' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
-export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'attention', 'upcoming', 'forecast', 'goals', 'health', 'usual'];
+type WidgetId = 'hero' | 'donut' | 'who' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
+export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health', 'usual'];
 
 export function Component() {
   const { t } = useTranslation();
@@ -281,6 +282,7 @@ export function Component() {
       />
     ),
     donut: () => <SpendingDonut period={d.period} />,
+    who: () => <WhoPaid />,
     attention: () => <Attention items={d.insights} />,
     upcoming: () => <ComingUp events={d.upcoming} />,
     forecast: () => <ForecastSummary f={d.forecast} />,

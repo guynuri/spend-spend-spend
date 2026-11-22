@@ -15,6 +15,8 @@ export const accountCreate = z
     openingDate: dateStr.nullable().optional(),
     includeInForecast: bool01.optional(),
     isLiquid: bool01.optional(),
+    /** Whose account it is (a member's user id), or null for a shared one. */
+    ownerUserId: id.nullable().optional(),
   })
   .strict();
 export const accountPatch = accountCreate.partial().extend({ archived: bool01.optional() }).strict();
@@ -134,6 +136,8 @@ export interface Account {
   balanceDate: string | null;
   varianceMinor: number | null;
   latestSnapshot: { date: string; balanceMinor: number; source: string } | null;
+  /** Whose account it is; null = shared (D-R28). */
+  ownerUserId: string | null;
 }
 export interface Category {
   id: string;

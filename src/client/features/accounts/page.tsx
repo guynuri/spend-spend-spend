@@ -10,7 +10,7 @@ import { AmountInput } from '../../components/AmountInput';
 import { ExplainSheet } from '../../components/ExplainSheet';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
-import { LEDGER_DEPENDENT, useAccounts } from '../../lib/queries';
+import { LEDGER_DEPENDENT, useAccounts, useMembers } from '../../lib/queries';
 import { useCanWrite, useMe } from '../../lib/session';
 import { minorToInput, parseMoneyInput } from '../../../shared/money';
 import type { Account } from '../../../shared/schemas/ledger';
@@ -32,8 +32,10 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
   const [openingDate, setOpeningDate] = useState(account?.openingDate ?? '');
   const [forecast, setForecast] = useState(account?.includeInForecast ?? true);
   const [liquid, setLiquid] = useState(account?.isLiquid ?? true);
+  const [owner, setOwner] = useState(account?.ownerUserId ?? '');
+  const members = useMembers().data?.members ?? [];
   const openingMinor = opening.trim() ? parseMoneyInput(opening) : 0;
-  const body = { name: name.trim(), type, bankId: bank && bank !== 'other' ? bank : null, institution: bank === 'other' ? institution.trim() : '', accountMask: mask || undefined, openingBalanceMinor: openingMinor ?? 0, openingDate: openingDate || null, includeInForecast: forecast, isLiquid: liquid };
+  const body = { name: name.trim(), type, bankId: bank && bank !== 'other' ? bank : null, institution: bank === 'other' ? institution.trim() : '', accountMask: mask || undefined, openingBalanceMinor: openingMinor ?? 0, openingDate: openingDate || null, includeInForecast: forecast, isLiquid: liquid, ...(members.length > 1 ? { ownerUserId: owner || null } : {}) };
   const save = useApiMutation(() => (account ? patch(`/api/accounts/${account.id}`, body) : post('/api/accounts', body)), { invalidate: [...LEDGER_DEPENDENT], onSuccess: onDone, successKey: 'ledger.saved' });
   const remove = useApiMutation(() => del<{ archived?: boolean }>(`/api/accounts/${account!.id}`), {
     invalidate: [...LEDGER_DEPENDENT],
@@ -117,6 +119,18 @@ function AccountForm({ account, onDone }: { account: Account | null; onDone: () 
       </div>
       <Checkbox label={t('accounts.includeInForecast')} checked={forecast} onChange={setForecast} testId="account-forecast" />
       <Checkbox label={t('accounts.isLiquid')} checked={liquid} onChange={setLiquid} testId="account-liquid" />
+      {members.length > 1 && (
+        <Field label={t('accounts.owner')} htmlFor="acc-owner" hint={t('accounts.ownerHint')}>
+          <Select id="acc-owner" value={owner} onChange={(e) => setOwner(e.target.value)} data-testid="account-owner">
+            <option value="">{t('accounts.shared')}</option>
+            {members.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.displayName}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
       <div className="flex flex-wrap justify-between gap-2">
         {account ? (
           <Button variant="ghost" className="text-bad" busy={remove.isPending} onClick={() => remove.mutate(undefined)}>

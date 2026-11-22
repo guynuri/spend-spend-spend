@@ -453,3 +453,11 @@ Format: date · milestone · what · why · alternatives rejected.
     the app" — both, with the detail in the app.
 - Push text for these two is built from the household's numbers on the server; like every push, it goes
   only to the user's own devices through the encrypted Web Push channel.
+
+## D-R28 · 2026-11-22 · Who paid (simple)
+- `accounts.owner_user_id` (migration 0022, NULL = shared; validated as a household member). A spending
+  line counts for its account's owner; on a shared account, a row added by hand or by Apple Pay counts
+  for whoever added it (`created_by`); everything else — imported rows on shared accounts, and anyone
+  no longer a member — is "Shared". Imported rows never count for the importer: importing isn't paying.
+- GET `/api/dashboard/who` for the current period; Home shows a thin split bar and a row per person,
+  only for households with more than one member. Deliberately no settle-up / who-owes-whom yet.

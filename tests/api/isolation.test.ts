@@ -116,6 +116,7 @@ export const ROUTES: Record<string, Cls> = {
   'GET /api/health-score': 'tenant',
   'GET /api/dashboard': 'tenant',
   'GET /api/dashboard/week': 'tenant',
+  'GET /api/dashboard/who': 'tenant',
   'POST /api/household/reset': 'tenant',
   'DELETE /api/household': 'tenant',
   'GET /api/reviews': 'tenant',
