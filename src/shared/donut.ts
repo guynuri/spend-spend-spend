@@ -1,10 +1,10 @@
-import { COLOR_SLOTS, OTHER_SLOT, type ColorSlot } from './categoryLook';
+import { COLOR_SLOTS, OTHER_SLOT } from './categoryLook';
 
 export interface DonutInput {
   id: string;
   label: string;
   valueMinor: number;
-  slot: ColorSlot;
+  slot: string;
   emoji?: string | null;
 }
 export interface DonutSlice {
@@ -27,7 +27,8 @@ export function donutSlices(items: DonutInput[], max: number, otherLabel: string
   const shown = fold ? pos.slice(0, max) : pos;
   // Every shown category's own colour is reserved first, so resolving a clash never takes another's colour.
   const own = new Set<string>(shown.map((i) => i.slot));
-  const used = new Set<string>();
+  // the folded tail owns the grey, so a shown grey category (e.g. unsplit card charges) takes a free hue
+  const used = new Set<string>(fold ? [OTHER_SLOT] : []);
   const out: DonutSlice[] = shown.map((i) => {
     let slot: string = i.slot;
     if (used.has(slot)) slot = COLOR_SLOTS.find((s) => !used.has(s) && !own.has(s)) ?? COLOR_SLOTS.find((s) => !used.has(s)) ?? slot;

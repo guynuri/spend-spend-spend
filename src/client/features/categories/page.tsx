@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { del, get, patch, post } from '../../api';
 import { Badge, Button, Card, CardTitle, Checkbox, cx, ErrorState, Field, IconButton, Input, PageHeader, Select, Spinner } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
@@ -8,6 +8,9 @@ import { useQuery } from '@tanstack/react-query';
 import { AddCategorySheet } from '../../components/AddCategorySheet';
 import { ConfirmSheet } from '../../components/Confirm';
 import { CategorySelect } from '../../components/CategorySelect';
+import { CategoryIcon, categoryLabel } from '../../components/CategoryIcon';
+import { LookPicker } from '../../components/LookPicker';
+import { colorSlotOf } from '../../../shared/categoryLook';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT, useCategories, useCategoryMap, useRules } from '../../lib/queries';
@@ -19,19 +22,38 @@ const MATCHES: Rule['match'][] = ['contains', 'equals', 'starts_with'];
 const SIGNS: Rule['sign'][] = ['any', 'in', 'out'];
 const MODES: Category['budgetMode'][] = ['monthly', 'general', 'occasional'];
 
-function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
+function CategoryForm({ cat, onDone, onAddSub }: { cat: Category; onDone: () => void; onAddSub: (parent: Category) => void }) {
   const { t } = useTranslation();
   const toast = useToast();
+  const all = useCategories().data?.categories ?? [];
   const [name, setName] = useState(cat.name);
   const kind = cat.kind;
   const [grp, setGrp] = useState<'fixed' | 'variable'>(cat.grp ?? 'variable');
   const [isDebt, setIsDebt] = useState(cat.isDebt);
   const [mode, setMode] = useState<Category['budgetMode']>(cat.budgetMode);
-  const save = useApiMutation(() => patch(`/api/categories/${cat.id}`, { name: name.trim(), ...(kind === 'expense' ? { grp, isDebt, ...(cat.systemKey ? {} : { budgetMode: mode }) } : {}) }), {
-    invalidate: [['categories'], ['budget'], ['dashboard'], ['health'], ['trends'], ...LEDGER_DEPENDENT],
-    onSuccess: onDone,
-    successKey: 'ledger.saved',
-  });
+  const [emoji, setEmoji] = useState<string | null>(cat.emoji);
+  const [color, setColor] = useState<string>(colorSlotOf(cat));
+  const [parentId, setParentId] = useState<string | null>(cat.parentId);
+  const hasSubs = all.some((c) => c.parentId === cat.id && !c.archived);
+  // A subcategory can go under an active top-level category of the same kind; one with subcategories stays top-level.
+  const parents = all.filter((c) => c.kind === kind && !c.parentId && !c.systemKey && !c.archived && c.id !== cat.id);
+  const isSub = !!parentId;
+  const parent = parentId ? all.find((c) => c.id === parentId) : null;
+  const save = useApiMutation(
+    () =>
+      patch(`/api/categories/${cat.id}`, {
+        name: name.trim(),
+        emoji: emoji ?? '',
+        color,
+        ...(cat.systemKey || hasSubs ? {} : { parentId }),
+        ...(kind === 'expense' && !isSub ? { grp, isDebt, ...(cat.systemKey ? {} : { budgetMode: mode }) } : {}),
+      }),
+    {
+      invalidate: [['categories'], ['budget'], ['dashboard'], ['health'], ['trends'], ...LEDGER_DEPENDENT],
+      onSuccess: onDone,
+      successKey: 'ledger.saved',
+    },
+  );
   const remove = useApiMutation(() => del<{ archived?: boolean }>(`/api/categories/${cat.id}`), {
     invalidate: [['categories']],
     onSuccess: (r) => {
@@ -42,16 +64,33 @@ function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
   const restore = useApiMutation(() => patch(`/api/categories/${cat.id}`, { archived: false }), { invalidate: [['categories']], onSuccess: onDone });
   return (
     <form
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate(undefined);
       }}
     >
-      <Field label={t('categories.name')} htmlFor="cat-name">
-        <Input id="cat-name" dir="auto" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} data-testid="category-name" />
-      </Field>
-      {kind === 'expense' && (
+      <div className="flex items-center gap-3">
+        <CategoryIcon cat={{ id: cat.id, color, emoji }} size="lg" />
+        <Field label={t('categories.name')} htmlFor="cat-name">
+          <Input id="cat-name" dir="auto" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} data-testid="category-name" />
+        </Field>
+      </div>
+      <LookPicker emoji={emoji} color={color} onEmoji={setEmoji} onColor={setColor} />
+      {!cat.systemKey && !hasSubs && parents.length > 0 && (
+        <Field label={t('categories.parent')} htmlFor="cat-parent" hint={t('categories.parentHint')}>
+          <Select id="cat-parent" value={parentId ?? ''} onChange={(e) => setParentId(e.target.value || null)} data-testid="category-parent">
+            <option value="">{t('categories.topLevel')}</option>
+            {parents.map((p) => (
+              <option key={p.id} value={p.id}>
+                {categoryLabel(p)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+      {kind === 'expense' && isSub && <p className="rounded-2xl bg-surface-2 p-3 text-sm text-muted" data-testid="category-follows">{t('categories.followsParent', { name: parent?.name ?? '' })}</p>}
+      {kind === 'expense' && !isSub && (
         <>
           <Field label={t('categories.group')} htmlFor="cat-grp">
             <Select id="cat-grp" value={grp} onChange={(e) => setGrp(e.target.value as 'fixed' | 'variable')}>
@@ -76,6 +115,12 @@ function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
           </div>
         </>
       )}
+      {!cat.systemKey && !cat.parentId && !cat.archived && (
+        <Button variant="secondary" onClick={() => onAddSub(cat)} data-testid="category-add-sub">
+          <Plus className="size-4" aria-hidden />
+          {t('categories.addSub')}
+        </Button>
+      )}
       <div className="flex flex-wrap justify-between gap-2">
         {!cat.systemKey ? (
           cat.archived ? (
@@ -95,6 +140,29 @@ function CategoryForm({ cat, onDone }: { cat: Category; onDone: () => void }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+/** One category row; `sub` rows sit indented under their parent. */
+function CategoryRow({ c, sub, disabled, onClick }: { c: Category; sub?: boolean; disabled: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cx('flex min-h-12 w-full items-center gap-3 rounded-2xl px-2 text-start transition hover:bg-surface-2 active:bg-surface-2', sub && 'ps-10', c.archived && 'opacity-50')}
+      data-testid="category-chip"
+    >
+      <CategoryIcon cat={c} size={sub ? 'sm' : 'md'} />
+      <span dir="auto" className={cx('min-w-0 flex-1 truncate', sub ? 'text-sm' : 'font-medium')}>
+        {c.name}
+      </span>
+      {!sub && c.grp && <span className="text-xs text-muted">{t(`categories.${c.grp}`)}</span>}
+      {!sub && c.kind === 'expense' && c.budgetMode !== 'monthly' && <Badge tone="accent">{t(`categories.mode.${c.budgetMode}Short`)}</Badge>}
+      {c.systemKey && <Badge>{t('categories.system')}</Badge>}
+      <ChevronRight className="size-4 shrink-0 text-muted rtl:-scale-x-100" aria-hidden />
+    </button>
   );
 }
 
@@ -158,6 +226,7 @@ export function Component() {
   const cmap = useCategoryMap();
   const [editing, setEditing] = useState<Category | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addingSub, setAddingSub] = useState<Category | null>(null);
   const [showHidden, setShowHidden] = useState(false);
   const [confirmHide, setConfirmHide] = useState(false);
   const [keep, setKeep] = useState<Set<string>>(new Set());
@@ -214,23 +283,23 @@ export function Component() {
         KINDS.map((k) => (
           <Card key={k}>
             <CardTitle>{t(`categories.kinds.${k}`)}</CardTitle>
-            <ul className="flex flex-wrap gap-2">
+            <ul className="flex flex-col">
               {cats
-                .filter((c) => c.kind === k)
+                .filter((c) => c.kind === k && (!c.parentId || !cats.some((p) => p.id === c.parentId)))
                 .map((c) => (
                   <li key={c.id}>
-                    <button
-                      type="button"
-                      disabled={!canWrite}
-                      onClick={() => setEditing(c)}
-                      className={cx('inline-flex min-h-11 items-center gap-1 rounded-xl border border-border px-3 text-sm', c.archived && 'opacity-50')}
-                      data-testid="category-chip"
-                    >
-                      <span dir="auto">{c.name}</span>
-                      {c.grp && <span className="text-xs text-muted">· {t(`categories.${c.grp}`)}</span>}
-                      {c.kind === 'expense' && c.budgetMode !== 'monthly' && <Badge tone="accent">{t(`categories.mode.${c.budgetMode}Short`)}</Badge>}
-                      {c.systemKey && <Badge>{t('categories.system')}</Badge>}
-                    </button>
+                    <CategoryRow c={c} disabled={!canWrite} onClick={() => setEditing(c)} />
+                    {cats.some((s) => s.parentId === c.id) && (
+                      <ul data-testid="category-subs">
+                        {cats
+                          .filter((s) => s.parentId === c.id)
+                          .map((s) => (
+                            <li key={s.id}>
+                              <CategoryRow c={s} sub disabled={!canWrite} onClick={() => setEditing(s)} />
+                            </li>
+                          ))}
+                      </ul>
+                    )}
                   </li>
                 ))}
             </ul>
@@ -271,7 +340,7 @@ export function Component() {
                     {r.pattern}
                   </bdi>
                   <ArrowRight className="size-3 shrink-0 text-muted rtl:-scale-x-100" aria-hidden />
-                  <span className="truncate">{cmap.get(r.categoryId)?.name}</span>
+                  <span className="truncate">{categoryLabel(cmap.get(r.categoryId))}</span>
                 </div>
                 <div className="text-xs text-muted">
                   {t(`categories.sources.${r.source}`)} · {t(`categories.signs.${r.sign}`)}
@@ -287,9 +356,20 @@ export function Component() {
         </ul>
       </Card>
       <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title={t('common.edit')}>
-        {editing && <CategoryForm cat={editing} onDone={() => setEditing(null)} />}
+        {editing && (
+          <CategoryForm
+            key={editing.id}
+            cat={editing}
+            onDone={() => setEditing(null)}
+            onAddSub={(p) => {
+              setEditing(null);
+              setAddingSub(p);
+            }}
+          />
+        )}
       </Sheet>
       <AddCategorySheet open={adding} onOpenChange={setAdding} />
+      {addingSub && <AddCategorySheet open onOpenChange={(o) => !o && setAddingSub(null)} parent={addingSub} />}
       <ConfirmSheet
         open={confirmHide}
         onOpenChange={setConfirmHide}

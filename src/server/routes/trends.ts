@@ -39,11 +39,33 @@ trendRoutes.get('/categories', async (c) => {
   // general expenses come back as one item (GENERAL_ID) with their categories inside
   const general = rows.filter((r) => r.mode === 'general' && r.cid && r.spent !== 0);
   const gSum = general.reduce((a, r) => a + r.spent, 0);
-  const items: { categoryId: string | null; spentMinor: number; share: number; occasional?: boolean; members?: { categoryId: string; spentMinor: number; share: number }[] }[] = rows
+  type Part = { categoryId: string; spentMinor: number; share: number };
+  /** `subs`: a parent's spending by subcategory (its own lines under its own id). */
+  const items: { categoryId: string | null; spentMinor: number; share: number; occasional?: boolean; members?: (Part & { subs?: Part[] })[]; subs?: Part[] }[] = rows
     .filter((r) => r.spent !== 0 && !(r.mode === 'general' && r.cid))
     .map((r) => ({ categoryId: r.cid, spentMinor: r.spent, share: share(r.spent), ...(r.mode === 'occasional' ? { occasional: true } : {}) }));
   if (general.length) items.push({ categoryId: GENERAL_ID, spentMinor: gSum, share: share(gSum), members: general.map((r) => ({ categoryId: r.cid!, spentMinor: r.spent, share: share(r.spent) })) });
   items.sort((a, b) => b.spentMinor - a.spentMinor);
+  // Parents with subcategories: the split of their spending, the parent's own lines under its own id.
+  const subRows = await db.all<{ cid: string; sid: string; spent: number }>(
+    `SELECT l.category_id AS cid, l.sub_category_id AS sid, -SUM(l.amount_minor) AS spent FROM v_lines l JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+      WHERE l.household_id = ?1 AND c.kind = 'expense' AND l.date >= ?2 AND l.date <= ?3
+        AND EXISTS (SELECT 1 FROM categories ch WHERE ch.household_id = ?1 AND ch.parent_id = l.category_id)
+      GROUP BY l.category_id, l.sub_category_id HAVING spent <> 0 ORDER BY spent DESC`,
+    from,
+    to,
+  );
+  const subsOf = new Map<string, { categoryId: string; spentMinor: number; share: number }[]>();
+  for (const r of subRows) subsOf.set(r.cid, [...(subsOf.get(r.cid) ?? []), { categoryId: r.sid, spentMinor: r.spent, share: share(r.spent) }]);
+  const subsFor = (cid: string | null) => (cid && subsOf.get(cid)?.some((s) => s.categoryId !== cid) ? subsOf.get(cid) : undefined);
+  for (const it of items) {
+    const subs = subsFor(it.categoryId);
+    if (subs) it.subs = subs;
+    for (const m of it.members ?? []) {
+      const ms = subsFor(m.categoryId);
+      if (ms) m.subs = ms;
+    }
+  }
   return c.json({ from, to, totalMinor: total, items });
 });
 
@@ -157,7 +179,7 @@ trendRoutes.get('/occasional', async (c) => {
     `${prevYear}-01-01`,
     `${year}-12-31`,
   );
-  const cats = await db.all<{ id: string; name: string }>("SELECT id, name FROM categories WHERE household_id = ?1 AND kind = 'expense' AND budget_mode = 'occasional' AND archived = 0 ORDER BY sort, name");
+  const cats = await db.all<{ id: string; name: string }>("SELECT id, name FROM categories WHERE household_id = ?1 AND kind = 'expense' AND budget_mode = 'occasional' AND archived = 0 AND parent_id IS NULL ORDER BY sort, name");
   const byCat = new Map<string, { categoryId: string; name: string; quarters: number[]; prevQuarters: number[] }>();
   for (const k of cats) byCat.set(k.id, { categoryId: k.id, name: k.name, quarters: [0, 0, 0, 0], prevQuarters: [0, 0, 0, 0] });
   for (const r of rows) {

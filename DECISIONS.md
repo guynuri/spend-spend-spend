@@ -358,3 +358,29 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Not verified on a device:** whether "Request Body: File = Shortcut Input" in the shared shortcut
   sends the transaction in one of those shapes. Community reports also mention Wallet automations
   occasionally passing an empty merchant / 0 amount; those are refused, not stored.
+
+## D-R22 · 2026-11-22 · Friendlier look; subcategories, emoji and colour per category
+- **Look:** violet accent, Rubik (rounded, Hebrew + Latin), softer cards (larger radius, layered shadow,
+  lighter borders), pill-highlighted tabs. Colour tokens re-picked for both themes; the contrast test
+  still holds (≥ 4.5:1 for every text token on bg and surface). The categorical palette is the 8
+  validated hues plus a neutral grey (`--mz-cat-other`).
+- **Category colour follows the category:** `categories.color` stores a palette slot (`cat-1`…`cat-8`,
+  `cat-other`), never a raw colour; without one a stable slot is derived from the id. Charts never
+  repaint by rank. On the spending ring, a clash among the shown slices moves the later one to a hue no
+  shown category owns; the folded tail ("Other") owns the grey.
+- **Donut:** the user asked for it, so the ring is used despite the general preference for bars — kept
+  honest by ≤ 5 slices + Other, a legend with names, amounts and shares (identity never by colour
+  alone), and a ranked bar list right below it on Trends.
+- **Subcategories:** `categories.parent_id`, one level, same kind as the parent, never under a system
+  category. `v_lines.category_id` reports a subcategory's lines under its parent and keeps the assigned
+  one in `sub_category_id`, so budgets, forecast, health, review, usual month and insights roll up with
+  no per-feature code. A subcategory takes its parent's group, debt flag and budget mode (kept in sync
+  on every parent change) and has no budget of its own (`subcategory_budget`). Filtering the ledger by a
+  parent includes its subcategories; Trends → by category lists each parent with an expandable split
+  (the parent's own lines shown as "Parent (directly)"). Archiving / deleting a parent archives its
+  subcategories; a category with subcategories can't become one.
+- **Known limit:** category names stay unique per household (the existing UNIQUE constraint), so two
+  parents can't both have a subcategory called "Other". Rebuilding the table to relax it wasn't worth
+  the migration risk now.
+- **Emoji:** `categories.emoji`, one emoji checked by `isEmoji` (no zod in the client bundle). Default
+  catalog categories get an emoji and colour (also backfilled by name for existing households).

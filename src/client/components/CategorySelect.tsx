@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useCategories } from '../lib/queries';
 import { useCanWrite } from '../lib/session';
 import { AddCategorySheet } from './AddCategorySheet';
+import { categoryLabel } from './CategoryIcon';
 import { Select } from './ui';
 
 const ADD = '__add__';
@@ -32,10 +33,12 @@ export const CategorySelect = forwardRef<HTMLSelectElement, Omit<SelectHTMLAttri
           {groups.map((g) => (
             <optgroup key={g} label={t(`categories.kinds.${g}`)}>
               {cats
-                .filter((c) => c.kind === g)
+                .filter((c) => c.kind === g && (!c.parentId || !cats.some((p) => p.id === c.parentId)))
+                .flatMap((c) => [c, ...cats.filter((s) => s.parentId === c.id)])
                 .map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {/* subcategories indented under their parent */}
+                    {c.parentId ? `\u2003${categoryLabel(c)}` : categoryLabel(c)}
                   </option>
                 ))}
             </optgroup>

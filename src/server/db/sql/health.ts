@@ -59,7 +59,7 @@ export async function healthBundle(q: TenantDb, base: BaseFacts, toMonth: MonthS
     q.stmt('SELECT goal_id, date, amount_minor FROM goal_contributions WHERE household_id = ?1'),
     q.stmt('SELECT COUNT(*) AS n FROM accounts WHERE household_id = ?1 AND is_liquid = 1 AND archived = 0'),
     q.stmt(`SELECT '${GENERAL_ID}' AS category_id, effective_from, limit_minor, one_time FROM general_budgets WHERE household_id = ?1`),
-    q.stmt("SELECT id, name, grp, archived, budget_mode FROM categories WHERE household_id = ?1 AND kind = 'expense'"),
+    q.stmt("SELECT id, name, grp, archived, budget_mode FROM categories WHERE household_id = ?1 AND kind = 'expense' AND parent_id IS NULL"),
     // occasional spending is spread over 12 months, so a month back to 11 months before the window
     occasionalByMonthStmt(q, addMonths(from, -11), toMonth),
   ]);

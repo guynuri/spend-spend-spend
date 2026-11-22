@@ -14,6 +14,9 @@ export interface DefaultCategory {
   mode?: 'general' | 'occasional';
   systemKey?: string;
   icon: string;
+  /** Default look: an emoji and a palette slot (shared/categoryLook.ts). */
+  emoji: string;
+  color: string;
   /** Not seeded: offered in the "add category" catalog instead (keeps new households short). */
   extra?: true;
   /** Earlier default names, still matched for households created with them. */
@@ -24,37 +27,37 @@ export interface DefaultCategory {
 export const defaultNames = (d: DefaultCategory) => [d.en, d.he, ...(d.aliases ?? [])];
 
 export const DEFAULT_CATEGORIES: DefaultCategory[] = [
-  { key: 'salary', en: 'Salary', he: 'משכורת', kind: 'income', grp: null, icon: 'briefcase' },
-  { key: 'benefits', en: 'Benefits & allowances', he: 'קצבאות והטבות', kind: 'income', grp: null, icon: 'hand-coins' },
-  { key: 'other_income', en: 'Other income', he: 'הכנסות אחרות', kind: 'income', grp: null, icon: 'plus-circle' },
-  { key: 'rent', en: 'Rent', he: 'שכר דירה', kind: 'expense', grp: 'fixed', icon: 'home' },
-  { key: 'mortgage', en: 'Mortgage', he: 'משכנתא', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'landmark', extra: true },
-  { key: 'loans', en: 'Loan repayments', he: 'החזרי הלוואות', kind: 'expense', grp: 'fixed', isDebt: true, icon: 'banknote', aliases: ['Loans', 'הלוואות'] },
-  { key: 'utilities', en: 'Municipal tax & utilities', he: 'ארנונה וחשבונות', kind: 'expense', grp: 'fixed', icon: 'zap' },
-  { key: 'phone', en: 'Phone & internet', he: 'טלפון ואינטרנט', kind: 'expense', grp: 'fixed', icon: 'smartphone' },
-  { key: 'insurance', en: 'Insurance', he: 'ביטוחים', kind: 'expense', grp: 'fixed', icon: 'shield' },
-  { key: 'education', en: 'Education & childcare', he: 'חינוך ומסגרות', kind: 'expense', grp: 'fixed', icon: 'graduation-cap' },
-  { key: 'subscriptions', en: 'Subscriptions', he: 'מנויים', kind: 'expense', grp: 'fixed', icon: 'repeat', extra: true },
-  { key: 'bank_fees', en: 'Bank fees', he: 'עמלות בנק', kind: 'expense', grp: 'fixed', icon: 'percent', extra: true },
-  { key: 'groceries', en: 'Groceries', he: 'סופר ומכולת', kind: 'expense', grp: 'variable', icon: 'shopping-cart' },
-  { key: 'eating_out', en: 'Eating out', he: 'אוכל בחוץ', kind: 'expense', grp: 'variable', icon: 'utensils' },
-  { key: 'transport', en: 'Transport & fuel', he: 'תחבורה ודלק', kind: 'expense', grp: 'variable', icon: 'fuel' },
-  { key: 'car', en: 'Car', he: 'רכב', kind: 'expense', grp: 'variable', icon: 'car', extra: true },
-  { key: 'health', en: 'Health', he: 'בריאות', kind: 'expense', grp: 'variable', icon: 'heart-pulse' },
-  { key: 'clothing', en: 'Clothing', he: 'ביגוד והנעלה', kind: 'expense', grp: 'variable', icon: 'shirt', extra: true, mode: 'general' },
-  { key: 'home', en: 'Home', he: 'בית', kind: 'expense', grp: 'variable', icon: 'sofa' },
-  { key: 'leisure', en: 'Leisure', he: 'פנאי', kind: 'expense', grp: 'variable', icon: 'ticket' },
-  { key: 'kids', en: 'Kids', he: 'ילדים', kind: 'expense', grp: 'variable', icon: 'baby', extra: true },
-  { key: 'gifts', en: 'Gifts & donations', he: 'מתנות ותרומות', kind: 'expense', grp: 'variable', icon: 'gift', extra: true, mode: 'occasional' },
-  { key: 'travel', en: 'Travel', he: 'חופשות', kind: 'expense', grp: 'variable', icon: 'plane', extra: true, mode: 'occasional' },
-  { key: 'cash', en: 'Cash withdrawals', he: 'משיכות מזומן', kind: 'expense', grp: 'variable', icon: 'wallet', extra: true },
-  { key: 'card_unsplit', en: 'Credit card (not split)', he: 'כרטיס אשראי (לא מפוצל)', kind: 'expense', grp: 'variable', systemKey: 'card_unsplit', icon: 'credit-card' },
-  { key: 'pets', en: 'Pets', he: 'חיות מחמד', kind: 'expense', grp: 'variable', icon: 'paw-print', extra: true },
-  { key: 'personal_care', en: 'Personal care', he: 'טיפוח', kind: 'expense', grp: 'variable', icon: 'sparkles', extra: true, mode: 'general' },
-  { key: 'sport', en: 'Sport & fitness', he: 'ספורט וכושר', kind: 'expense', grp: 'variable', icon: 'dumbbell', extra: true },
-  { key: 'other', en: 'Other', he: 'אחר', kind: 'expense', grp: 'variable', icon: 'circle-help' },
-  { key: 'transfers', en: 'Internal transfers', he: 'העברות פנימיות', kind: 'transfer', grp: null, systemKey: 'transfer', icon: 'arrow-left-right' },
-  { key: 'savings', en: 'Savings & investments', he: 'חיסכון והשקעות', kind: 'transfer', grp: null, icon: 'piggy-bank' },
+  { key: 'salary', en: 'Salary', he: 'משכורת', kind: 'income', grp: null, emoji: '💼', color: 'cat-6', icon: 'briefcase' },
+  { key: 'benefits', en: 'Benefits & allowances', he: 'קצבאות והטבות', kind: 'income', grp: null, emoji: '🤲', color: 'cat-3', icon: 'hand-coins' },
+  { key: 'other_income', en: 'Other income', he: 'הכנסות אחרות', kind: 'income', grp: null, emoji: '💰', color: 'cat-1', icon: 'plus-circle' },
+  { key: 'rent', en: 'Rent', he: 'שכר דירה', kind: 'expense', grp: 'fixed', emoji: '🏠', color: 'cat-1', icon: 'home' },
+  { key: 'mortgage', en: 'Mortgage', he: 'משכנתא', kind: 'expense', grp: 'fixed', isDebt: true, emoji: '🏦', color: 'cat-7', icon: 'landmark', extra: true },
+  { key: 'loans', en: 'Loan repayments', he: 'החזרי הלוואות', kind: 'expense', grp: 'fixed', isDebt: true, emoji: '🧾', color: 'cat-8', icon: 'banknote', aliases: ['Loans', 'הלוואות'] },
+  { key: 'utilities', en: 'Municipal tax & utilities', he: 'ארנונה וחשבונות', kind: 'expense', grp: 'fixed', emoji: '💡', color: 'cat-4', icon: 'zap' },
+  { key: 'phone', en: 'Phone & internet', he: 'טלפון ואינטרנט', kind: 'expense', grp: 'fixed', emoji: '📱', color: 'cat-3', icon: 'smartphone' },
+  { key: 'insurance', en: 'Insurance', he: 'ביטוחים', kind: 'expense', grp: 'fixed', emoji: '🛡️', color: 'cat-7', icon: 'shield' },
+  { key: 'education', en: 'Education & childcare', he: 'חינוך ומסגרות', kind: 'expense', grp: 'fixed', emoji: '🎓', color: 'cat-2', icon: 'graduation-cap' },
+  { key: 'subscriptions', en: 'Subscriptions', he: 'מנויים', kind: 'expense', grp: 'fixed', emoji: '🔁', color: 'cat-5', icon: 'repeat', extra: true },
+  { key: 'bank_fees', en: 'Bank fees', he: 'עמלות בנק', kind: 'expense', grp: 'fixed', emoji: '🏛️', color: 'cat-8', icon: 'percent', extra: true },
+  { key: 'groceries', en: 'Groceries', he: 'סופר ומכולת', kind: 'expense', grp: 'variable', emoji: '🛒', color: 'cat-6', icon: 'shopping-cart' },
+  { key: 'eating_out', en: 'Eating out', he: 'אוכל בחוץ', kind: 'expense', grp: 'variable', emoji: '🍕', color: 'cat-2', icon: 'utensils' },
+  { key: 'transport', en: 'Transport & fuel', he: 'תחבורה ודלק', kind: 'expense', grp: 'variable', emoji: '⛽', color: 'cat-4', icon: 'fuel' },
+  { key: 'car', en: 'Car', he: 'רכב', kind: 'expense', grp: 'variable', emoji: '🚗', color: 'cat-1', icon: 'car', extra: true },
+  { key: 'health', en: 'Health', he: 'בריאות', kind: 'expense', grp: 'variable', emoji: '🩺', color: 'cat-8', icon: 'heart-pulse' },
+  { key: 'clothing', en: 'Clothing', he: 'ביגוד והנעלה', kind: 'expense', grp: 'variable', emoji: '👕', color: 'cat-5', icon: 'shirt', extra: true, mode: 'general' },
+  { key: 'home', en: 'Home', he: 'בית', kind: 'expense', grp: 'variable', emoji: '🛋️', color: 'cat-3', icon: 'sofa' },
+  { key: 'leisure', en: 'Leisure', he: 'פנאי', kind: 'expense', grp: 'variable', emoji: '🎟️', color: 'cat-7', icon: 'ticket' },
+  { key: 'kids', en: 'Kids', he: 'ילדים', kind: 'expense', grp: 'variable', emoji: '🧸', color: 'cat-5', icon: 'baby', extra: true },
+  { key: 'gifts', en: 'Gifts & donations', he: 'מתנות ותרומות', kind: 'expense', grp: 'variable', emoji: '🎁', color: 'cat-8', icon: 'gift', extra: true, mode: 'occasional' },
+  { key: 'travel', en: 'Travel', he: 'חופשות', kind: 'expense', grp: 'variable', emoji: '✈️', color: 'cat-1', icon: 'plane', extra: true, mode: 'occasional' },
+  { key: 'cash', en: 'Cash withdrawals', he: 'משיכות מזומן', kind: 'expense', grp: 'variable', emoji: '💵', color: 'cat-6', icon: 'wallet', extra: true },
+  { key: 'card_unsplit', en: 'Credit card (not split)', he: 'כרטיס אשראי (לא מפוצל)', kind: 'expense', grp: 'variable', systemKey: 'card_unsplit', emoji: '💳', color: 'cat-other', icon: 'credit-card' },
+  { key: 'pets', en: 'Pets', he: 'חיות מחמד', kind: 'expense', grp: 'variable', emoji: '🐾', color: 'cat-2', icon: 'paw-print', extra: true },
+  { key: 'personal_care', en: 'Personal care', he: 'טיפוח', kind: 'expense', grp: 'variable', emoji: '💅', color: 'cat-5', icon: 'sparkles', extra: true, mode: 'general' },
+  { key: 'sport', en: 'Sport & fitness', he: 'ספורט וכושר', kind: 'expense', grp: 'variable', emoji: '🏋️', color: 'cat-3', icon: 'dumbbell', extra: true },
+  { key: 'other', en: 'Other', he: 'אחר', kind: 'expense', grp: 'variable', emoji: '📦', color: 'cat-other', icon: 'circle-help' },
+  { key: 'transfers', en: 'Internal transfers', he: 'העברות פנימיות', kind: 'transfer', grp: null, systemKey: 'transfer', emoji: '🔄', color: 'cat-other', icon: 'arrow-left-right' },
+  { key: 'savings', en: 'Savings & investments', he: 'חיסכון והשקעות', kind: 'transfer', grp: null, emoji: '🐷', color: 'cat-7', icon: 'piggy-bank' },
 ];
 
 type SeedRule = { field: 'description' | 'operation_type'; match: 'contains' | 'equals' | 'starts_with'; pattern: string; sign: 'any' | 'in' | 'out'; cat: string };
@@ -120,6 +123,8 @@ export const categoryRow = (d: DefaultCategory, locale: Locale, sort: number) =>
   system_key: d.systemKey ?? null,
   budget_mode: d.mode ?? 'monthly',
   icon: d.icon,
+  emoji: d.emoji,
+  color: d.color,
   sort,
 });
 

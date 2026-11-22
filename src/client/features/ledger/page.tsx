@@ -19,6 +19,7 @@ import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
 import { TodoCard } from './TodoCard';
 import { TxTitle, useTxTitle } from '../../components/TxTitle';
+import { CategoryIcon } from '../../components/CategoryIcon';
 
 function CategoryLabel({ tx }: { tx: Tx }) {
   const { t } = useTranslation();
@@ -216,11 +217,12 @@ export function Component() {
                 <h3 className="mb-1 px-1 text-xs font-semibold text-muted">
                   <DateText date={date} format="weekday" />
                 </h3>
-                <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+                <ul className="divide-y divide-border/70 overflow-hidden rounded-3xl border border-border/60 bg-surface shadow-[var(--mz-shadow)]">
                   {txs.map((tx) => (
                     <li key={tx.id}>
                       <button type="button" onClick={() => onRow(tx)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-start active:bg-surface-2" data-testid="tx-row" data-tour="tx-row" data-tx={tx.id}>
                         {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={title(tx)} />}
+                        <CategoryIcon cat={tx.hasSplits ? { id: 'split', color: 'cat-other', emoji: '✂️' } : tx.categoryId ? cats.get(tx.categoryId) : { id: 'none', color: 'cat-other', emoji: '❔' }} />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
                             <TxTitle tx={tx} />

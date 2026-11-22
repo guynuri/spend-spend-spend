@@ -44,8 +44,11 @@ function filterSql(c: Ctx) {
     params.push(f.account);
   }
   if (f.category) {
-    where.push(`(t.category_id = ${p()} AND t.has_splits = 0 OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.household_id = ?1 AND s.transaction_id = t.id AND s.category_id = ${p()}))`);
+    // A parent category includes its subcategories.
+    const n = p();
     params.push(f.category);
+    const inCat = (col: string) => `(${col} = ${n} OR ${col} IN (SELECT id FROM categories WHERE household_id = ?1 AND parent_id = ${n}))`;
+    where.push(`(${inCat('t.category_id')} AND t.has_splits = 0 OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.household_id = ?1 AND s.transaction_id = t.id AND ${inCat('s.category_id')}))`);
   }
   if (f.uncategorized) where.push('t.category_id IS NULL AND t.has_splits = 0');
   if (f.kind) {

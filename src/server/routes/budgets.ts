@@ -37,11 +37,14 @@ budgetRoutes.put('/', async (c) => {
   const items = b.items as Item[];
   const catItems = items.filter((i): i is Exclude<Item, { general: true }> => 'categoryId' in i);
   await db.assertOwned({ categories: catItems.map((i) => i.categoryId) });
-  const cats = await db.all<{ id: string; kind: string; budget_mode: string }>(
-    'SELECT id, kind, budget_mode FROM categories WHERE household_id = ?1 AND id IN (SELECT value FROM json_each(?2))',
+  const cats = await db.all<{ id: string; kind: string; budget_mode: string; parent_id: string | null }>(
+    'SELECT id, kind, budget_mode, parent_id FROM categories WHERE household_id = ?1 AND id IN (SELECT value FROM json_each(?2))',
     JSON.stringify(catItems.map((i) => i.categoryId)),
   );
   if (cats.some((k) => k.kind !== 'expense')) throw new HttpError(400, 'not_expense_category', 'Only expense categories can be budgeted');
+  // A subcategory's spending counts in its parent's budget; it has no limit of its own.
+  const subIds = new Set(cats.filter((k) => k.parent_id).map((k) => k.id));
+  if (catItems.some((i) => subIds.has(i.categoryId) && i.limitMinor !== null)) throw new HttpError(400, 'subcategory_budget', 'Budget the parent category');
   const mode = new Map(cats.map((k) => [k.id, k.budget_mode]));
   for (const i of catItems) {
     // removing a monthly limit is always allowed (e.g. one left over from before the category changed mode)

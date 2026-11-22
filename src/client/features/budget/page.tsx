@@ -18,6 +18,8 @@ import { addMonths, monthEnd, monthStart } from '../../../shared/dates';
 import { GENERAL_ID, type BudgetLine, type BudgetStatus, type OccasionalLine } from '../../../shared/domain/budget';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { useBudget, type BudgetResponse } from './useBudget';
+import { CategoryIcon } from '../../components/CategoryIcon';
+import { useCategoryMap } from '../../lib/queries';
 
 /** Unicode isolate so amounts never reorder inside RTL sentences. */
 const iso = (s: string) => `⁨${s}⁩`;
@@ -105,16 +107,18 @@ function BudgetForm({ line, lines, month, onDone }: { line: BudgetLine | null; l
 
 function LineRow({ line, onOpen, onEdit }: { line: BudgetLine; onOpen: () => void; onEdit: () => void }) {
   const { t } = useTranslation();
+  const cats = useCategoryMap();
   const canWrite = useCanWrite();
   const tone: Tone = line.status ? TONE[line.status] : 'accent';
   const limit = line.limitMinor === null ? <span className="text-xs text-muted">{t('budget.noLimit')}</span> : <Money minor={line.limitMinor} decimals={0} className="text-sm" />;
   return (
     <li className="py-3" data-testid="budget-line" data-status={line.status ?? 'none'} data-category={line.categoryId} data-one-time={line.oneTime}>
       <div className="flex items-center justify-between gap-2">
+        <CategoryIcon cat={line.categoryId === GENERAL_ID ? { id: GENERAL_ID, color: 'cat-7', emoji: '🧺' } : cats.get(line.categoryId)} />
         <button type="button" onClick={onOpen} className="min-h-11 min-w-0 flex-1 text-start">
           <div className="flex min-w-0 items-center gap-1">
             <bdi className="truncate font-medium">{line.name}</bdi>
-            {line.limitMinor !== null && <Badge tone={line.oneTime ? 'accent' : 'neutral'}>{t(line.oneTime ? 'budget.oneTime' : 'budget.monthly')}</Badge>}
+            {line.limitMinor !== null && line.oneTime && <Badge tone="accent">{t('budget.oneTime')}</Badge>}
           </div>
           {line.members && line.members.length > 0 && (
             <div className="truncate text-xs text-muted" data-testid="general-members">

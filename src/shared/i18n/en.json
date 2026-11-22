@@ -204,7 +204,10 @@
     "unknown_card": "No credit-card account matches that card.",
     "unrecognized_file": "This file needs a column mapping: import it once on the Import page.",
     "which_account": "No single account fits this file: import it on the Import page.",
-    "unreadable_purchase": "Could not read the purchase from the shortcut."
+    "unreadable_purchase": "Could not read the purchase from the shortcut.",
+    "bad_parent": "A subcategory goes inside an active main category of the same type.",
+    "has_subcategories": "This category has subcategories, so it stays a main category.",
+    "subcategory_budget": "Subcategories share their main category’s budget. Set the budget on the main category."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -505,7 +508,21 @@
       "monthlyShort": "Monthly",
       "generalShort": "General",
       "occasionalShort": "Occasional"
-    }
+    },
+    "look": {
+      "color": "Colour",
+      "colorN": "Colour {{n}}",
+      "emoji": "Emoji",
+      "typeEmoji": "Or type one",
+      "use": "Use",
+      "noEmoji": "No emoji"
+    },
+    "parent": "Inside",
+    "parentHint": "Make it a subcategory: its spending counts in the category it is inside.",
+    "topLevel": "Nothing (a main category)",
+    "followsParent": "A subcategory of {{name}}: its budget, group and budget type come from {{name}}, and its spending counts there.",
+    "addSub": "Add a subcategory",
+    "addSubTo": "New subcategory in {{name}}"
   },
   "import": {
     "title": "Import",
@@ -733,7 +750,9 @@
     "quarter": "Q{{n}}",
     "occasionalVsPrev": "vs {{amount}} in {{year}}",
     "everyday": "Everyday spending",
-    "occasional": "Occasional"
+    "occasional": "Occasional",
+    "whereItWent": "Where your money went",
+    "directly": "{{name}} (directly)"
   },
   "forecast": {
     "title": "Forecast",

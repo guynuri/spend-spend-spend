@@ -15,7 +15,7 @@ test('add a budget from the sheet; the status colour follows; one-time limit app
   await page.getByTestId('limit-save').click();
   await expect(groceries()).toHaveAttribute('data-status', 'over');
   await expect(groceries().getByRole('progressbar').locator('div').first()).toHaveClass(/bg-bad/);
-  await expect(groceries()).toContainText('Monthly');
+  await expect(groceries()).not.toContainText('One-time');
   await groceries().getByTestId('limit-edit').click();
   await page.getByTestId('limit-input').fill('100000');
   await page.getByTestId('limit-save').click();

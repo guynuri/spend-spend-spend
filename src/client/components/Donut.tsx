@@ -66,7 +66,7 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
                 {sel.label}
               </span>
               <span className="text-xl font-bold tracking-tight">
-                <Money minor={sel.valueMinor} />
+                <Money minor={sel.valueMinor} decimals={0} />
               </span>
               <span className="text-xs text-muted">{formatPercent(total > 0 ? sel.valueMinor / total : 0, locale)}</span>
             </>
@@ -74,7 +74,7 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
             <>
               <span className="text-sm text-muted">{centerLabel}</span>
               <span className="text-2xl font-bold tracking-tight">
-                <Money minor={total} />
+                <Money minor={total} decimals={0} />
               </span>
             </>
           )}
@@ -97,7 +97,7 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.label}</span>
               <span className="text-xs text-muted tabular">{formatPercent(total > 0 ? s.valueMinor / total : 0, locale)}</span>
               <span className="w-20 text-end text-sm font-semibold tabular">
-                <Money minor={s.valueMinor} />
+                <Money minor={s.valueMinor} decimals={0} />
               </span>
             </button>
           </li>
