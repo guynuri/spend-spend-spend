@@ -38,11 +38,11 @@ function Sidebar({ onAdd }: { onAdd?: () => void }) {
   const me = useMe();
   const items = me?.user.isSuperAdmin ? [...SIDEBAR_ITEMS, ADMIN_ITEM] : SIDEBAR_ITEMS;
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-border bg-surface px-3 py-4 lg:flex" data-testid="sidebar" data-tour="nav">
-      <div className="mb-4 px-3 text-xl font-bold text-accent">{t('app.name')}</div>
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-border/60 bg-surface px-3 py-4 lg:flex" data-testid="sidebar" data-tour="nav">
+      <div className="mb-4 px-3 text-xl font-bold tracking-tight text-accent">{t('app.name')}</div>
       {me?.active && <div className="mb-3 truncate px-3 text-sm text-muted">{me.active.name}</div>}
       {onAdd && (
-        <button type="button" onClick={onAdd} data-testid="side-add" data-tour="add" className="mb-3 flex min-h-11 items-center gap-3 rounded-xl bg-accent px-3 text-sm font-semibold text-accent-fg hover:opacity-90">
+        <button type="button" onClick={onAdd} data-testid="side-add" data-tour="add" className="mb-3 flex min-h-11 items-center gap-3 rounded-2xl bg-accent px-3 text-sm font-semibold text-accent-fg hover:opacity-90">
           <Plus className="size-5 shrink-0" aria-hidden />
           {t('ledger.add')}
         </button>
@@ -54,7 +54,7 @@ function Sidebar({ onAdd }: { onAdd?: () => void }) {
             to={it.to}
             end={it.to === '/'}
             data-testid={`side-${it.testId}`}
-            className={({ isActive }) => cx('relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium', isActive ? 'bg-accent/12 text-accent' : 'text-text hover:bg-surface-2')}
+            className={({ isActive }) => cx('relative flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium', isActive ? 'bg-accent/12 text-accent' : 'text-text hover:bg-surface-2')}
           >
             <it.icon className="size-5 shrink-0" aria-hidden />
             <span className="truncate">{t(it.key)}</span>
@@ -78,7 +78,7 @@ function TabBar({ onAdd }: { onAdd?: () => void }) {
       aria-label={t('nav.main')}
       data-testid="tabbar"
       data-tour="nav"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       <ul className="mx-auto flex max-w-xl [&>li]:min-w-0 [&>li]:flex-1">
         {cells.map((it) =>
@@ -97,10 +97,12 @@ function TabBar({ onAdd }: { onAdd?: () => void }) {
               end={it.to === '/'}
               data-testid={`tab-${navSlug(it)}`}
               className={({ isActive }) =>
-                cx('relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium', (it.to === '/more' ? moreActive : isActive) ? 'text-accent' : 'text-muted')
+                cx('group relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium', (it.to === '/more' ? moreActive : isActive) ? 'is-active text-accent' : 'text-muted')
               }
             >
-              <it.icon className="size-6" aria-hidden />
+              <span className="flex h-7 w-12 items-center justify-center rounded-full transition group-[.is-active]:bg-accent/12">
+                <it.icon className="size-5" aria-hidden />
+              </span>
               <span className="max-w-full truncate">{t(it.tabKey ?? it.key)}</span>
               <Badge item={it} />
             </NavLink>
@@ -134,9 +136,9 @@ export function Layout() {
     <div className="flex min-h-dvh bg-bg text-text">
       <Sidebar onAdd={onAdd} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
           <div className="flex min-h-12 items-center justify-between gap-2 px-4">
-            <span className="text-lg font-bold text-accent"><AppName /></span>
+            <span className="text-lg font-bold tracking-tight text-accent"><AppName /></span>
             {me?.active && <span className="truncate text-sm text-muted" data-testid="household-name">{me.active.name}</span>}
           </div>
         </header>
