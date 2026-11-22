@@ -12,6 +12,11 @@ for (const locale of ['en', 'he'] as const) {
     await page.goto('/budget');
     await page.getByTestId('tab-add').click();
     const sheet = page.getByTestId('add-tx');
+    // quick add: amount and categories up front; date / account behind "More details"
+    await expect(sheet.getByTestId('add-amount')).toBeFocused();
+    await expect(sheet.getByTestId('quick-cat').first()).toBeVisible();
+    await expect(sheet.getByTestId('add-date')).toHaveCount(0);
+    await sheet.getByTestId('add-details').click();
     await expect(sheet.getByTestId('add-date')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     const s = (await sheet.boundingBox())!;
@@ -21,10 +26,29 @@ for (const locale of ['en', 'he'] as const) {
       expect(b.x + b.width, id).toBeLessThanOrEqual(s.x + s.width);
     }
     // the income/expense toggle is centered
-    const seg = (await sheet.getByRole('radiogroup').boundingBox())!;
+    const seg = (await sheet.getByRole('radiogroup').first().boundingBox())!;
     expect(Math.abs(seg.x + seg.width / 2 - (s.x + s.width / 2))).toBeLessThan(2);
   });
 }
+
+test('quick add: amount, one tap on a category, save; the category comes first next time', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/transactions');
+  await page.getByTestId('tab-add').click();
+  const sheet = page.getByTestId('add-tx');
+  await sheet.getByTestId('add-amount').fill('42');
+  const cat = sheet.getByTestId('quick-cat').nth(2);
+  const name = (await cat.locator('span').last().textContent())!.trim();
+  await cat.click();
+  await expect(cat).toHaveAttribute('aria-checked', 'true');
+  await expect(sheet.getByTestId('add-tx-save')).toContainText('42');
+  await sheet.getByTestId('add-tx-save').click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId('tx-row').first()).toContainText(name);
+  await page.getByTestId('tab-add').click();
+  await expect(page.getByTestId('add-tx').getByTestId('quick-cat').first()).toContainText(name);
+  await page.keyboard.press('Escape');
+});
 
 test('a transaction without description shows at the top of the ledger without reload', async ({ page }) => {
   await signIn(page, 'admin');
