@@ -1,5 +1,5 @@
-import { useContext } from 'react';
-import { Link } from 'react-router';
+import { useContext, useState, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Compass, FlaskConical, Upload } from 'lucide-react';
@@ -10,7 +10,7 @@ import { DateText } from '../../components/DateText';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT } from '../../lib/queries';
 import { TourCtx } from '../../lib/tour';
-import { useCal, useIsOwner } from '../../lib/session';
+import { useCal, useIsOwner, useMe } from '../../lib/session';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
 import type { ForecastView } from '../../../shared/domain/forecast';
@@ -24,11 +24,17 @@ import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { ReviewDueCard } from '../review/DueCard';
 import { ReminderCards } from './ReminderCards';
 import { UsualMonthCard } from './UsualMonthCard';
+import { Hero } from './Hero';
+import { Donut } from '../../components/Donut';
+import { useCategoryMap } from '../../lib/queries';
+import { colorSlotOf, OTHER_SLOT } from '../../../shared/categoryLook';
+import { GENERAL_ID } from '../../../shared/domain/budget';
 import { PeriodLabel } from '../../components/PeriodLabel';
 import type { UsualMonth } from '../../../shared/domain/usual';
 
 interface Dashboard {
   month: string;
+  period: { start: string; end: string; startDay: number };
   isLatestData: boolean;
   today: string;
   onboarding: boolean;
@@ -89,7 +95,7 @@ function ForecastSummary({ f }: { f: ForecastView }) {
   return (
     <Card data-testid="forecast-card">
       <CardTitle action={<Badge tone={f.confidence === 'high' ? 'good' : f.confidence === 'medium' ? 'warn' : 'bad'}>{t(`forecast.confidence.${f.confidence}`)}</Badge>}>
-        <Link to="/forecast">{t('forecast.eom')}</Link>
+        <Link to="/forecast">{t('home.monthEnd')}</Link>
       </CardTitle>
       <div data-tour="dash-forecast">
         <Money minor={f.eom?.balance ?? 0} decimals={0} className="text-3xl font-bold" />
@@ -101,7 +107,7 @@ function ForecastSummary({ f }: { f: ForecastView }) {
         )}
       </div>
       <div className="mt-2">
-        <ForecastChart f={f} height={160} />
+        <ForecastChart f={f} height={120} />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-muted">
@@ -114,10 +120,146 @@ function ForecastSummary({ f }: { f: ForecastView }) {
   );
 }
 
-export function Component() {
+/** Spending by category this period, as the ring; a row opens that category's transactions. */
+function SpendingDonut({ period }: { period: { start: string; end: string } }) {
+  const { t } = useTranslation();
+  const nav = useNavigate();
+  const cats = useCategoryMap();
+  const q = useQuery({
+    queryKey: ['trends', 'categories', period.start, period.end],
+    queryFn: () => get<{ items: { categoryId: string | null; spentMinor: number }[] }>(`/api/trends/categories?from=${period.start}&to=${period.end}`),
+  });
+  if (q.isPending) return <Card><Spinner /></Card>;
+  if (q.error) return null;
+  const link = (id: string) => `/transactions?from=${period.start}&to=${period.end}${id === 'none' ? '&uncategorized=1' : id === GENERAL_ID ? '' : `&category=${id}`}`;
+  const items = q.data.items.map((i) => {
+    const c = i.categoryId && i.categoryId !== GENERAL_ID ? cats.get(i.categoryId) : null;
+    return {
+      id: i.categoryId ?? 'none',
+      label: i.categoryId === GENERAL_ID ? t('budget.general.name') : c ? c.name : t('trends.uncategorized'),
+      valueMinor: i.spentMinor,
+      slot: c ? colorSlotOf(c) : i.categoryId === GENERAL_ID ? 'cat-7' : OTHER_SLOT,
+      emoji: c?.emoji ?? (i.categoryId === GENERAL_ID ? '🧺' : null),
+    };
+  });
+  return (
+    <Card data-testid="home-donut">
+      <CardTitle
+        action={
+          <Link to="/trends" className="text-sm text-accent">
+            {t('dashboard.seeAll')}
+          </Link>
+        }
+      >
+        {t('home.whereItGoes')}
+      </CardTitle>
+      {items.some((i) => i.valueMinor > 0) ? <Donut items={items} label={t('home.whereItGoes')} centerLabel={t('dashboard.expenses')} onOpen={(id) => nav(link(id))} /> : <p className="text-sm text-muted">{t('home.noSpending')}</p>}
+    </Card>
+  );
+}
+
+/** The top items that need attention; the rest one tap away. */
+function Attention({ items }: { items: Insight[] }) {
+  const { t } = useTranslation();
+  const [all, setAll] = useState(false);
+  if (!items.length) return null;
+  return (
+    <Card>
+      <CardTitle>{t('home.attention')}</CardTitle>
+      <InsightList items={all ? items : items.slice(0, 3)} />
+      {items.length > 3 && !all && (
+        <button type="button" onClick={() => setAll(true)} className="mt-1 min-h-11 text-sm font-medium text-accent" data-testid="insights-more">
+          {t('home.showAll', { count: items.length })}
+        </button>
+      )}
+    </Card>
+  );
+}
+
+function ComingUp({ events }: { events: Dashboard['upcoming'] }) {
+  const { t } = useTranslation();
+  return (
+    <Card>
+      <CardTitle
+        action={
+          <Link to="/upcoming" className="text-sm text-accent">
+            {t('dashboard.seeAll')}
+          </Link>
+        }
+      >
+        {t('home.comingUp')}
+      </CardTitle>
+      {events.length === 0 ? (
+        <p className="text-sm text-muted">{t('dashboard.noUpcoming')}</p>
+      ) : (
+        <ul className="flex flex-col gap-1" data-testid="dash-upcoming">
+          {events.slice(0, 3).map((e, i) => (
+            <li key={i} className="flex min-h-11 items-center gap-3">
+              <span className="flex w-11 shrink-0 flex-col items-center rounded-2xl bg-surface-2 py-1 text-xs leading-tight">
+                <DateText date={e.date} format="dayMonth" />
+              </span>
+              <bdi className="min-w-0 flex-1 truncate text-sm">{e.label}</bdi>
+              <Money minor={e.amountMinor} decimals={0} tone className="text-sm font-semibold" />
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function GoalsMini({ goals }: { goals: Dashboard['goals'] }) {
   const { t, i18n } = useTranslation();
   const pf = useParamFormatter();
+  return (
+    <Card data-testid="dash-goals">
+      <CardTitle
+        action={
+          <Link to="/goals" className="text-sm text-accent">
+            {t('dashboard.seeAll')}
+          </Link>
+        }
+      >
+        {t('dashboard.goals')}
+      </CardTitle>
+      {goals.summary.activeCount === 0 ? (
+        <p className="text-sm text-muted">{t('dashboard.noGoals')}</p>
+      ) : (
+        <>
+          <p className="text-sm">
+            {t('dashboard.goalsSummary', pf({ savedMinor: goals.summary.totalSavedMinor, targetMinor: goals.summary.totalTargetMinor }))}
+            {goals.summary.behindCount > 0 && <span className="text-warn"> · {t('dashboard.goalsBehind', { count: goals.summary.behindCount })}</span>}
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {goals.items.map((g) => (
+              <li key={g.id}>
+                <div className="flex justify-between text-sm">
+                  <bdi>{g.name}</bdi>
+                  <span className="text-muted">{formatPercent(g.progress, i18n.language as Locale)}</span>
+                </div>
+                <ProgressBar value={g.progress} tone={g.status === 'behind' ? 'warn' : 'accent'} label={g.name} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Home is a list of widgets (D-R24). The order below is the default; it is kept as data so a later
+ * "customize Home" (pick, drop and reorder widgets) only has to store another list.
+ */
+type WidgetId = 'hero' | 'donut' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
+export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'attention', 'upcoming', 'forecast', 'goals', 'health', 'usual'];
+
+export function Component() {
+  const { t } = useTranslation();
+  const pf = useParamFormatter();
   const cal = useCal();
+  const me = useMe();
+  const first = me?.user.displayName.trim().split(/\s+/)[0] ?? '';
   const q = useQuery({ queryKey: ['dashboard'], queryFn: () => get<Dashboard>('/api/dashboard') });
   if (q.isPending) return <Spinner />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -130,128 +272,37 @@ export function Component() {
       </div>
     );
   const b = d.budget.totals;
+  const isCurrent = !d.isLatestData;
+  const widgets: Record<WidgetId, () => ReactNode> = {
+    hero: () => (
+      <Hero
+        d={{ month: d.month, today: d.today, isCurrent, period: d.period, budgetedMinor: b.budgetedMinor, spentBudgetedMinor: b.spentBudgetedMinor, expensesMinor: d.pnl.expensesMinor, incomeMinor: d.pnl.incomeMinor, f: d.budget.f, overCount: b.counts.over }}
+      />
+    ),
+    donut: () => <SpendingDonut period={d.period} />,
+    attention: () => <Attention items={d.insights} />,
+    upcoming: () => <ComingUp events={d.upcoming} />,
+    forecast: () => <ForecastSummary f={d.forecast} />,
+    goals: () => <GoalsMini goals={d.goals} />,
+    health: () => <HealthCard data={d.health} />,
+    usual: () => <UsualMonthCard u={d.usual} month={d.month} current={isCurrent} />,
+  };
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('dashboard.title')} subtitle={<PeriodLabel month={d.month} cal={cal} />} />
+      <PageHeader title={first ? t('home.hello', { name: first }) : t('dashboard.title')} subtitle={<PeriodLabel month={d.month} cal={cal} />} />
       <ReviewDueCard />
       <ReminderCards />
       {d.isLatestData && (
-        <p className="rounded-xl bg-warn/10 p-3 text-sm text-warn" data-testid="latest-data-banner">
+        <p className="rounded-2xl bg-warn/10 p-3 text-sm text-warn" data-testid="latest-data-banner">
           {t('dashboard.latestData', pf({ month: d.month }))}
         </p>
       )}
-      <ForecastSummary f={d.forecast} />
-      <Card data-testid="pnl-card" data-tour="pnl">
-        <CardTitle>{t('dashboard.pnl')}</CardTitle>
-        <dl className="grid grid-cols-3 gap-2">
-          {(
-            [
-              ['income', d.pnl.incomeMinor, d.pnl.expectedIncomeMinor],
-              ['expenses', d.pnl.expensesMinor, d.pnl.expectedExpensesMinor],
-              ['net', d.pnl.netMinor, d.pnl.expectedIncomeMinor !== null && d.pnl.expectedExpensesMinor !== null ? d.pnl.expectedIncomeMinor - d.pnl.expectedExpensesMinor : null],
-            ] as const
-          ).map(([k, actual, expected]) => (
-            <div key={k} data-testid={`pnl-${k}`}>
-              <dt className="text-xs text-muted">{t(`dashboard.${k}`)}</dt>
-              <dd className="text-lg font-semibold">
-                <Money minor={actual} decimals={0} tone={k === 'income' ? 'in' : k === 'expenses' ? 'out' : true} />
-              </dd>
-              {expected !== null && (
-                <dd className="text-xs text-muted">
-                  {t('dashboard.expected')}: <Money minor={expected} decimals={0} />
-                </dd>
-              )}
-            </div>
-          ))}
-        </dl>
-      </Card>
-      <UsualMonthCard u={d.usual} month={d.month} current={d.month === d.today.slice(0, 7)} />
-      <Card>
-        <CardTitle>{t('dashboard.actions')}</CardTitle>
-        <InsightList items={d.insights} />
-      </Card>
-      <Card data-testid="budget-card">
-        <CardTitle
-          action={
-            <Link to="/budget" className="text-sm text-accent">
-              {t('dashboard.seeAll')}
-            </Link>
-          }
-        >
-          {t('dashboard.budget')}
-        </CardTitle>
-        <div className="flex justify-between text-sm">
-          <span>
-            <Money minor={b.spentBudgetedMinor} decimals={0} /> / <Money minor={b.budgetedMinor} decimals={0} />
-          </span>
-          {b.pctSpent !== null && <span className="text-muted">{formatPercent(b.pctSpent, i18n.language as Locale)}</span>}
+      {d.budget.unsplitCardMinor > 0 && <UnsplitCardBanner month={d.budget.month} />}
+      {DEFAULT_HOME.map((id) => (
+        <div key={id} data-widget={id}>
+          {widgets[id]()}
         </div>
-        <ProgressBar value={b.pctSpent ?? 0} marker={d.budget.f ?? undefined} tone={b.counts.over > 0 ? 'warn' : 'accent'} label={t('dashboard.budget')} />
-        <p className="mt-1 text-xs text-muted" data-testid="dash-budget-counts">
-          {t('budget.counts', { over: b.counts.over, watch: b.counts.watch, onPace: b.counts.on_pace })}
-        </p>
-        <div className="mt-2">
-          <UnsplitCardBanner month={d.budget.month} />
-        </div>
-      </Card>
-      <Card>
-        <CardTitle
-          action={
-            <Link to="/upcoming" className="text-sm text-accent">
-              {t('dashboard.seeAll')}
-            </Link>
-          }
-        >
-          {t('dashboard.upcoming')}
-        </CardTitle>
-        {d.upcoming.length === 0 ? (
-          <p className="text-sm text-muted">{t('dashboard.noUpcoming')}</p>
-        ) : (
-          <ul className="divide-y divide-border text-sm" data-testid="dash-upcoming">
-            {d.upcoming.map((e, i) => (
-              <li key={i} className="flex items-center justify-between gap-2 py-2">
-                <span className="min-w-0 truncate">
-                  <DateText date={e.date} format="dayMonth" className="text-muted" /> · <bdi>{e.label}</bdi>
-                </span>
-                <Money minor={e.amountMinor} decimals={0} tone />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-      <Card data-testid="dash-goals">
-        <CardTitle
-          action={
-            <Link to="/goals" className="text-sm text-accent">
-              {t('dashboard.seeAll')}
-            </Link>
-          }
-        >
-          {t('dashboard.goals')}
-        </CardTitle>
-        {d.goals.summary.activeCount === 0 ? (
-          <p className="text-sm text-muted">{t('dashboard.noGoals')}</p>
-        ) : (
-          <>
-            <p className="text-sm">
-              {t('dashboard.goalsSummary', pf({ savedMinor: d.goals.summary.totalSavedMinor, targetMinor: d.goals.summary.totalTargetMinor }))}
-              {d.goals.summary.behindCount > 0 && <span className="text-warn"> · {t('dashboard.goalsBehind', { count: d.goals.summary.behindCount })}</span>}
-            </p>
-            <ul className="mt-2 flex flex-col gap-2">
-              {d.goals.items.map((g) => (
-                <li key={g.id}>
-                  <div className="flex justify-between text-sm">
-                    <bdi>{g.name}</bdi>
-                    <span className="text-muted">{formatPercent(g.progress, i18n.language as Locale)}</span>
-                  </div>
-                  <ProgressBar value={g.progress} tone={g.status === 'behind' ? 'warn' : 'accent'} label={g.name} />
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </Card>
-      <HealthCard data={d.health} />
+      ))}
     </div>
   );
 }

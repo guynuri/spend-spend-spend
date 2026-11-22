@@ -8,8 +8,8 @@ export interface NavItem {
   testId: string;
 }
 
-/** Every page, in sidebar order. Phones show TAB_SLOTS of them in the bottom bar (user-chosen, see prefs.ts); the rest live under More. */
-export const PAGE_ITEMS: NavItem[] = [
+/** Every page (route), in the order the tour visits them. */
+export const ALL_PAGES: NavItem[] = [
   { to: '/', key: 'nav.overview', icon: Home, testId: 'tab-overview' },
   { to: '/transactions', key: 'nav.transactions', icon: ArrowLeftRight, testId: 'tab-transactions' },
   { to: '/budget', key: 'nav.budget', icon: PiggyBank, testId: 'tab-budget' },
@@ -25,6 +25,34 @@ export const PAGE_ITEMS: NavItem[] = [
   { to: '/household', key: 'nav.household', icon: Users, testId: 'nav-household' },
   { to: '/settings', key: 'nav.settings', icon: Settings, testId: 'nav-settings' },
 ];
+
+/**
+ * Pages that belong together share one navigation entry (the first path) and a tab strip on top of
+ * each of them (D-R24). Every URL keeps working.
+ */
+export const SECTIONS: { hub: string; key: string; pages: { to: string; key: string }[] }[] = [
+  { hub: '/upcoming', key: 'nav.plan', pages: [{ to: '/upcoming', key: 'nav.upcomingTab' }, { to: '/forecast', key: 'nav.forecast' }, { to: '/recurring', key: 'nav.recurring' }] },
+  { hub: '/trends', key: 'nav.insights', pages: [{ to: '/trends', key: 'nav.trends' }, { to: '/review', key: 'nav.review' }] },
+  { hub: '/accounts', key: 'nav.accounts', pages: [{ to: '/accounts', key: 'nav.accounts' }, { to: '/import', key: 'nav.import' }] },
+  { hub: '/settings', key: 'nav.settings', pages: [{ to: '/settings', key: 'nav.settings' }, { to: '/household', key: 'nav.household' }] },
+];
+/** The section a path belongs to, if any. */
+export const sectionOf = (path: string) => SECTIONS.find((s) => s.pages.some((p) => p.to === path));
+/** The navigation entry that is active for a path (a section's hub, or the path itself). */
+export const navTargetOf = (path: string) => sectionOf(path)?.hub ?? path;
+
+/** Navigation entries: one per page or section, in sidebar order. Phones show TAB_SLOTS of them in the bottom bar (user-chosen, see prefs.ts); the rest live under More. */
+export const PAGE_ITEMS: NavItem[] = [
+  { to: '/', key: 'nav.overview', icon: Home, testId: 'tab-overview' },
+  { to: '/transactions', key: 'nav.transactions', icon: ArrowLeftRight, testId: 'tab-transactions' },
+  { to: '/budget', key: 'nav.budget', icon: PiggyBank, testId: 'tab-budget' },
+  { to: '/upcoming', key: 'nav.plan', tabKey: 'nav.planTab', icon: CalendarClock, testId: 'tab-upcoming' },
+  { to: '/trends', key: 'nav.insights', icon: TrendingUp, testId: 'nav-trends' },
+  { to: '/goals', key: 'nav.goals', icon: Target, testId: 'nav-goals' },
+  { to: '/categories', key: 'nav.categories', icon: Tags, testId: 'nav-categories' },
+  { to: '/accounts', key: 'nav.accounts', icon: Landmark, testId: 'nav-accounts' },
+  { to: '/settings', key: 'nav.settings', icon: Settings, testId: 'nav-settings' },
+];
 export const MORE_ITEM: NavItem = { to: '/more', key: 'nav.more', icon: LayoutGrid, testId: 'tab-more' };
 /** Bottom bar: [tab, tab, +, tab, More]. */
 export const TAB_SLOTS = 3;
@@ -35,7 +63,9 @@ export const navSlug = (it: NavItem) => it.testId.replace(/^(tab|nav)-/, '');
 /** Parses a stored tab list; anything malformed falls back to the default. */
 export function parseNavTabs(raw: string | null): string[] {
   try {
-    const v: unknown = JSON.parse(raw ?? 'null');
+    const parsed: unknown = JSON.parse(raw ?? 'null');
+    // a page that moved into a section counts as that section (e.g. a saved "/forecast" tab → "/upcoming")
+    const v = Array.isArray(parsed) ? parsed.map((p) => (typeof p === 'string' ? navTargetOf(p) : p)) : parsed;
     if (Array.isArray(v) && v.length === TAB_SLOTS && new Set(v).size === v.length && v.every((p) => PAGE_ITEMS.some((i) => i.to === p))) return v as string[];
   } catch {
     /* fall through */

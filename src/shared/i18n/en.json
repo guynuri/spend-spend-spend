@@ -4,7 +4,7 @@
     "tagline": "Household money, calmly balanced"
   },
   "nav": {
-    "overview": "Overview",
+    "overview": "Home",
     "transactions": "Transactions",
     "budget": "Budget",
     "upcoming": "Upcoming",
@@ -26,7 +26,10 @@
     "overBudgetBadge": "Over budget",
     "reviewBadge": "Monthly review ready",
     "upcomingTab": "Upcoming",
-    "categories": "Categories"
+    "categories": "Categories",
+    "plan": "Upcoming & forecast",
+    "planTab": "Upcoming",
+    "insights": "Insights"
   },
   "common": {
     "save": "Save",
@@ -716,6 +719,32 @@
       "last12": "last 12 months",
       "aboutPerMonth": "about",
       "sheetHint": "The last 12 months. Occasional spending is compared by year, not by month."
+    },
+    "suggest": {
+      "open": "Suggest budgets",
+      "title": "Suggested budgets",
+      "how": "Based on your usual month (the middle value of your last complete months, so one unusual month doesn’t count). Bills stay as they are; everyday spending gets the squeeze you pick; vacations and gifts get a yearly budget. If it doesn’t fit your income and savings goal, everyday budgets shrink — never below 70% of usual.",
+      "squeeze": "Everyday spending",
+      "asUsual": "As usual",
+      "save": "Save",
+      "none": "Suggestions need at least one complete month of data.",
+      "income": "Usual income",
+      "limits": "Monthly budgets",
+      "leftToSave": "Left to save",
+      "shortfall": "Even at the deepest cut this is {{amount}} a month more than your income minus the savings goal. Try a smaller savings goal, or look at the bills.",
+      "kinds": {
+        "fixed": "Bill",
+        "general": "General",
+        "occasional": "Yearly"
+      },
+      "usual": "Usually {{amount}} a month",
+      "usualYear": "{{amount}} in the last 12 months",
+      "perMonth": "a month",
+      "perYear": "a year",
+      "fitted": "fitted to income",
+      "apply_one": "Use this budget",
+      "apply_other": "Use these {{count}} budgets",
+      "applied": "Budgets set from this month on"
     }
   },
   "trends": {
@@ -1325,8 +1354,8 @@
         "body": "When a month ends, this card invites you to a short guided review of it. Open it now, or dismiss it."
       },
       "monthSummary": {
-        "title": "This month so far",
-        "body": "Income, expenses and what’s left this month, with what to expect by month end. A quick check that the month is on track."
+        "title": "Left to spend",
+        "body": "What’s left in your budgets this month, and how much that is per day until the month ends. Income and spending so far sit underneath."
       },
       "forecastCard": {
         "title": "Month-end forecast",
@@ -1524,5 +1553,34 @@
   },
   "charts": {
     "other": "Other"
+  },
+  "home": {
+    "leftToSpend": "Left to spend",
+    "overBudget": "Over budget",
+    "perDay_one": "{{amount}} for today, the last day",
+    "perDay_other": "{{amount}} a day for the next {{count}} days",
+    "overHint": "Spending is above your budgets this month.",
+    "lastDay": "The month is ending — nicely done.",
+    "inMonth": "In {{month}}",
+    "spentOfBudget": "Spent of your budget",
+    "spentOf": "{{spent}} spent of {{budget}}",
+    "overCount_one": "{{count}} budget over",
+    "overCount_other": "{{count}} budgets over",
+    "spentSoFar": "Spent so far this month",
+    "setBudget": "Set your budgets to see what’s left",
+    "whereItGoes": "Where it’s going",
+    "attention": "Worth a look",
+    "showAll": "Show all ({{count}})",
+    "comingUp": "Coming up",
+    "monthEnd": "Expected at month end",
+    "noSpending": "No spending yet this month.",
+    "hello": "Hi {{name}} 👋"
+  },
+  "quick": {
+    "addExpense": "Add {{amount}} expense",
+    "addIncome": "Add {{amount}} income",
+    "allCategories": "All",
+    "whatWasIt": "What was it? (optional)",
+    "moreDetails": "More details"
   }
 }
