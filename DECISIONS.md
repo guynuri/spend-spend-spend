@@ -404,3 +404,38 @@ Format: date · milestone · what · why · alternatives rejected.
   calendar-based — they describe real-world dates, not budget months.
 - **Changing the day:** a setting, not history: past budgets keep their 'YYYY-MM' rows and are read
   over the new periods. Stored review snapshots keep the numbers they were saved with.
+
+## D-R24 · 2026-11-22 · Home as widgets; fewer navigation entries
+- **Home** (was Overview) leads with "Left to spend": all monthly budget lines (monthly + general) minus
+  what's been spent in them this period, and that amount per remaining day (today included). Without
+  budgets it shows spending so far with a link to set budgets. Income and spending so far sit in the
+  same card (the old "this month" card), so the separate P&L and budget cards are gone.
+- Then: the spending ring for the period (same numbers as Trends → by category), up to 3 items that need
+  attention (the rest behind "Show all"), the next 3 payments, the month-end forecast, goals, health and
+  the usual month. Home is a list of widget ids (`DEFAULT_HOME`), so a later "customize Home" (library of
+  widgets, drag to reorder) only needs to store another list per user.
+- **Navigation:** 14 entries → 9. Pages that belong together become one entry with a tab strip on each of
+  them: Upcoming · Forecast · Recurring ("Upcoming & forecast"), Trends · Monthly review ("Insights"),
+  Accounts · Import, Settings · Household. URLs are unchanged (deep links, reminders, the tour keep
+  working); a saved bottom bar holding a page that moved into a section maps to the section's entry.
+
+## D-R25 · 2026-11-22 · Quick add
+- The "+" sheet leads with a big amount (focused, numeric keyboard), then a grid of 7 categories with
+  their emoji — this device's recently used ones first, then the household's order — and "All" for the
+  full picker. "What was it?" is optional. Today and the last used account (this device) are defaults;
+  date, account and notes are behind "More details". The save button says what it will add
+  ("Add ₪45 expense"). Recent categories and the last account live in localStorage: per-device
+  conveniences, never needed for correctness.
+
+## D-R26 · 2026-11-22 · Suggested budgets
+- `shared/domain/suggest.ts`, GET `/api/budgets/suggest?squeeze=&savings=`; applied with the normal
+  PUT `/api/budgets` (recurring limits from the current period). Rules, as shown to the user:
+  usual = median of the last ≤ 6 complete periods (months with no spending count as 0); fixed-group
+  categories keep their usual amount (rounded up to ₪10); everyday categories and the pooled general
+  expenses get the squeeze (0 / 5 / 10 %, rounded to ₪50, ≥ ₪50); occasional categories get a yearly
+  limit = last 12 periods' total (rounded up to ₪100). Income = median income of the same periods.
+  If fixed + everyday + occasional / 12 + savings target (0–20 % of income) exceeds income, everyday
+  limits shrink by one factor, never below 70 % of usual; any remaining gap is reported as a shortfall
+  instead of pretending it fits.
+- **Why median, not mean:** one renovation month or a big purchase would inflate a mean-based limit
+  for months; the median of six months shrugs off one or two such months.

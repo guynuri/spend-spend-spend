@@ -3,9 +3,11 @@ import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { HttpError, body, query } from '../http';
 import { id, monthStr } from '../../shared/schemas/common';
-import { displayMonth } from '../../shared/domain/common';
+import { displayMonth, lastCompleteMonths } from '../../shared/domain/common';
+import { generalName, type BudgetMode } from '../../shared/domain/budget';
+import { SAVINGS_TARGETS, SQUEEZES, suggestBudgets } from '../../shared/domain/suggest';
 import { newId } from '../lib/crypto';
-import { loadBase } from '../db/sql/facts';
+import { loadBase, pnlByMonthStmt, spentByCategoryStmt, toPnlMap, toSpentMaps } from '../db/sql/facts';
 import { computeBudget } from '../db/sql/budget';
 
 export const budgetRoutes = tenantGroup();
@@ -16,6 +18,46 @@ budgetRoutes.get('/', async (c) => {
   const base = await loadBase(db, hh);
   const month = qv.month ?? displayMonth(base.today, base.latestTx, base.cal).month;
   return c.json({ ...(await computeBudget(db, base, month)), period: { start: base.cal.start(month), end: base.cal.end(month), startDay: base.cal.day }, asOf: base.asOf, today: base.today });
+});
+
+/**
+ * Suggested limits from the last complete periods (D-R26, `shared/domain/suggest.ts`): squeeze 0 / 0.05 / 0.1
+ * on everyday spending, savings target 0–0.2 of income. Read-only: the client applies the ones the user keeps
+ * with PUT /api/budgets.
+ */
+budgetRoutes.get('/suggest', async (c) => {
+  const { db, hh } = tctx(c);
+  const qv = query(
+    c,
+    z.object({
+      squeeze: z.coerce.number().refine((v) => (SQUEEZES as readonly number[]).includes(v)).default(0.05),
+      savings: z.coerce.number().refine((v) => (SAVINGS_TARGETS as readonly number[]).includes(v)).default(0.1),
+    }),
+  );
+  const base = await loadBase(db, hh);
+  const months = lastCompleteMonths(base.complete, 6);
+  const year = lastCompleteMonths(base.complete, 12);
+  if (!months.length) return c.json({ suggestion: null });
+  const [spent, pnl, yearSpent, cats] = await db.batch([
+    spentByCategoryStmt(db, base.cal, months[0]!, months[months.length - 1]!),
+    pnlByMonthStmt(db, base.cal, months[0]!, months[months.length - 1]!),
+    spentByCategoryStmt(db, base.cal, year[0]!, year[year.length - 1]!),
+    db.stmt("SELECT id, name, grp, budget_mode, system_key FROM categories WHERE household_id = ?1 AND kind = 'expense' AND archived = 0 AND parent_id IS NULL ORDER BY sort, name"),
+  ]);
+  const yearTotals = new Map<string, number>();
+  for (const [cid, mm] of toSpentMaps(yearSpent)) yearTotals.set(cid, [...mm.entries()].filter(([m]) => year.includes(m)).reduce((a, [, v]) => a + v, 0));
+  const income = new Map([...toPnlMap(pnl)].map(([m, v]) => [m, v.income]));
+  const suggestion = suggestBudgets({
+    months,
+    spent: toSpentMaps(spent),
+    income,
+    yearSpent: yearTotals,
+    categories: (cats!.results as { id: string; name: string; grp: 'fixed' | 'variable' | null; budget_mode: BudgetMode; system_key: string | null }[]).map((r) => ({ id: r.id, name: r.name, grp: r.grp, mode: r.budget_mode, system: !!r.system_key })),
+    squeeze: qv.squeeze,
+    savingsTarget: qv.savings,
+    generalName: generalName(base.locale),
+  });
+  return c.json({ suggestion, month: base.cal.of(base.today) });
 });
 
 /**
