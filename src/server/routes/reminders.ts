@@ -82,9 +82,10 @@ reminderRoutes.post('/test', async (c, next) => rateLimit('pushtest', 5, 10 * 60
 reminderRoutes.post('/', async (c) => {
   const { db, userId } = tctx(c);
   const r = await body(c, reminderInputSchema);
-  const counts = await db.first<{ n: number; review: number }>("SELECT COUNT(*) AS n, COALESCE(SUM(kind = 'review'), 0) AS review FROM reminders WHERE household_id = ?1 AND user_id = ?2", userId);
+  const counts = await db.first<{ n: number; same: number }>('SELECT COUNT(*) AS n, COALESCE(SUM(kind = ?3), 0) AS same FROM reminders WHERE household_id = ?1 AND user_id = ?2', userId, r.kind);
   if ((counts?.n ?? 0) >= MAX_REMINDERS) throw new HttpError(409, 'too_many_reminders', 'Too many reminders');
-  if (r.kind === 'review' && counts?.review) throw new HttpError(409, 'duplicate', 'Already exists');
+  // one each: the review, budget alerts and the weekly recap
+  if ((r.kind === 'review' || r.kind === 'budget' || r.kind === 'recap') && counts?.same) throw new HttpError(409, 'duplicate', 'Already exists');
   const accountId = r.kind === 'import' ? (r.accountId ?? null) : null;
   await db.assertOwned({ accounts: [accountId] });
   const id = newId();
@@ -94,9 +95,9 @@ reminderRoutes.post('/', async (c) => {
     user_id: userId,
     kind: r.kind,
     freq: r.kind === 'import' ? r.freq : null,
-    day: r.kind === 'import' ? r.day : null,
+    day: r.kind === 'import' || r.kind === 'recap' ? r.day : null,
     weekdays: r.kind === 'daily' ? (r.weekdays ?? 127) : 127,
-    hour: r.kind === 'review' ? 9 : r.hour,
+    hour: r.kind === 'review' || r.kind === 'budget' ? 9 : r.hour,
     account_id: accountId,
     last_sent_at: now,
     seen_at: now,

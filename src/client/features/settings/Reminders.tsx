@@ -28,6 +28,8 @@ function useDescribe() {
   const accounts = new Map((useAccounts().data?.accounts ?? []).map((a) => [a.id, a.name]));
   return (r: Reminder) => {
     if (r.kind === 'review') return { title: t('settings.reminders.kindReview'), when: t('settings.reminders.reviewWhen') };
+    if (r.kind === 'budget') return { title: t('settings.reminders.kindBudget'), when: t('settings.reminders.budgetWhen') };
+    if (r.kind === 'recap') return { title: t('settings.reminders.kindRecap'), when: t('settings.reminders.recapWhen', { day: long[r.day ?? 0], time: time(r.hour) }) };
     if (r.kind === 'daily') {
       const days = r.weekdays === ALL_WEEKDAYS ? t('settings.reminders.everyDay') : short.filter((_, i) => (r.weekdays >> i) & 1).join(', ');
       return { title: t('settings.reminders.kindDaily'), when: t('settings.reminders.dailyWhen', { days, time: time(r.hour) }) };
@@ -63,7 +65,7 @@ function DeviceStatus({ data, state, onEnable }: { data: RemindersResponse; stat
   );
 }
 
-function AddReminder({ hasReview, onSave, onAdded }: { hasReview: boolean; onSave: () => void; onAdded: () => void }) {
+function AddReminder({ has, onSave, onAdded }: { has: Set<string>; onSave: () => void; onAdded: () => void }) {
   const { t } = useTranslation();
   const long = useWeekdays('long');
   const short = useWeekdays('short');
@@ -74,6 +76,8 @@ function AddReminder({ hasReview, onSave, onAdded }: { hasReview: boolean; onSav
   const [mday, setMday] = useState(1);
   const [hour, setHour] = useState(9);
   const [dailyHour, setDailyHour] = useState(20);
+  const [recapDay, setRecapDay] = useState(0);
+  const [recapHour, setRecapHour] = useState(10);
   const [weekdays, setWeekdays] = useState(ALL_WEEKDAYS);
   const [accountId, setAccountId] = useState('');
   const add = useApiMutation(
@@ -87,7 +91,11 @@ function AddReminder({ hasReview, onSave, onAdded }: { hasReview: boolean; onSav
         ? { kind, freq, day: freq === 'weekly' ? wday : mday, hour, accountId: accountId || null }
         : kind === 'daily'
           ? { kind, hour: dailyHour, weekdays }
-          : { kind },
+          : kind === 'recap'
+            ? { kind, day: recapDay, hour: recapHour }
+            : kind === 'budget'
+              ? { kind }
+              : { kind: 'review' },
     );
   };
   const hours = Array.from({ length: 24 }, (_, h) => (
@@ -101,7 +109,9 @@ function AddReminder({ hasReview, onSave, onAdded }: { hasReview: boolean; onSav
         <Select id="rem-kind" value={kind} onChange={(e) => setKind(e.target.value as ReminderInput['kind'])} data-testid="rem-kind">
           <option value="import">{t('settings.reminders.kindImport')}</option>
           <option value="daily">{t('settings.reminders.kindDaily')}</option>
-          {!hasReview && <option value="review">{t('settings.reminders.kindReview')}</option>}
+          {!has.has('review') && <option value="review">{t('settings.reminders.kindReview')}</option>}
+          {!has.has('budget') && <option value="budget">{t('settings.reminders.kindBudget')}</option>}
+          {!has.has('recap') && <option value="recap">{t('settings.reminders.kindRecap')}</option>}
         </Select>
       </Field>
       {kind === 'import' && (
@@ -188,6 +198,28 @@ function AddReminder({ hasReview, onSave, onAdded }: { hasReview: boolean; onSav
         </>
       )}
       {kind === 'review' && <p className="text-sm text-muted">{t('settings.reminders.reviewHint')}</p>}
+      {kind === 'budget' && <p className="text-sm text-muted">{t('settings.reminders.budgetHint')}</p>}
+      {kind === 'recap' && (
+        <>
+          <p className="text-sm text-muted">{t('settings.reminders.recapHint')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('settings.reminders.weekday')} htmlFor="rem-rday">
+              <Select id="rem-rday" value={recapDay} onChange={(e) => setRecapDay(Number(e.target.value))} data-testid="rem-recap-day">
+                {long.map((n, i) => (
+                  <option key={i} value={i}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t('settings.reminders.hour')} htmlFor="rem-rhour">
+              <Select id="rem-rhour" value={recapHour} onChange={(e) => setRecapHour(Number(e.target.value))} data-testid="rem-recap-hour">
+                {hours}
+              </Select>
+            </Field>
+          </div>
+        </>
+      )}
       <Button busy={add.isPending} onClick={submit} data-testid="rem-save">
         {t('settings.reminders.add')}
       </Button>
@@ -283,7 +315,7 @@ export function RemindersCard() {
       )}
       {adding ? (
         <AddReminder
-          hasReview={list.some((r) => r.kind === 'review')}
+          has={new Set(list.map((r) => r.kind))}
           onSave={() => void ensurePush()}
           onAdded={() => setAdding(false)}
         />

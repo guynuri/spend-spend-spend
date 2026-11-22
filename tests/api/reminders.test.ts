@@ -186,4 +186,53 @@ describe('scheduled delivery', () => {
     await runReminders(e, noon, f);
     expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
   });
+
+  it('budget alerts: one push when a budget passes a threshold, not again for the same threshold', async () => {
+    const e = await pushEnv();
+    const o = await ownerSetup();
+    await json('POST', '/api/household/sample-data', { cookie: o.cookie });
+    await DB.prepare('DELETE FROM reminders').run(); // other households' reminders would share this tick
+    const noon = new Date(`${new Date().toISOString().slice(0, 10)}T10:00:00Z`);
+    const b = (await json<{ month: string; lines: { categoryId: string; spentMinor: number; limitMinor: number | null }[] }>('GET', '/api/budgets', { cookie: o.cookie })).body;
+    const line = b.lines.filter((l) => l.categoryId !== 'general').sort((x, y) => y.spentMinor - x.spentMinor)[0]!;
+    expect(line.spentMinor).toBeGreaterThan(0);
+    expect((await json('PUT', '/api/budgets', { cookie: o.cookie, body: { month: b.month, items: [{ categoryId: line.categoryId, limitMinor: 100, oneTime: true }] } })).status).toBe(200);
+    expect((await json('POST', '/api/reminders', { cookie: o.cookie, body: { kind: 'budget' } })).status).toBe(201);
+    expect((await json('POST', '/api/reminders', { cookie: o.cookie, body: { kind: 'budget' } })).status).toBe(409); // one per user
+    const ep = await subscribe(o.cookie, 'bud');
+    const { f, calls } = fakeFetch();
+    await runReminders(e, noon, f);
+    expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
+    const marks = JSON.parse((await DB.prepare('SELECT marks FROM reminders WHERE user_id = ?1').bind(o.userId).first<{ marks: string }>())!.marks) as { keys: string[] };
+    expect(marks.keys).toContain(`${line.categoryId}:100`);
+    // next hourly check: nothing new to say
+    await DB.prepare('UPDATE reminders SET checked_at = NULL WHERE user_id = ?1').bind(o.userId).run();
+    await runReminders(e, noon, f);
+    expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
+    // never at night
+    await DB.prepare('UPDATE reminders SET checked_at = NULL, marks = NULL WHERE user_id = ?1').bind(o.userId).run();
+    await runReminders(e, new Date(`${new Date().toISOString().slice(0, 10)}T22:00:00Z`), f);
+    expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
+  });
+
+  it('weekly recap: pushed on its day once, and the in-app card has the week', async () => {
+    const e = await pushEnv();
+    const o = await ownerSetup();
+    await json('POST', '/api/household/sample-data', { cookie: o.cookie });
+    await DB.prepare('DELETE FROM reminders').run();
+    const noon = new Date(`${new Date().toISOString().slice(0, 10)}T10:00:00Z`);
+    const weekday = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(noon) + 'T00:00:00Z').getUTCDay();
+    const rem = await json<{ id: string }>('POST', '/api/reminders', { cookie: o.cookie, body: { kind: 'recap', day: weekday, hour: 9 } });
+    expect(rem.status).toBe(201);
+    await backdate(rem.body.id);
+    const ep = await subscribe(o.cookie, 'recap');
+    const { f, calls } = fakeFetch();
+    await runReminders(e, noon, f);
+    expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
+    await runReminders(e, new Date(noon.getTime() + 15 * 60_000), f);
+    expect(calls.filter((c) => c.url === ep)).toHaveLength(1);
+    const w = (await json<{ from: string; to: string; spentMinor: number; top: unknown[] }>('GET', '/api/dashboard/week', { cookie: o.cookie })).body;
+    expect(w.spentMinor).toBeGreaterThanOrEqual(0);
+    expect(w.from < w.to).toBe(true);
+  });
 });

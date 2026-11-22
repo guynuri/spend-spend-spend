@@ -10,6 +10,7 @@ import { computeBudget } from '../db/sql/budget';
 import { forecastFor } from '../db/sql/forecast';
 import { healthBundle } from '../db/sql/health';
 import { computeInsights } from '../db/sql/insights';
+import { weekRecapFor } from '../db/sql/week';
 
 export const dashboardRoutes = tenantGroup();
 
@@ -49,6 +50,13 @@ dashboardRoutes.get('/', async (c) => {
     insights: insights.slice(0, 8),
     usual,
   });
+});
+
+/** The weekly recap (the 7 days before today) for the in-app card. */
+dashboardRoutes.get('/week', async (c) => {
+  const { db, hh } = tctx(c);
+  const base = await loadBase(db, hh);
+  return c.json(await weekRecapFor(db, base));
 });
 
 /** "A usual month" over the up-to-6 complete months before the shown month, and that month so far. */

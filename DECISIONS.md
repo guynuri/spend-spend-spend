@@ -439,3 +439,17 @@ Format: date · milestone · what · why · alternatives rejected.
   instead of pretending it fits.
 - **Why median, not mean:** one renovation month or a big purchase would inflate a mean-based limit
   for months; the median of six months shrugs off one or two such months.
+
+## D-R27 · 2026-11-22 · Budget alerts and the weekly recap
+- Two more reminder kinds (migration 0021 rebuilds `reminders` to widen its CHECK; one of each per user):
+  - **budget:** checked hourly between 9:00 and 21:00 local by the existing 15-minute cron, only on ticks
+    that have nothing else to send, for at most 3 households per tick. A budget line passing 80 % and then
+    100 % of its limit gives one push each per period (`reminders.marks` remembers what was said; a line
+    that jumps straight past 100 % gets only the 100 % one). Several at once → one push listing them.
+    No in-app card: Home's "worth a look" already lists over / watch budgets.
+  - **recap:** on a chosen weekday and hour (default Sunday 10:00). The push is one short line — spent
+    in the last 7 days, the difference from the week before, and what's left this period. The full recap
+    (with the week's top categories) is a card on Home until dismissed. This is the user's "short, or in
+    the app" — both, with the detail in the app.
+- Push text for these two is built from the household's numbers on the server; like every push, it goes
+  only to the user's own devices through the encrypted Web Push channel.

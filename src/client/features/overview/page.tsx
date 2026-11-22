@@ -23,6 +23,7 @@ import { InsightList } from './Insights';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { ReviewDueCard } from '../review/DueCard';
 import { ReminderCards } from './ReminderCards';
+import { RecapCard } from './RecapCard';
 import { UsualMonthCard } from './UsualMonthCard';
 import { Hero } from './Hero';
 import { Donut } from '../../components/Donut';
@@ -292,6 +293,7 @@ export function Component() {
       <PageHeader title={first ? t('home.hello', { name: first }) : t('dashboard.title')} subtitle={<PeriodLabel month={d.month} cal={cal} />} />
       <ReviewDueCard />
       <ReminderCards />
+      <RecapCard />
       {d.isLatestData && (
         <p className="rounded-2xl bg-warn/10 p-3 text-sm text-warn" data-testid="latest-data-banner">
           {t('dashboard.latestData', pf({ month: d.month }))}

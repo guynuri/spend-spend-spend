@@ -134,7 +134,13 @@
       "cardImportOpen": "Import",
       "cardDaily": "Add today's transactions",
       "cardDailyBody": "Anything you paid today? It takes a few seconds.",
-      "cardDailyOpen": "Add a transaction"
+      "cardDailyOpen": "Add a transaction",
+      "kindBudget": "Budget alerts",
+      "budgetWhen": "When a budget reaches 80% and 100%",
+      "budgetHint": "A gentle nudge when a budget reaches 80% and again at 100%, once each per month, between 9:00 and 21:00.",
+      "kindRecap": "Weekly recap",
+      "recapWhen": "Every {{day}} at {{time}}",
+      "recapHint": "One short line about your week, and the full recap waiting on Home."
     },
     "payday": {
       "title": "Your month starts on",
@@ -1574,7 +1580,17 @@
     "comingUp": "Coming up",
     "monthEnd": "Expected at month end",
     "noSpending": "No spending yet this month.",
-    "hello": "Hi {{name}} 👋"
+    "hello": "Hi {{name}} 👋",
+    "week": {
+      "title": "Your week",
+      "spent": "Spent",
+      "vsPrev": "{{amount}} {{dir}} than the week before",
+      "less": "less",
+      "more": "more",
+      "left": "Left this month",
+      "top": "Where it went",
+      "range": "{{from}} – {{to}}"
+    }
   },
   "quick": {
     "addExpense": "Add {{amount}} expense",

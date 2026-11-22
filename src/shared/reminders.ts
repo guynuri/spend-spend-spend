@@ -20,6 +20,10 @@ export const reminderInputSchema = z.discriminatedUnion('kind', [
     .refine((r) => (r.freq === 'weekly' ? r.day <= 6 : r.day >= 1), { path: ['day'] }),
   z.object({ kind: z.literal('daily'), hour, weekdays: z.number().int().min(1).max(ALL_WEEKDAYS).optional() }).strict(),
   z.object({ kind: z.literal('review') }).strict(),
+  /** A nudge when a budget passes 80 % and 100 % (checked through the day, 9:00–21:00). */
+  z.object({ kind: z.literal('budget') }).strict(),
+  /** A short weekly recap on `day` (0 = Sunday) at `hour`. */
+  z.object({ kind: z.literal('recap'), day: z.number().int().min(0).max(6).default(0), hour }).strict(),
 ]);
 export type ReminderInput = z.infer<typeof reminderInputSchema>;
 
@@ -42,9 +46,10 @@ export const subscriptionSchema = z.object({
 });
 export const endpointSchema = z.object({ endpoint: z.string().max(1000) }).strict();
 
+export type ReminderKind = 'import' | 'daily' | 'review' | 'budget' | 'recap';
 export interface Reminder {
   id: string;
-  kind: 'import' | 'daily' | 'review';
+  kind: ReminderKind;
   freq: 'weekly' | 'monthly' | null;
   day: number | null;
   weekdays: number;
@@ -67,7 +72,7 @@ export interface RemindersResponse {
 }
 
 export interface Schedule {
-  kind: 'import' | 'daily' | 'review';
+  kind: ReminderKind;
   freq: 'weekly' | 'monthly' | null;
   day: number | null;
   weekdays: number;
@@ -93,12 +98,13 @@ export function zonedTime(date: DateStr, hour: number, tz: string): number {
 
 export function matchesDay(s: Schedule, d: DateStr): boolean {
   if (s.kind === 'daily') return ((s.weekdays >> dayOfWeek(d)) & 1) === 1;
+  if (s.kind === 'recap') return dayOfWeek(d) === (s.day ?? 0);
   if (s.kind !== 'import' || s.day === null) return false;
   if (s.freq === 'weekly') return dayOfWeek(d) === s.day;
   return dayOf(d) === Math.min(s.day, daysInMonth(monthOf(d)));
 }
 
-/** The most recent scheduled instant ≤ now (ms), or null (review reminders have no clock schedule). */
+/** The most recent scheduled instant ≤ now (ms), or null (review and budget reminders have no clock schedule). */
 export function lastSlot(s: Schedule, tz: string, now: Date): number | null {
   const today = todayInTz(tz, now);
   for (let i = 0; i <= 32; i++) {
