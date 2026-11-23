@@ -23,6 +23,11 @@ dashboardRoutes.get('/', async (c) => {
   const cur = base.cal.of(base.today);
   const [budget, forecast, health, usual] = await Promise.all([computeBudget(db, base, dm.month, 1), forecastFor(db, hh, base), healthBundle(db, base, dm.month, 6), usualFor(db, base, dm.month)]);
   const { insights, actual, x } = await computeInsights(db, hh, base, dm.month, budget, forecast, health);
+  // what people still owe you (D-R30): your "Owed to me" lines minus their repayments, all time
+  const owed = await db.first<{ s: number; id: string | null }>(
+    `SELECT COALESCE(-SUM(l.amount_minor), 0) AS s, c.id AS id FROM categories c LEFT JOIN v_lines l ON l.household_id = ?1 AND l.category_id = c.id
+      WHERE c.household_id = ?1 AND c.system_key = 'owed'`,
+  );
   const isCurrent = dm.month === cur;
   const upcoming = forecast.events.filter((e) => e.date >= base.today).slice(0, 5);
   const { series: _series, ...fc } = forecast;
@@ -49,6 +54,7 @@ dashboardRoutes.get('/', async (c) => {
     health: { overall: health.current.result.overall, label: health.current.result.label, change: health.change, subs: health.current.result.subs, trend: health.months.map((m) => ({ month: m.month, overall: m.result.overall })) },
     insights: insights.slice(0, 8),
     usual,
+    owed: { minor: owed?.s ?? 0, categoryId: owed?.id ?? null },
   });
 });
 

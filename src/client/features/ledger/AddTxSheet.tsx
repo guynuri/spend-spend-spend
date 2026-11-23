@@ -10,7 +10,9 @@ import { useFormatDate } from '../../components/DateText';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT, useAccounts, useCategories } from '../../lib/queries';
 import { useCanWrite, useCurrency, useMe } from '../../lib/session';
-import { formatMoney, parseMoneyInput, type Locale } from '../../../shared/money';
+import { formatMoney, minorToInput, parseMoneyInput, type Locale } from '../../../shared/money';
+import { AmountInput } from '../../components/AmountInput';
+import { useParamFormatter } from '../../lib/format';
 
 const LS_ACCOUNT = 'mz_quick_account';
 const LS_RECENT = 'mz_quick_recent';
@@ -48,6 +50,7 @@ const GRID = 7;
 export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
+  const pf = useParamFormatter();
   const currency = useCurrency();
   const today = useMe()?.active?.today ?? '';
   const accQ = useAccounts();
@@ -61,6 +64,9 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
   const [accountId, setAccountId] = useState(() => read(LS_ACCOUNT) ?? '');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  // someone will pay part of it back (D-R30)
+  const [owedOn, setOwedOn] = useState(false);
+  const [owed, setOwed] = useState('');
   const [details, setDetails] = useState(false);
   const [allCats, setAllCats] = useState(false);
   const [addingCat, setAddingCat] = useState(false);
@@ -77,6 +83,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
     }
   }
   const minor = parseMoneyInput(amount);
+  const owedMinor = owedOn && direction === 'out' ? (parseMoneyInput(owed) ?? 0) : 0;
   const acc = accounts.some((a) => a.id === accountId) ? accountId : (accounts[0]?.id ?? '');
   const kind = direction === 'out' ? 'expense' : 'income';
   // Recently used first (D-R29): this device's own picks, then the household's last use of each category,
@@ -101,7 +108,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
   const grid = allCats ? ordered : ordered.filter((c) => c.kind === kind).slice(0, GRID);
   const picked = categoryId ? cats.find((c) => c.id === categoryId) : null;
   const create = useApiMutation(
-    () => post('/api/transactions', { date, amountMinor: minor, direction, description: description.trim(), accountId: acc, categoryId, ...(notes.trim() ? { notes: notes.trim() } : {}) }),
+    () => post('/api/transactions', { date, amountMinor: minor, direction, description: description.trim(), accountId: acc, categoryId, ...(notes.trim() ? { notes: notes.trim() } : {}), ...(owedMinor ? { owedMinor } : {}) }),
     {
       invalidate: [...LEDGER_DEPENDENT],
       successKey: 'ledger.saved',
@@ -112,11 +119,13 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
         setDescription('');
         setNotes('');
         setCategoryId(null);
+        setOwedOn(false);
+        setOwed('');
         onOpenChange(false);
       },
     },
   );
-  const ok = !!date && !!minor && minor > 0 && !!acc;
+  const ok = !!date && !!minor && minor > 0 && !!acc && (!owedMinor || owedMinor < minor);
   const money = (m: number) => formatMoney(m, { currency, locale: i18n.language as Locale, decimals: m % 100 ? 2 : 0 });
   const accName = accounts.find((a) => a.id === acc)?.name ?? '';
   const symbol = formatMoney(0, { currency, locale: i18n.language as Locale, decimals: 0 }).replace(/[\d.,\s\u200e\u200f\u2066-\u2069-]/g, '');
@@ -206,6 +215,29 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
               )}
             </div>
           </div>
+          {direction === 'out' &&
+            (owedOn ? (
+              <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 p-3" data-testid="add-owed">
+                <label className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-medium">🤝 {t('owed.howMuch')}</span>
+                  <AmountInput value={owed} onChange={(e) => setOwed(e.target.value)} className="w-32" data-testid="add-owed-amount" />
+                </label>
+                <p className="text-xs text-muted">{t('owed.hint')}</p>
+                {!!minor && !!owedMinor && owedMinor < minor && <p className="text-xs font-medium">{t('owed.yourShare', pf({ amountMinor: minor - owedMinor }))}</p>}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setOwedOn(true);
+                  setOwed(minor ? minorToInput(Math.round(minor / 2)) : '');
+                }}
+                className="min-h-11 self-start rounded-2xl px-1 text-sm font-medium text-accent"
+                data-testid="add-owed-open"
+              >
+                🤝 {t('owed.someonePays')}
+              </button>
+            ))}
           <Input id="add-desc" dir="auto" data-testid="add-description" placeholder={t('quick.whatWasIt')} aria-label={t('ledger.description')} maxLength={300} value={description} onChange={(e) => setDescription(e.target.value)} />
           <button type="button" onClick={() => setDetails((v) => !v)} className="flex min-h-11 items-center justify-between gap-2 rounded-2xl bg-surface-2 px-3 text-sm" aria-expanded={details} data-testid="add-details">
             <span className="min-w-0 truncate text-muted">

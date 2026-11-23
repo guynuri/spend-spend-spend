@@ -4,6 +4,7 @@ import type { Ctx } from '../types';
 import { tctx, originOf } from '../ctx';
 import { HttpError, body, notFound } from '../http';
 import { requireOwner } from '../middleware/auth';
+import { shortcutHasKey } from '../lib/shortcutCheck';
 import { newId, nowIso, randomToken, sha256Hex } from '../lib/crypto';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
 import { sendInviteEmail } from '../lib/email';
@@ -67,6 +68,8 @@ householdRoutes.patch('/', async (c) => {
   if (periodStartDay !== undefined || statsByPeriod !== undefined) await members(c).setPeriods({ startDay: periodStartDay, statsByPeriod });
   if (shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) {
     if (role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
+    // a shared shortcut with someone's key inside would let anyone with the link add purchases
+    for (const l of [shortcutPurchaseLink, shortcutFileLink]) if (l && (await shortcutHasKey(l))) throw new HttpError(400, 'shortcut_has_key', 'This shortcut has a personal key inside');
     await members(c).setShortcutLinks({ purchase: shortcutPurchaseLink, file: shortcutFileLink });
   }
   await members(c).update({ ...rest, clearDailyVariable: b.forecastDailyVariableMinor === null, forecastDailyVariableMinor: b.forecastDailyVariableMinor ?? undefined });

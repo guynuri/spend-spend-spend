@@ -48,6 +48,7 @@ interface Dashboard {
   health: HealthData;
   insights: Insight[];
   usual: UsualMonth | null;
+  owed: { minor: number; categoryId: string | null };
 }
 
 function Onboarding() {
@@ -245,9 +246,9 @@ function GoalsMini({ goals }: { goals: Dashboard['goals'] }) {
  * Home is a list of widgets (D-R24). The order below is the default; it is kept as data so a later
  * "customize Home" (pick, drop and reorder widgets) only has to store another list.
  */
-type WidgetId = 'hero' | 'donut' | 'who' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
+type WidgetId = 'hero' | 'owed' | 'donut' | 'who' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
 /** 'usual' (your usual month) is kept as a widget for the coming widget library, but is not on Home by default. */
-export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health'];
+export const DEFAULT_HOME: WidgetId[] = ['hero', 'owed', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health'];
 
 export function Component() {
   const { t } = useTranslation();
@@ -274,6 +275,24 @@ export function Component() {
         d={{ month: d.month, today: d.today, isCurrent, period: d.period, budgetedMinor: b.budgetedMinor, spentBudgetedMinor: b.spentBudgetedMinor, expensesMinor: d.pnl.expensesMinor, incomeMinor: d.pnl.incomeMinor, f: d.budget.f, overCount: b.counts.over }}
       />
     ),
+    owed: () =>
+      d.owed.minor > 0 && d.owed.categoryId ? (
+        <Card data-testid="owed-card">
+          <div className="flex items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-good/12 text-2xl" aria-hidden>
+              🤝
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-muted">{t('owed.cardTitle')}</p>
+              <Money minor={d.owed.minor} decimals={0} className="text-2xl font-bold tracking-tight" />
+            </div>
+            <Link to={`/transactions?from=2000-01-01&to=${d.today}&category=${d.owed.categoryId}`} className="text-sm font-medium text-accent" data-testid="owed-open-list">
+              {t('owed.cardOpen')}
+            </Link>
+          </div>
+          <p className="mt-2 text-xs text-muted">{t('owed.cardBody')}</p>
+        </Card>
+      ) : null,
     donut: () => <SpendingDonut period={d.period} />,
     who: () => <WhoPaid />,
     attention: () => <Attention items={d.insights} />,

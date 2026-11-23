@@ -84,8 +84,12 @@ export const txCreate = z
     accountId: id,
     categoryId: id.nullable().optional(),
     notes: text(500).optional(),
+    /** Part of a purchase someone will pay back (D-R30): booked to "Owed to me", not spending. */
+    owedMinor: posMinor.optional(),
   })
   .strict();
+/** Set (> 0) or clear (0) the part of a purchase someone will pay back. */
+export const txOwed = z.object({ owedMinor: posMinor }).strict();
 export const txPatch = z
   .object({
     categoryId: id.nullable().optional(),

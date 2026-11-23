@@ -68,7 +68,7 @@ describe('accounts (AC3.1)', () => {
 describe('categories (AC3.2)', () => {
   it('defaults exist; add, rename, regroup; in-use is archived, unused deleted, system kept', async () => {
     const s = await setup();
-    expect(s.cats.length).toBe(19);
+    expect(s.cats.length).toBe(20);
     expect(s.cats.find((c) => c.systemKey === 'card_unsplit')).toBeTruthy();
     const rules = (await json<{ rules: unknown[] }>('GET', '/api/rules', { cookie: s.cookie })).body.rules;
     expect(rules.length).toBeGreaterThanOrEqual(30);

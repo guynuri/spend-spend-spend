@@ -97,3 +97,18 @@ test('choose bottom bar pages in settings', async ({ page }) => {
   await expect(bar.getByTestId('tab-budget')).toBeVisible();
   await expect(bar.getByTestId('tab-upcoming')).toHaveCount(0);
 });
+
+test('quick add: someone will pay me back — half by default, only my share is spending', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/');
+  await page.getByTestId('tab-add').click();
+  const sheet = page.getByTestId('add-tx');
+  await sheet.getByTestId('add-amount').fill('200');
+  await sheet.getByTestId('quick-cat').first().click();
+  await sheet.getByTestId('add-owed-open').click();
+  await expect(sheet.getByTestId('add-owed-amount')).toHaveValue(/^100(\.00)?$/);
+  await expect(sheet.getByTestId('add-owed')).toContainText('100');
+  await sheet.getByTestId('add-tx-save').click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId('owed-card')).toContainText('100');
+});

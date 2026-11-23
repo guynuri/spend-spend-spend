@@ -476,3 +476,15 @@ Format: date · milestone · what · why · alternatives rejected.
   category (`lastUsed` on GET /api/categories), then the usual order.
 - **Subcategories:** a + on every category row opens the new-subcategory form directly; the form is a
   name and an emoji, the colour is the parent's (also the server default) unless "Use another colour".
+
+## D-R30 · 2026-11-23 · "Someone will pay me back"; shared shortcuts without keys
+- **Owed to me:** a new system category (`system_key = 'owed'`, kind transfer, migration 0023 adds it to
+  every household). Marking a purchase "someone will pay me back" (quick add, or any purchase's sheet:
+  PUT `/api/transactions/:id/owed`) splits it into your share (its category, counted as spending) and
+  the rest in "Owed to me" (a transfer: never spending or income). The repayment (Bit, PayBox…) goes in
+  the same category, so the two cancel. Home shows "People owe you ₪X" (all-time balance of that
+  category) while it's above 0, linking to its transactions. An already-split purchase is changed in the
+  split editor; a linked card charge can't be split by hand, as before.
+- **Shared shortcut links:** iCloud links are public, so saving a household shortcut link now reads the
+  shortcut (iCloud's public record API) and refuses it if a capture key (`mz_…`) is inside
+  (`shortcut_has_key`). Best effort: if iCloud can't be reached the link is accepted.

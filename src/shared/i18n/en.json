@@ -230,7 +230,11 @@
     "bad_parent": "A subcategory goes inside an active main category of the same type.",
     "has_subcategories": "This category has subcategories, so it stays a main category.",
     "subcategory_budget": "Subcategories share their main category’s budget. Set the budget on the main category.",
-    "not_a_member": "That person isn’t a member of this household."
+    "not_a_member": "That person isn’t a member of this household.",
+    "owed_too_big": "The part paid back has to be less than the purchase.",
+    "owed_split_exists": "This purchase is already split — change it in the split editor.",
+    "owed_not_purchase": "Only a purchase can be paid back.",
+    "shortcut_has_key": "This shortcut has a personal key inside, so anyone with the link could add purchases. Remove the key from the shortcut (use an Import Question instead) and share it again."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -1611,5 +1615,16 @@
     "moreDetails": "More details",
     "fewer": "Fewer",
     "newCategory": "New"
+  },
+  "owed": {
+    "someonePays": "Someone will pay me back",
+    "howMuch": "They’ll pay back",
+    "hint": "Only your share counts as spending. When they pay you back (Bit, PayBox…), put that payment in “Owed to me”.",
+    "yourShare": "Your share: {{amount}}",
+    "theyOwe": "They’ll pay back",
+    "remove": "Remove",
+    "cardTitle": "People owe you",
+    "cardBody": "Not counted as your spending. When someone pays you back, put the payment in “Owed to me”.",
+    "cardOpen": "See who"
   }
 }

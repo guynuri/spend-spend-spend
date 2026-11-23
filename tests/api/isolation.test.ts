@@ -73,6 +73,7 @@ export const ROUTES: Record<string, Cls> = {
   'POST /api/transactions/undo-learn': 'tenant',
   'DELETE /api/transactions/:id': 'tenant',
   'PUT /api/transactions/:id/splits': 'tenant',
+  'PUT /api/transactions/:id/owed': 'tenant',
   'GET /api/transactions/:id/split-suggestion': 'tenant',
   'POST /api/transactions/bulk': 'tenant',
   'POST /api/imports/preview': 'tenant',

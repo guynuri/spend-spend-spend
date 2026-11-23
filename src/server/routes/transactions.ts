@@ -1,7 +1,7 @@
 import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { HttpError, body, notFound, query } from '../http';
-import { bulkCategorize, splitsPut, txCreate, txPatch, txQuery, undoLearn, type SplitLine, type TxList } from '../../shared/schemas/ledger';
+import { bulkCategorize, splitsPut, txCreate, txOwed, txPatch, txQuery, undoLearn, type SplitLine, type TxList } from '../../shared/schemas/ledger';
 import { csvCell, isCardLump, isGenericPayee, learnedRuleFor, scaleSplit, splitSumOk } from '../../shared/domain/ledger';
 import { norm, normKey } from '../../shared/normalize';
 import { householdCals } from '../db/sql/facts';
@@ -153,6 +153,7 @@ transactionRoutes.post('/', async (c) => {
   const b = await body(c, txCreate);
   const { db, userId, hh } = tctx(c);
   await db.assertOwned({ accounts: [b.accountId], categories: [b.categoryId] });
+  if (b.owedMinor && (b.direction !== 'out' || b.owedMinor >= b.amountMinor)) throw new HttpError(400, 'owed_too_big', 'The part paid back must be less than the purchase');
   const id = newId();
   const amount = b.direction === 'in' ? b.amountMinor : -b.amountMinor;
   const dn = normKey(b.description);
@@ -177,6 +178,7 @@ transactionRoutes.post('/', async (c) => {
     updated_at: now,
   });
   if (!b.categoryId) await (await applyRulesStmt(db, { kind: 'ids', ids: [id] }, now)).run();
+  if (b.owedMinor) await setOwed(db, id, b.owedMinor);
   await afterTransactionsWritten(db, { ids: [id] }, householdToday(hh));
   await refreshCardPayments(db);
   const row = await db.first(`SELECT ${TX_COLS} FROM transactions t WHERE t.household_id = ?1 AND t.id = ?2`, id);
@@ -361,6 +363,51 @@ transactionRoutes.delete('/:id', async (c) => {
   await db.audit(userId, 'transaction.delete', 'transaction', id).run();
   await refreshCardPayments(db);
   return c.json({ ok: true });
+});
+
+/**
+ * "Someone will pay me back" (D-R30): the purchase becomes two lines — your share in its category, the
+ * rest in the system category "Owed to me" (a transfer, so never spending). Their repayment, put in the
+ * same category, cancels it out; what's left there is what people still owe you. 0 removes it. Works on
+ * an unsplit purchase, or one already split this way (your share keeps its category).
+ */
+async function setOwed(db: TenantDb, id: string, owedMinor: number) {
+  const tx = await db.first<{ amount_minor: number; category_id: string | null; has_splits: number; card_account_id: string | null }>(
+    'SELECT amount_minor, category_id, has_splits, card_account_id FROM transactions WHERE household_id = ?1 AND id = ?2',
+    id,
+  );
+  if (!tx) throw notFound();
+  if (tx.amount_minor >= 0) throw new HttpError(400, 'owed_not_purchase', 'Only a purchase can be paid back');
+  if (tx.card_account_id && tx.card_account_id !== NEVER_LINK) throw new HttpError(409, 'card_payment_linked', 'This charge is itemized by its card account');
+  if (owedMinor >= -tx.amount_minor) throw new HttpError(400, 'owed_too_big', 'The part paid back must be less than the purchase');
+  const owed = await db.first<{ id: string }>("SELECT id FROM categories WHERE household_id = ?1 AND system_key = 'owed'");
+  if (!owed) throw new HttpError(409, 'owed_missing', 'No "Owed to me" category');
+  let own = tx.category_id;
+  if (tx.has_splits) {
+    const lines = (await loadSplits(db, [id])).get(id) ?? [];
+    const mine = lines.filter((l) => l.categoryId !== owed.id);
+    if (lines.length !== 2 || mine.length !== 1) throw new HttpError(409, 'owed_split_exists', 'Already split: use the split editor');
+    own = mine[0]!.categoryId;
+  }
+  await db.batch([
+    db.stmt('DELETE FROM transaction_splits WHERE household_id = ?1 AND transaction_id = ?2', id),
+    ...(owedMinor > 0
+      ? [
+          db.insertStmt('transaction_splits', { id: newId(), transaction_id: id, category_id: own, amount_minor: tx.amount_minor + owedMinor, note: null }),
+          db.insertStmt('transaction_splits', { id: newId(), transaction_id: id, category_id: owed.id, amount_minor: -owedMinor, note: null }),
+        ]
+      : []),
+    db.stmt('UPDATE transactions SET has_splits = ?3, category_id = COALESCE(?4, category_id), updated_at = ?5 WHERE household_id = ?1 AND id = ?2', id, owedMinor > 0 ? 1 : 0, own, nowIso()),
+  ]);
+}
+
+transactionRoutes.put('/:id/owed', async (c) => {
+  const b = await body(c, txOwed);
+  const { db } = tctx(c);
+  const id = c.req.param('id');
+  await setOwed(db, id, b.owedMinor);
+  const row = await db.first(`SELECT ${TX_COLS} FROM transactions t WHERE t.household_id = ?1 AND t.id = ?2`, id);
+  return c.json(mapTx(row!, (await loadSplits(db, [id])).get(id) ?? []));
 });
 
 transactionRoutes.put('/:id/splits', async (c) => {
