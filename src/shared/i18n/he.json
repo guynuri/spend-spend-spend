@@ -557,7 +557,8 @@
       "emoji": "אמוג׳י",
       "typeEmoji": "או הקלידו אחד",
       "use": "בחירה",
-      "noEmoji": "בלי אמוג׳י"
+      "noEmoji": "בלי אמוג׳י",
+      "changeColor": "צבע אחר"
     },
     "parent": "בתוך",
     "parentHint": "הופכים לתת־קטגוריה: ההוצאות שלה נספרות בקטגוריה שהיא בתוכה.",
@@ -1593,7 +1594,9 @@
     }
   },
   "charts": {
-    "other": "אחר"
+    "other": "אחר",
+    "allCategories": "כל הקטגוריות",
+    "hasParts": "יש תת־קטגוריות"
   },
   "home": {
     "leftToSpend": "נשאר להוציא",
@@ -1638,6 +1641,8 @@
     "addIncome": "הוספת הכנסה של {{amount}}",
     "allCategories": "הכול",
     "whatWasIt": "על מה? (לא חובה)",
-    "moreDetails": "פרטים נוספים"
+    "moreDetails": "פרטים נוספים",
+    "fewer": "פחות",
+    "newCategory": "חדשה"
   }
 }

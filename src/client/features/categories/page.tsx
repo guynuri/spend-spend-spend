@@ -288,7 +288,17 @@ export function Component() {
                 .filter((c) => c.kind === k && (!c.parentId || !cats.some((p) => p.id === c.parentId)))
                 .map((c) => (
                   <li key={c.id}>
-                    <CategoryRow c={c} disabled={!canWrite} onClick={() => setEditing(c)} />
+                    <div className="flex items-center gap-1">
+                      <div className="min-w-0 flex-1">
+                        <CategoryRow c={c} disabled={!canWrite} onClick={() => setEditing(c)} />
+                      </div>
+                      {/* one tap to a new subcategory of this one */}
+                      {canWrite && !c.systemKey && !c.archived && (
+                        <IconButton label={t('categories.addSubTo', { name: c.name })} onClick={() => setAddingSub(c)} className="text-accent" data-testid="category-row-add-sub">
+                          <Plus className="size-5" aria-hidden />
+                        </IconButton>
+                      )}
+                    </div>
                     {cats.some((s) => s.parentId === c.id) && (
                       <ul data-testid="category-subs">
                         {cats

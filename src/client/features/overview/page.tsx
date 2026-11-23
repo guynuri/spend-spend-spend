@@ -28,8 +28,8 @@ import { WhoPaid } from './WhoPaid';
 import { UsualMonthCard } from './UsualMonthCard';
 import { Hero } from './Hero';
 import { Donut } from '../../components/Donut';
+import { donutItems, type SpendItem } from '../../components/donutItems';
 import { useCategoryMap } from '../../lib/queries';
-import { colorSlotOf, OTHER_SLOT } from '../../../shared/categoryLook';
 import { GENERAL_ID } from '../../../shared/domain/budget';
 import { PeriodLabel } from '../../components/PeriodLabel';
 import type { UsualMonth } from '../../../shared/domain/usual';
@@ -129,21 +129,13 @@ function SpendingDonut({ period }: { period: { start: string; end: string } }) {
   const cats = useCategoryMap();
   const q = useQuery({
     queryKey: ['trends', 'categories', period.start, period.end],
-    queryFn: () => get<{ items: { categoryId: string | null; spentMinor: number }[] }>(`/api/trends/categories?from=${period.start}&to=${period.end}`),
+    queryFn: () => get<{ items: SpendItem[] }>(`/api/trends/categories?from=${period.start}&to=${period.end}`),
   });
   if (q.isPending) return <Card><Spinner /></Card>;
   if (q.error) return null;
   const link = (id: string) => `/transactions?from=${period.start}&to=${period.end}${id === 'none' ? '&uncategorized=1' : id === GENERAL_ID ? '' : `&category=${id}`}`;
-  const items = q.data.items.map((i) => {
-    const c = i.categoryId && i.categoryId !== GENERAL_ID ? cats.get(i.categoryId) : null;
-    return {
-      id: i.categoryId ?? 'none',
-      label: i.categoryId === GENERAL_ID ? t('budget.general.name') : c ? c.name : t('trends.uncategorized'),
-      valueMinor: i.spentMinor,
-      slot: c ? colorSlotOf(c) : i.categoryId === GENERAL_ID ? 'cat-7' : OTHER_SLOT,
-      emoji: c?.emoji ?? (i.categoryId === GENERAL_ID ? '🧺' : null),
-    };
-  });
+  const items = donutItems(q.data.items, cats, t);
+
   return (
     <Card data-testid="home-donut">
       <CardTitle
@@ -254,7 +246,8 @@ function GoalsMini({ goals }: { goals: Dashboard['goals'] }) {
  * "customize Home" (pick, drop and reorder widgets) only has to store another list.
  */
 type WidgetId = 'hero' | 'donut' | 'who' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
-export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health', 'usual'];
+/** 'usual' (your usual month) is kept as a widget for the coming widget library, but is not on Home by default. */
+export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health'];
 
 export function Component() {
   const { t } = useTranslation();

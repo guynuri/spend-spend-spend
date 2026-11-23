@@ -14,7 +14,7 @@ const out = [
 for (const [file, size, pad] of out) {
   const inner = Math.round(size * (1 - 2 * pad));
   const img = await sharp(svg).resize(inner, inner).png().toBuffer();
-  await sharp({ create: { width: size, height: size, channels: 4, background: '#5b44d4' } })
+  await sharp({ create: { width: size, height: size, channels: 4, background: '#2268d8' } })
     .composite([{ input: img, gravity: 'center' }])
     .png()
     .toFile(file);

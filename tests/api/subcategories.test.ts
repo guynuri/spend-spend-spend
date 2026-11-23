@@ -19,6 +19,11 @@ describe('subcategories, emoji and colour', () => {
     expect(sub.status).toBe(201);
     let s = (await cats()).find((c) => c.id === sub.body.id)!;
     expect(s).toMatchObject({ parentId: groceries.id, emoji: '🥕', color: 'cat-3', grp: groceries.grp, budgetMode: groceries.budgetMode });
+    // without a colour of its own, a subcategory wears its parent's
+    const plain = await json<{ id: string }>('POST', '/api/categories', { cookie: o.cookie, body: { name: 'Bakery', kind: 'expense', parentId: groceries.id } });
+    expect((await cats()).find((c) => c.id === plain.body.id)!.color).toBe(groceries.color);
+    // categories say when they were last used (for "recently used first")
+    expect((await cats()).some((c) => c.lastUsed)).toBe(true);
     // bad parents and bad looks are refused
     const salary = (await cats()).find((c) => c.name === 'Salary')!;
     expect((await json('POST', '/api/categories', { cookie: o.cookie, body: { name: 'X1', kind: 'expense', parentId: salary.id } })).body).toMatchObject({ error: { code: 'bad_parent' } });

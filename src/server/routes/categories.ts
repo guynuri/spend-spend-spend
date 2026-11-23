@@ -22,13 +22,23 @@ export const mapCategory = (r: Record<string, unknown>): Category => ({
   color: (r.color as string) ?? null,
   emoji: (r.emoji as string) ?? null,
   parentId: (r.parent_id as string) ?? null,
+  lastUsed: (r.last_used as string) ?? null,
   sort: r.sort as number,
   archived: r.archived === 1,
 });
 
 categoryRoutes.get('/', async (c) => {
   const { db } = tctx(c);
-  const rows = await db.all('SELECT * FROM categories WHERE household_id = ?1 ORDER BY archived, sort, name');
+  // with the date each was last used (a transaction or a split line), for "recently used first" pickers
+  const rows = await db.all(
+    `SELECT c.*, u.d AS last_used FROM categories c
+       LEFT JOIN (SELECT cid, MAX(d) AS d FROM (
+                    SELECT category_id AS cid, MAX(date) AS d FROM transactions WHERE household_id = ?1 AND has_splits = 0 AND category_id IS NOT NULL GROUP BY category_id
+                    UNION ALL
+                    SELECT s.category_id, MAX(t.date) FROM transaction_splits s JOIN transactions t ON t.id = s.transaction_id AND t.household_id = ?1
+                     WHERE s.household_id = ?1 AND s.category_id IS NOT NULL GROUP BY s.category_id) GROUP BY cid) u ON u.cid = c.id
+      WHERE c.household_id = ?1 ORDER BY c.archived, c.sort, c.name`,
+  );
   return c.json({ categories: rows.map(mapCategory) });
 });
 
@@ -123,8 +133,8 @@ categoryRoutes.post('/hide-unused', async (c) => {
 
 /** A parent a subcategory may go under: top-level, not a system category, active, same kind. */
 async function parentFor(db: ReturnType<typeof tctx>['db'], parentId: string, kind?: string) {
-  const p = await db.first<{ id: string; kind: string; grp: string | null; is_debt: number; budget_mode: string; parent_id: string | null; system_key: string | null; archived: number }>(
-    'SELECT id, kind, grp, is_debt, budget_mode, parent_id, system_key, archived FROM categories WHERE household_id = ?1 AND id = ?2',
+  const p = await db.first<{ id: string; kind: string; grp: string | null; is_debt: number; budget_mode: string; parent_id: string | null; system_key: string | null; archived: number; color: string | null }>(
+    'SELECT id, kind, grp, is_debt, budget_mode, parent_id, system_key, archived, color FROM categories WHERE household_id = ?1 AND id = ?2',
     parentId,
   );
   if (!p) throw notFound();
@@ -169,7 +179,8 @@ categoryRoutes.post('/', async (c) => {
     budget_mode: parent ? parent.budget_mode : b.kind === 'expense' ? (b.budgetMode ?? 'monthly') : 'monthly',
     parent_id: parent?.id ?? null,
     emoji: b.emoji ?? null,
-    color: b.color ?? null,
+    // a subcategory wears its parent's colour unless one is chosen (its shade on the ring comes from it)
+    color: b.color ?? parent?.color ?? null,
     sort: (max?.m ?? 0) + 1,
   });
   return c.json({ id }, 201);

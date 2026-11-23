@@ -31,3 +31,18 @@ describe('colorSlotOf', () => {
     expect(colorSlotOf({ id: 'abc', color: '#fff' })).toBe(colorSlotOf({ id: 'abc' }));
   });
 });
+
+describe('ring geometry', () => {
+  it('every slice gets a visible minimum and the lengths still fill the ring', async () => {
+    const { arcLengths } = await import('../../src/shared/donut');
+    const l = arcLengths([9700, 200, 100], 600, 40);
+    expect(l[1]).toBe(40);
+    expect(l[2]).toBe(40);
+    expect(l.reduce((a, b) => a + b, 0)).toBeCloseTo(600);
+    expect(arcLengths([1, 1], 10, 40)).toEqual([5, 5]); // no room: equal shares
+  });
+  it('a parent with subcategories keeps them as children through slicing', () => {
+    const s = donutSlices([{ id: 'p', label: 'p', valueMinor: 10, slot: 'cat-1', children: [{ id: 'c', label: 'c', valueMinor: 10, slot: 'cat-1' }] }], 5, 'Other');
+    expect(s[0]!.children).toHaveLength(1);
+  });
+});

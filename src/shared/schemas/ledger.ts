@@ -154,6 +154,8 @@ export interface Category {
   emoji: string | null;
   /** The top-level category this one is a subcategory of. */
   parentId: string | null;
+  /** Date of the newest transaction or split line in this category (GET /api/categories only). */
+  lastUsed?: string | null;
   sort: number;
   archived: boolean;
 }

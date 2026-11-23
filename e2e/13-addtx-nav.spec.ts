@@ -47,6 +47,11 @@ test('quick add: amount, one tap on a category, save; the category comes first n
   await expect(page.getByTestId('tx-row').first()).toContainText(name);
   await page.getByTestId('tab-add').click();
   await expect(page.getByTestId('add-tx').getByTestId('quick-cat').first()).toContainText(name);
+  // "All" opens every category as icons, in place (no drop-down)
+  const add = page.getByTestId('add-tx');
+  await add.getByTestId('quick-cat-more').click();
+  expect(await add.getByTestId('quick-cat').count()).toBeGreaterThan(7);
+  await expect(add.locator('select')).toHaveCount(0);
   await page.keyboard.press('Escape');
 });
 

@@ -541,7 +541,8 @@
       "emoji": "Emoji",
       "typeEmoji": "Or type one",
       "use": "Use",
-      "noEmoji": "No emoji"
+      "noEmoji": "No emoji",
+      "changeColor": "Use another colour"
     },
     "parent": "Inside",
     "parentHint": "Make it a subcategory: its spending counts in the category it is inside.",
@@ -1562,7 +1563,9 @@
     }
   },
   "charts": {
-    "other": "Other"
+    "other": "Other",
+    "allCategories": "All categories",
+    "hasParts": "Has subcategories"
   },
   "home": {
     "leftToSpend": "Left to spend",
@@ -1605,6 +1608,8 @@
     "addIncome": "Add {{amount}} income",
     "allCategories": "All",
     "whatWasIt": "What was it? (optional)",
-    "moreDetails": "More details"
+    "moreDetails": "More details",
+    "fewer": "Fewer",
+    "newCategory": "New"
   }
 }

@@ -30,13 +30,14 @@ test('categories: add from the catalog or a custom name; hide unused ones', asyn
 test('subcategories: add one inside a category with its own emoji; it is listed under its parent', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/categories');
-  await page.getByTestId('category-chip').filter({ hasText: /^.*(Groceries|סופר ומכולת)/ }).first().click();
-  await page.getByTestId('category-add-sub').click();
+  // one tap: the + on the category's row, then just a name and an emoji
+  const row = page.getByTestId('category-chip').filter({ hasText: /Groceries|סופר ומכולת/ }).first().locator('xpath=../..');
+  await row.getByTestId('category-row-add-sub').click();
   const sheet = page.getByTestId('add-category-sheet');
   await expect(sheet).toContainText(/Groceries|סופר ומכולת/);
+  await expect(sheet.getByTestId('look-color')).toHaveCount(0); // the parent's colour unless asked
   await sheet.getByTestId('category-name').fill('E2E organic');
   await sheet.getByTestId('look-emoji').filter({ hasText: '🥗' }).click();
-  await sheet.getByTestId('look-color').nth(2).click();
   await sheet.getByTestId('category-save').click();
   await expect(sheet).toBeHidden();
   const subs = page.getByTestId('category-subs');
@@ -45,6 +46,31 @@ test('subcategories: add one inside a category with its own emoji; it is listed 
   await subs.getByTestId('category-chip').filter({ hasText: 'E2E organic' }).click();
   await expect(page.getByTestId('category-follows')).toBeVisible();
   await expect(page.getByTestId('category-mode')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // spending in it shows on the ring: tap Groceries to see its parts in shades of its colour
+  const H = { 'X-MZ': '1', Origin: new URL(page.url()).origin };
+  const cats = (await (await page.request.get('/api/categories')).json()).categories as { id: string; name: string }[];
+  const sub = cats.find((c) => c.name === 'E2E organic')!;
+  const parent = cats.find((c) => c.name === 'Groceries' || c.name === 'סופר ומכולת')!;
+  const acc = (await (await page.request.get('/api/accounts')).json()).accounts.find((x: { archived: boolean }) => !x.archived);
+  const today = (await (await page.request.get('/api/me')).json()).active.today as string;
+  for (const categoryId of [sub.id, parent.id])
+    await page.request.post('/api/transactions', { headers: H, data: { date: today, amountMinor: 5000000, direction: 'out', description: 'E2E big shop', accountId: acc.id, categoryId } });
+  await page.goto('/trends');
+  const donut = page.getByTestId('trend-donut');
+  await donut.getByTestId('donut-row').filter({ hasText: /Groceries|סופר ומכולת/ }).click();
+  await expect(donut.getByTestId('donut-back')).toBeVisible();
+  await expect(donut.getByTestId('donut-row').filter({ hasText: 'E2E organic' })).toBeVisible();
+  await donut.getByTestId('donut-back').click();
+  await expect(donut.getByTestId('donut-back')).toHaveCount(0);
+  // a tap on a slice selects it; a tap on another moves the selection (no need to close the first)
+  const slices = donut.getByTestId('donut-slice');
+  await slices.nth(0).dispatchEvent('click');
+  await expect(slices.nth(0)).toHaveAttribute('stroke-width', '28');
+  await slices.nth(1).dispatchEvent('click');
+  await expect(slices.nth(1)).toHaveAttribute('stroke-width', '28');
+  await expect(slices.nth(0)).toHaveAttribute('stroke-width', '20');
 });
 
 test('AI suggestions: review sheet with reason, approve all, apply', async ({ page }) => {
