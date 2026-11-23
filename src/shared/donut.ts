@@ -46,14 +46,20 @@ export function arcLengths(values: number[], total: number, min: number): number
   const sum = values.reduce((a, v) => a + Math.max(0, v), 0);
   if (sum <= 0 || !values.length) return values.map(() => 0);
   if (min * values.length >= total) return values.map(() => total / values.length);
+  // a slice pinned to the minimum stays pinned; only the others are rescaled, until none falls below
+  const pinned = new Set<number>();
   let out = values.map((v) => (Math.max(0, v) / sum) * total);
   for (let pass = 0; pass < values.length; pass++) {
-    const small = out.map((l) => l < min);
-    if (!small.some(Boolean)) break;
-    const fixed = small.filter(Boolean).length * min;
-    const restSum = out.reduce((a, l, k) => a + (small[k] ? 0 : l), 0);
-    const scale = restSum > 0 ? (total - fixed) / restSum : 0;
-    out = out.map((l, k) => (small[k] ? min : l * scale));
+    out.forEach((l, k) => {
+      if (l < min) pinned.add(k);
+    });
+    const free = values.map((v, k) => (pinned.has(k) ? 0 : Math.max(0, v)));
+    const freeSum = free.reduce((x, y) => x + y, 0);
+    const room = total - pinned.size * min;
+    const next = values.map((_, k) => (pinned.has(k) ? min : freeSum > 0 ? (free[k]! / freeSum) * room : 0));
+    const done = next.every((l, k) => pinned.has(k) || l >= min);
+    out = next;
+    if (done) break;
   }
   return out;
 }

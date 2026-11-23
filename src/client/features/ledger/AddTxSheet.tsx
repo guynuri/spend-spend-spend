@@ -89,7 +89,8 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
   // Recently used first (D-R29): this device's own picks, then the household's last use of each category,
   // then the usual order. Collapsed it shows GRID of them; "All" opens every one (and transfers) in place.
   const ordered = useMemo(() => {
-    const usable = cats.filter((c) => (c.kind === kind || c.kind === 'transfer') && !c.archived && !c.systemKey);
+    // system categories stay out, except the ones people record by hand: "Owed to me" and internal transfers
+    const usable = cats.filter((c) => (c.kind === kind || c.kind === 'transfer') && !c.archived && (!c.systemKey || c.systemKey === 'owed' || c.systemKey === 'transfer'));
     const mine = recentIds();
     const rank = (c: (typeof usable)[number]) => {
       const k = mine.indexOf(c.id);
@@ -105,7 +106,8 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `opens` re-reads localStorage on each open
   }, [cats, kind, opens]);
-  const grid = allCats ? ordered : ordered.filter((c) => c.kind === kind).slice(0, GRID);
+  // a repayment (income side) is usually "Owed to me": it stays in the short grid too
+  const grid = allCats ? ordered : ordered.filter((c) => c.kind === kind || (kind === 'income' && c.systemKey === 'owed')).slice(0, GRID);
   const picked = categoryId ? cats.find((c) => c.id === categoryId) : null;
   const create = useApiMutation(
     () => post('/api/transactions', { date, amountMinor: minor, direction, description: description.trim(), accountId: acc, categoryId, ...(notes.trim() ? { notes: notes.trim() } : {}), ...(owedMinor ? { owedMinor } : {}) }),

@@ -25,8 +25,10 @@ dashboardRoutes.get('/', async (c) => {
   const { insights, actual, x } = await computeInsights(db, hh, base, dm.month, budget, forecast, health);
   // what people still owe you (D-R30): your "Owed to me" lines minus their repayments, all time
   const owed = await db.first<{ s: number; id: string | null }>(
-    `SELECT COALESCE(-SUM(l.amount_minor), 0) AS s, c.id AS id FROM categories c LEFT JOIN v_lines l ON l.household_id = ?1 AND l.category_id = c.id
+    `SELECT COALESCE(-SUM(l.amount_minor), 0) AS s, c.id AS id FROM categories c
+       LEFT JOIN v_lines l ON l.household_id = ?1 AND l.category_id = c.id AND l.date >= '2000-01-01' AND l.date <= ?2
       WHERE c.household_id = ?1 AND c.system_key = 'owed'`,
+    base.today,
   );
   const isCurrent = dm.month === cur;
   const upcoming = forecast.events.filter((e) => e.date >= base.today).slice(0, 5);

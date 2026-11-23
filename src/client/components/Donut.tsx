@@ -66,7 +66,7 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
       setParentId(s.id);
       setActive(null);
       setHover(null);
-    } else if (onOpen && s.id !== OTHER_SLOT) onOpen(s.id);
+    } else if (onOpen && s.id !== OTHER_SLOT && !s.id.includes(':')) onOpen(s.id);
   };
   // first tap selects; a second tap on the selected slice opens it
   const tapSlice = (s: DonutSlice) => (active === s.id ? open(s) : setActive(s.id));

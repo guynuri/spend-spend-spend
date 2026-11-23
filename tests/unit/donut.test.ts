@@ -46,3 +46,12 @@ describe('ring geometry', () => {
     expect(s[0]!.children).toHaveLength(1);
   });
 });
+
+describe('ring geometry, pinned minimum', () => {
+  it('never leaves a slice under the minimum (the case that used to swap)', async () => {
+    const { arcLengths } = await import('../../src/shared/donut');
+    const l = arcLengths([1, 10.5, 88.5], 100, 10);
+    expect(Math.min(...l)).toBeGreaterThanOrEqual(10 - 1e-9);
+    expect(l.reduce((a, b) => a + b, 0)).toBeCloseTo(100);
+  });
+});

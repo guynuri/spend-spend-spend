@@ -17,7 +17,8 @@ export function donutItems(items: SpendItem[], cats: Map<string, Category>, t: T
   const part = (p: Part, parentId: string): DonutInput => {
     const c = cats.get(p.categoryId);
     return {
-      id: p.categoryId,
+      // the parent's own lines get their own id: opening them would list the subcategories' too
+      id: p.categoryId === parentId ? `${parentId}:direct` : p.categoryId,
       label: p.categoryId === parentId ? t('trends.directly', { name: cats.get(parentId)?.name ?? '' }) : (c?.name ?? ''),
       valueMinor: p.spentMinor,
       slot: c ? colorSlotOf(c) : OTHER_SLOT,

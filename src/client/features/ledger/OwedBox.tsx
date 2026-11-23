@@ -21,7 +21,10 @@ export function useOwedCategory() {
 export function OwedBox({ tx, onSaved }: { tx: Tx; onSaved: (t: Tx) => void }) {
   const { t } = useTranslation();
   const owedCat = useOwedCategory();
-  const current = tx.hasSplits && owedCat ? -(tx.splits.find((s) => s.categoryId === owedCat.id)?.amountMinor ?? 0) : 0;
+  // only a plain "your share + owed" split is handled here (the server's rule); anything else is the split editor's
+  const owedLines = owedCat ? tx.splits.filter((s) => s.categoryId === owedCat.id) : [];
+  const simple = !tx.hasSplits || (tx.splits.length === 2 && owedLines.length === 1);
+  const current = tx.hasSplits && simple ? -(owedLines[0]?.amountMinor ?? 0) : 0;
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(() => minorToInput(current || Math.round(-tx.amountMinor / 2)));
   const minor = parseMoneyInput(value);
@@ -33,7 +36,7 @@ export function OwedBox({ tx, onSaved }: { tx: Tx; onSaved: (t: Tx) => void }) {
       onSaved(r);
     },
   });
-  if (!owedCat || tx.amountMinor >= 0) return null;
+  if (!owedCat || tx.amountMinor >= 0 || !simple) return null;
   // an unrelated split is edited in the split editor instead
   if (tx.hasSplits && !current) return null;
   if (!open)
