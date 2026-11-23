@@ -1,6 +1,7 @@
 /** Rule-based action items (PLAN §10.7). Params are language-neutral; the client formats them. */
 import { GENERAL_ID, type BudgetLine, type OccasionalLine } from './budget';
 import type { GoalView } from './goals';
+import { CALENDAR, type Cal } from '../period';
 
 export type Severity = 'alert' | 'warn' | 'info' | 'good';
 export interface Insight {
@@ -11,6 +12,8 @@ export interface Insight {
   href: string;
 }
 export interface InsightInput {
+  /** Budget periods (pay day): which dates belong to `month`. Default: calendar months. */
+  cal?: Cal;
   stale: boolean;
   asOf: string;
   hasForecastAccount: boolean;
@@ -64,7 +67,7 @@ export function buildInsights(i: InsightInput): Insight[] {
   if (big) add('info', 'payment_soon', { label: big.label, amountMinor: big.amountMinor, date: big.date }, '/upcoming');
   i.goals.filter((g) => g.status === 'behind' && !g.archived).slice(0, 2).forEach((g) => add('warn', 'goal_behind', { goal: g.name, amountMinor: g.requiredMonthlyMinor ?? 0 }, '/goals', `goal_behind_${g.id}`));
   for (const g of i.goals) {
-    const m = [...g.milestones].reverse().find((x) => x.date.slice(0, 7) === i.month);
+    const m = [...g.milestones].reverse().find((x) => (i.cal ?? CALENDAR).of(x.date) === i.month);
     if (m) add('good', 'goal_milestone', { goal: g.name, pct: m.pct / 100 }, '/goals', `milestone_${g.id}`);
   }
   if (i.lastComplete?.savingsRate !== null && i.lastComplete?.savingsRate !== undefined && i.lastComplete.savingsRate >= 0.2) add('good', 'savings_good', { pct: i.lastComplete.savingsRate, month: i.lastComplete.month }, '/trends?tab=months');

@@ -28,10 +28,11 @@ const readDismissed = (k: string): [number, number] => {
 export function TodoCard() {
   const { t, i18n } = useTranslation();
   const currency = useCurrency();
-  const { f, set } = useLedgerFilters();
+  const { f, set, period } = useLedgerFilters();
   const range = `from=${f.from}&to=${f.to}`;
   const uncat = useQuery({ queryKey: ['transactions', 'todo', range], queryFn: () => get<TxList>(`/api/transactions?${range}&uncategorized=1`) }).data?.summary.count ?? 0;
-  const unsplit = useBudget(f.from.slice(0, 7)).data?.unsplitCardMinor ?? 0;
+  // the budget period the range starts in (with a late pay day it is labelled by the next calendar month)
+  const unsplit = useBudget(period).data?.unsplitCardMinor ?? 0;
   const [dismissed, setDismissed] = useState(() => readDismissed(range));
   const [dk, setDk] = useState(range);
   if (dk !== range) {

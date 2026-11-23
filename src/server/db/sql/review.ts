@@ -82,6 +82,7 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
   const lastComplete = defaultReviewMonth(base);
   return buildReview({
     month,
+    cal: base.cal,
     isLatestMonth: month >= lastComplete,
     health: { score: cur.result.overall, label: cur.result.label, change: health.change, recommendations: health.recommendations },
     income: { totalMinor: p.get(month)?.income ?? 0, prevMinor: p.get(prev)?.income ?? 0, byCategory: rows.filter((r) => r.side === 'income').map((r) => ({ categoryId: r.cid, name: r.name, amountMinor: r.amt })) },

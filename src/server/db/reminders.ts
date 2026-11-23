@@ -166,7 +166,7 @@ export async function runReminders(env: AppEnv, now = new Date(), fetchImpl: typ
       due.push({
         r,
         claim: db.prepare("UPDATE reminders SET marks = ?2, last_sent_at = ?3 WHERE id = ?1 AND COALESCE(marks, '') = ?4").bind(r.id, next, iso, r.marks ?? ''),
-        release: db.prepare('UPDATE reminders SET marks = ?2, retry = 1 WHERE id = ?1 AND marks = ?3').bind(r.id, r.marks, next),
+        release: db.prepare('UPDATE reminders SET marks = ?2, checked_at = NULL, retry = 1 WHERE id = ?1 AND marks = ?3').bind(r.id, r.marks, next),
         msg: { title, body, url: reminderUrl({ kind: 'budget' }), tag: `budget-${month}` },
       });
     }

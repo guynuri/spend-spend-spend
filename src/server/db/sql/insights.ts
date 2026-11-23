@@ -42,6 +42,7 @@ export async function computeInsights(db: TenantDb, hh: HouseholdRow, base: Base
   const lcHealth = health.months.find((m) => m.month === lc);
   const lcPnl = lc ? health.pnl.get(lc) : undefined;
   const insights = buildInsights({
+    cal,
     stale: base.hasData && base.stale,
     asOf: base.asOf,
     hasForecastAccount: forecast.hasForecastAccount || x.accounts === 0,

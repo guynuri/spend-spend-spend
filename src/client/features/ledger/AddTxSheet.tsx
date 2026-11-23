@@ -63,6 +63,17 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
   const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(false);
   const [allCats, setAllCats] = useState(false);
+  // a sheet that stays mounted (the ledger page's) re-reads this device's last account and recent
+  // categories each time it opens, so the category just used comes first
+  const [opens, setOpens] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setOpens((n) => n + 1);
+      setAccountId(read(LS_ACCOUNT) ?? '');
+    }
+  }
   const minor = parseMoneyInput(amount);
   const acc = accounts.some((a) => a.id === accountId) ? accountId : (accounts[0]?.id ?? '');
   const kind = direction === 'out' ? 'expense' : 'income';
@@ -73,7 +84,8 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
       .filter((c): c is NonNullable<typeof c> => !!c);
     const rest = usable.filter((c) => !recent.includes(c) && !c.parentId);
     return [...recent, ...rest].slice(0, GRID);
-  }, [cats, kind]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `opens` re-reads localStorage on each open
+  }, [cats, kind, opens]);
   const picked = categoryId ? cats.find((c) => c.id === categoryId) : null;
   const create = useApiMutation(
     () => post('/api/transactions', { date, amountMinor: minor, direction, description: description.trim(), accountId: acc, categoryId, ...(notes.trim() ? { notes: notes.trim() } : {}) }),
@@ -173,7 +185,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
             </div>
             {(allCats || (picked && !grid.includes(picked))) && (
               <div className="mt-2">
-                <CategorySelect id="add-cat" value={categoryId} onChange={setCategoryId} kinds={[kind]} aria-label={t('ledger.category')} />
+                <CategorySelect id="add-cat" value={categoryId} onChange={setCategoryId} kinds={[kind, 'transfer']} aria-label={t('ledger.category')} />
               </div>
             )}
           </div>

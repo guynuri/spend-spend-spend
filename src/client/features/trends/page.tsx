@@ -444,7 +444,7 @@ export function Component() {
         </Tabs.Content>
         <Tabs.Content value="day">
           {/* "This year" compares with the same months last year; everything else with the period before */}
-          <ByDay range={range} yoy={presetOf(range, today) === 'year'} />
+          <ByDay range={range} yoy={presetOf(range, today, S) === 'year'} />
         </Tabs.Content>
         <Tabs.Content value="months" className="flex flex-col gap-4">
           <OverMonths range={range} />

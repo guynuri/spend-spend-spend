@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
-import { query } from '../http';
+import { badRequest, query } from '../http';
 import { dateStr, id, monthStr } from '../../shared/schemas/common';
-import { addDays, addMonths, dayOfWeek, daysBetween, MAX_RANGE_DAYS, monthDiff, monthOf, monthRange } from '../../shared/dates';
+import { addDays, addMonths, dayOfWeek, daysBetween, MAX_RANGE_DAYS, monthDiff, monthRange } from '../../shared/dates';
 import { displayMonth } from '../../shared/domain/common';
 import { loadBase, occasionalByMonthStmt, pnlByMonthStmt, toMonthMap, toPnlMap } from '../db/sql/facts';
 import { GENERAL_ID } from '../../shared/domain/budget';
@@ -14,13 +14,13 @@ const EXPENSE_LINE = "(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount
 /** `from`+`to` (inclusive, < MAX_RANGE_DAYS) or a `month`; defaults to the display month. */
 const rangeQ = z
   .object({ month: monthStr.optional(), from: dateStr.optional(), to: dateStr.optional(), compare: z.enum(['prev', 'yoy']).default('prev') })
-  .refine((q) => !q.from === !q.to && (!q.from || (q.from <= q.to! && daysBetween(q.from, q.to!) < MAX_RANGE_DAYS)), { message: 'invalid range', path: ['from'] })
-  // a 12-month shift would overlap a longer range
-  .refine((q) => q.compare !== 'yoy' || !q.from || monthDiff(monthOf(q.from), monthOf(q.to!)) < 12, { message: 'yoy needs ≤ 12 months', path: ['compare'] });
+  .refine((q) => !q.from === !q.to && (!q.from || (q.from <= q.to! && daysBetween(q.from, q.to!) < MAX_RANGE_DAYS)), { message: 'invalid range', path: ['from'] });
 async function resolveRange(c: Parameters<typeof tctx>[0]) {
   const { db, hh } = tctx(c);
   const qv = query(c, rangeQ);
   const base = await loadBase(db, hh);
+  // a 12-period shift would overlap a longer range; counted in statistics periods (a pay-day year ends in the next calendar month)
+  if (qv.compare === 'yoy' && qv.from && qv.to && monthDiff(base.statsCal.of(qv.from), base.statsCal.of(qv.to)) >= 12) throw badRequest('validation', [{ path: 'compare', code: 'custom' }]);
   if (qv.from && qv.to) return { db, base, compare: qv.compare, from: qv.from, to: qv.to };
   // statistics periods: pay-day periods or calendar months, as the household chose
   const S = base.statsCal;

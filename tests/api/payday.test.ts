@@ -51,6 +51,11 @@ describe('pay-day periods', () => {
     // trends follow the period by default…
     const tr = async () => (await json<{ from: string; to: string }>('GET', `/api/trends/categories?month=${cur}`, { cookie: o.cookie })).body;
     expect(await tr()).toMatchObject({ from: cal.start(cur), to: cal.end(cur) });
+    // a pay-day year (10 Jan – 9 Jan) runs into the next calendar month and still compares with last year
+    const y = cur.slice(0, 4);
+    const yoy = await json('GET', `/api/trends/daily?from=${cal.start(`${y}-01`)}&to=${cal.end(`${y}-12`)}&compare=yoy`, { cookie: o.cookie });
+    expect(yoy.status).toBe(200);
+    expect((await json('GET', `/api/trends/daily?from=${cal.start(`${y}-01`)}&to=${cal.end(`${Number(y) + 1}-01`)}&compare=yoy`, { cookie: o.cookie })).status).toBe(400);
     // …or calendar months, when chosen; the budget keeps the pay day
     expect((await json('PATCH', '/api/household', { cookie: o.cookie, body: { statsByPeriod: false } })).status).toBe(200);
     expect(await tr()).toMatchObject({ from: `${cur}-01` });
