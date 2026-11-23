@@ -21,22 +21,22 @@
 }
 
 :root {
-  --mz-bg: #f6f4fb;
+  --mz-bg: #f2f7fd;
   --mz-surface: #ffffff;
-  --mz-surface-2: #f0edf8;
-  --mz-border: #e6e2f0;
-  --mz-text: #1e1b2e;
-  --mz-muted: #5f5a75;
-  --mz-accent: #5b44d4;
+  --mz-surface-2: #e9f1fb;
+  --mz-border: #dbe5f2;
+  --mz-text: #172033;
+  --mz-muted: #56627a;
+  --mz-accent: #2268d8;
   --mz-accent-fg: #ffffff;
   --mz-good: #18794e;
   --mz-warn: #9a5000;
   --mz-bad: #c22a3c;
-  --mz-chart-1: #5b44d4;
-  --mz-chart-2: #a9a4bd;
+  --mz-chart-1: #2268d8;
+  --mz-chart-2: #a3b1c6;
   --mz-chart-3: #c22a3c;
   /* Soft, layered card shadow (friendly look: no hard edges). */
-  --mz-shadow: 0 1px 2px rgb(30 27 46 / 0.04), 0 8px 24px -12px rgb(30 27 46 / 0.12);
+  --mz-shadow: 0 1px 2px rgb(23 32 51 / 0.04), 0 8px 24px -12px rgb(34 104 216 / 0.16);
   /* Categorical series, fixed order (validated: adjacent CVD ΔE ≥ 8.4, normal ≥ 19.3; light needs visible labels).
      A category keeps its own slot (categories.color), so its colour never depends on rank. */
   --mz-cat-1: #2a78d6;
@@ -47,23 +47,23 @@
   --mz-cat-6: #008300;
   --mz-cat-7: #6250d6;
   --mz-cat-8: #e34948;
-  --mz-cat-other: #a9a4bd;
+  --mz-cat-other: #a3b1c6;
 }
 
 .dark {
-  --mz-bg: #12111c;
-  --mz-surface: #1c1a2b;
-  --mz-surface-2: #262338;
-  --mz-border: #322e47;
-  --mz-text: #eeecf6;
-  --mz-muted: #a7a2c2;
-  --mz-accent: #a597ff;
-  --mz-accent-fg: #1a1240;
+  --mz-bg: #0f1622;
+  --mz-surface: #172131;
+  --mz-surface-2: #1f2c40;
+  --mz-border: #2a3a52;
+  --mz-text: #e8eef8;
+  --mz-muted: #9eabc2;
+  --mz-accent: #78b0ff;
+  --mz-accent-fg: #0b1a33;
   --mz-good: #5ccb96;
   --mz-warn: #f2a85a;
   --mz-bad: #ff7d88;
-  --mz-chart-1: #a597ff;
-  --mz-chart-2: #5d5875;
+  --mz-chart-1: #78b0ff;
+  --mz-chart-2: #53627a;
   --mz-chart-3: #ff7d88;
   --mz-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
   --mz-cat-1: #3987e5;
@@ -74,7 +74,7 @@
   --mz-cat-6: #0ca30c;
   --mz-cat-7: #9085e9;
   --mz-cat-8: #e66767;
-  --mz-cat-other: #5d5875;
+  --mz-cat-other: #53627a;
 }
 
 html {

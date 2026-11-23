@@ -6,11 +6,11 @@ import { get, post } from '../api';
 import { useApiMutation } from '../lib/mutate';
 import { useCategories } from '../lib/queries';
 import type { Category } from '../../shared/schemas/ledger';
-import { COLOR_SLOTS } from '../../shared/categoryLook';
+import { COLOR_SLOTS, colorSlotOf } from '../../shared/categoryLook';
 import { Sheet } from './Sheet';
 import { Button, Field, Input, Select, Spinner } from './ui';
 import { CategoryIcon, categoryLabel } from './CategoryIcon';
-import { LookPicker } from './LookPicker';
+import { EmojiPicker, LookPicker } from './LookPicker';
 
 type Kind = Category['kind'];
 interface Suggestion {
@@ -34,7 +34,9 @@ export function AddCategorySheet({ open, onOpenChange, kinds = ['expense', 'inco
   const [parentId, setParentId] = useState<string | null>(parent?.id ?? null);
   const [emoji, setEmoji] = useState<string | null>(null);
   // a new category starts in a colour few others use
+  const [showColor, setShowColor] = useState(false);
   const [color, setColor] = useState<string>(() => {
+    if (parent) return colorSlotOf(parent);
     const used = new Map<string, number>();
     for (const c of all) if (c.color) used.set(c.color, (used.get(c.color) ?? 0) + 1);
     return [...COLOR_SLOTS].sort((a, b) => (used.get(a) ?? 0) - (used.get(b) ?? 0))[0]!;
@@ -90,7 +92,7 @@ export function AddCategorySheet({ open, onOpenChange, kinds = ['expense', 'inco
             <CategoryIcon cat={{ id: 'new', color, emoji }} size="lg" />
             <div className="min-w-0 flex-1">
               <Field label={t('categories.name')} htmlFor="new-cat-name">
-                <Input id="new-cat-name" dir="auto" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} data-testid="category-name" />
+                <Input id="new-cat-name" dir="auto" maxLength={40} autoFocus={!!parent} value={name} onChange={(e) => setName(e.target.value)} data-testid="category-name" />
               </Field>
             </div>
           </div>
@@ -124,7 +126,17 @@ export function AddCategorySheet({ open, onOpenChange, kinds = ['expense', 'inco
               </Select>
             </Field>
           )}
-          <LookPicker emoji={emoji} color={color} onEmoji={setEmoji} onColor={setColor} />
+          {parent && !showColor ? (
+            // a subcategory: just a name and an emoji; it takes the parent's colour unless you change it
+            <>
+              <EmojiPicker emoji={emoji} onEmoji={setEmoji} />
+              <button type="button" onClick={() => setShowColor(true)} className="min-h-11 self-start text-sm font-medium text-accent" data-testid="sub-color">
+                {t('categories.look.changeColor')}
+              </button>
+            </>
+          ) : (
+            <LookPicker emoji={emoji} color={color} onEmoji={setEmoji} onColor={setColor} />
+          )}
           <Button type="submit" className="self-end" disabled={!name.trim()} busy={custom.isPending} data-testid="category-save">
             {t('common.save')}
           </Button>

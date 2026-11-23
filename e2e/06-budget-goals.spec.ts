@@ -100,20 +100,11 @@ test('home shows what is left to spend first, then the cards in order, and the h
   await signIn(page, 'admin');
   await page.goto('/');
   await expect(page.getByTestId('hero-card')).toBeVisible();
-  const ids = ['hero-card', 'home-donut', 'insights', 'forecast-card', 'dash-goals', 'health-card', 'usual-card'];
+  const ids = ['hero-card', 'home-donut', 'insights', 'forecast-card', 'dash-goals', 'health-card'];
   const tops: number[] = [];
   for (const id of ids) tops.push((await page.getByTestId(id).first().boundingBox())!.y);
   expect([...tops].sort((a, b) => a - b)).toEqual(tops);
-  // A usual month from the imported months: per-category averages, this month next to each.
-  const usual = page.getByTestId('usual-card');
-  await expect(usual.getByTestId('usual-summary')).toBeVisible();
-  await expect(usual.getByTestId('usual-item').first()).toBeVisible();
-  // Tapping a part of the bar names it.
-  const firstName = (await usual.getByTestId('usual-item').first().locator('bdi').first().textContent())!;
-  await usual.getByTestId('usual-bar').getByRole('listitem').first().click();
-  await expect(usual.getByTestId('usual-bar-label')).toContainText(firstName);
-  // Each category leads with its usual monthly amount.
-  await expect(usual.getByTestId('usual-amount').first()).toBeVisible();
+  await expect(page.getByTestId('usual-card')).toHaveCount(0); // not on Home by default any more
   await expectNoHorizontalOverflow(page);
   await page.getByTestId('health-open').click();
   await expect(page.getByTestId('health-sheet')).toContainText(/Savings rate/);

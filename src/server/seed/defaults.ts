@@ -56,6 +56,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: 'personal_care', en: 'Personal care', he: 'טיפוח', kind: 'expense', grp: 'variable', emoji: '💅', color: 'cat-5', icon: 'sparkles', extra: true, mode: 'general' },
   { key: 'sport', en: 'Sport & fitness', he: 'ספורט וכושר', kind: 'expense', grp: 'variable', emoji: '🏋️', color: 'cat-3', icon: 'dumbbell', extra: true },
   { key: 'other', en: 'Other', he: 'אחר', kind: 'expense', grp: 'variable', emoji: '📦', color: 'cat-other', icon: 'circle-help' },
+  { key: 'owed', en: 'Owed to me', he: 'חייבים לי', kind: 'transfer', grp: null, systemKey: 'owed', emoji: '🤝', color: 'cat-3', icon: 'handshake' },
   { key: 'transfers', en: 'Internal transfers', he: 'העברות פנימיות', kind: 'transfer', grp: null, systemKey: 'transfer', emoji: '🔄', color: 'cat-other', icon: 'arrow-left-right' },
   { key: 'savings', en: 'Savings & investments', he: 'חיסכון והשקעות', kind: 'transfer', grp: null, emoji: '🐷', color: 'cat-7', icon: 'piggy-bank' },
 ];

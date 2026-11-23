@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, LayoutGrid } from 'lucide-react';
+import { ChevronDown, LayoutGrid, Plus } from 'lucide-react';
 import { post } from '../../api';
 import { Sheet } from '../../components/Sheet';
 import { Button, cx, Field, Input, Segmented, Select, Spinner, Textarea } from '../../components/ui';
-import { CategorySelect } from '../../components/CategorySelect';
+import { AddCategorySheet } from '../../components/AddCategorySheet';
 import { CategoryIcon } from '../../components/CategoryIcon';
 import { useFormatDate } from '../../components/DateText';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT, useAccounts, useCategories } from '../../lib/queries';
-import { useCurrency, useMe } from '../../lib/session';
-import { formatMoney, parseMoneyInput, type Locale } from '../../../shared/money';
+import { useCanWrite, useCurrency, useMe } from '../../lib/session';
+import { formatMoney, minorToInput, parseMoneyInput, type Locale } from '../../../shared/money';
+import { AmountInput } from '../../components/AmountInput';
+import { useParamFormatter } from '../../lib/format';
 
 const LS_ACCOUNT = 'mz_quick_account';
 const LS_RECENT = 'mz_quick_recent';
@@ -48,6 +50,7 @@ const GRID = 7;
 export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
+  const pf = useParamFormatter();
   const currency = useCurrency();
   const today = useMe()?.active?.today ?? '';
   const accQ = useAccounts();
@@ -61,8 +64,13 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
   const [accountId, setAccountId] = useState(() => read(LS_ACCOUNT) ?? '');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  // someone will pay part of it back (D-R30)
+  const [owedOn, setOwedOn] = useState(false);
+  const [owed, setOwed] = useState('');
   const [details, setDetails] = useState(false);
   const [allCats, setAllCats] = useState(false);
+  const [addingCat, setAddingCat] = useState(false);
+  const canWrite = useCanWrite();
   // a sheet that stays mounted (the ledger page's) re-reads this device's last account and recent
   // categories each time it opens, so the category just used comes first
   const [opens, setOpens] = useState(0);
@@ -75,20 +83,34 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
     }
   }
   const minor = parseMoneyInput(amount);
+  const owedMinor = owedOn && direction === 'out' ? (parseMoneyInput(owed) ?? 0) : 0;
   const acc = accounts.some((a) => a.id === accountId) ? accountId : (accounts[0]?.id ?? '');
   const kind = direction === 'out' ? 'expense' : 'income';
-  const grid = useMemo(() => {
-    const usable = cats.filter((c) => c.kind === kind && !c.archived && !c.systemKey);
-    const recent = recentIds()
-      .map((id) => usable.find((c) => c.id === id))
-      .filter((c): c is NonNullable<typeof c> => !!c);
-    const rest = usable.filter((c) => !recent.includes(c) && !c.parentId);
-    return [...recent, ...rest].slice(0, GRID);
+  // Recently used first (D-R29): this device's own picks, then the household's last use of each category,
+  // then the usual order. Collapsed it shows GRID of them; "All" opens every one (and transfers) in place.
+  const ordered = useMemo(() => {
+    // system categories stay out, except the ones people record by hand: "Owed to me" and internal transfers
+    const usable = cats.filter((c) => (c.kind === kind || c.kind === 'transfer') && !c.archived && (!c.systemKey || c.systemKey === 'owed' || c.systemKey === 'transfer'));
+    const mine = recentIds();
+    const rank = (c: (typeof usable)[number]) => {
+      const k = mine.indexOf(c.id);
+      return k >= 0 ? k : mine.length;
+    };
+    return [...usable].sort(
+      (x, y) =>
+        Number(x.kind === 'transfer') - Number(y.kind === 'transfer') ||
+        rank(x) - rank(y) ||
+        (y.lastUsed ?? '').localeCompare(x.lastUsed ?? '') ||
+        Number(!!x.parentId) - Number(!!y.parentId) ||
+        x.sort - y.sort,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `opens` re-reads localStorage on each open
   }, [cats, kind, opens]);
+  // a repayment (income side) is usually "Owed to me": it stays in the short grid too
+  const grid = allCats ? ordered : ordered.filter((c) => c.kind === kind || (kind === 'income' && c.systemKey === 'owed')).slice(0, GRID);
   const picked = categoryId ? cats.find((c) => c.id === categoryId) : null;
   const create = useApiMutation(
-    () => post('/api/transactions', { date, amountMinor: minor, direction, description: description.trim(), accountId: acc, categoryId, ...(notes.trim() ? { notes: notes.trim() } : {}) }),
+    () => post('/api/transactions', { date, amountMinor: minor, direction, description: description.trim(), accountId: acc, categoryId, ...(notes.trim() ? { notes: notes.trim() } : {}), ...(owedMinor ? { owedMinor } : {}) }),
     {
       invalidate: [...LEDGER_DEPENDENT],
       successKey: 'ledger.saved',
@@ -99,11 +121,13 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
         setDescription('');
         setNotes('');
         setCategoryId(null);
+        setOwedOn(false);
+        setOwed('');
         onOpenChange(false);
       },
     },
   );
-  const ok = !!date && !!minor && minor > 0 && !!acc;
+  const ok = !!date && !!minor && minor > 0 && !!acc && (!owedMinor || owedMinor < minor);
   const money = (m: number) => formatMoney(m, { currency, locale: i18n.language as Locale, decimals: m % 100 ? 2 : 0 });
   const accName = accounts.find((a) => a.id === acc)?.name ?? '';
   const symbol = formatMoney(0, { currency, locale: i18n.language as Locale, decimals: 0 }).replace(/[\d.,\s\u200e\u200f\u2066-\u2069-]/g, '');
@@ -162,7 +186,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
           <div>
             <p className="mb-2 text-sm font-medium text-muted">{t('ledger.category')}</p>
             <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={t('ledger.category')} data-testid="quick-cats">
-              {grid.map((c) => (
+              {(picked && !grid.includes(picked) ? [picked, ...grid.slice(0, -1)] : grid).map((c) => (
                 <button
                   key={c.id}
                   type="button"
@@ -174,21 +198,48 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
                 >
                   <CategoryIcon cat={c} />
                   <span className="line-clamp-2 text-[11px] leading-tight">{c.name}</span>
+                  {c.parentId && <span className="line-clamp-1 text-[10px] leading-tight text-muted">{cats.find((p) => p.id === c.parentId)?.name}</span>}
                 </button>
               ))}
               <button type="button" onClick={() => setAllCats((v) => !v)} className={cx('flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl p-1 text-center hover:bg-surface-2', allCats && 'bg-surface-2')} data-testid="quick-cat-more" aria-expanded={allCats}>
                 <span className="flex size-9 items-center justify-center rounded-full bg-surface-2">
                   <LayoutGrid className="size-4 text-muted" aria-hidden />
                 </span>
-                <span className="text-[11px] leading-tight">{t('quick.allCategories')}</span>
+                <span className="text-[11px] leading-tight">{t(allCats ? 'quick.fewer' : 'quick.allCategories')}</span>
               </button>
+              {allCats && canWrite && (
+                <button type="button" onClick={() => setAddingCat(true)} className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border p-1 text-center hover:bg-surface-2" data-testid="quick-cat-new">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-surface-2">
+                    <Plus className="size-4 text-accent" aria-hidden />
+                  </span>
+                  <span className="text-[11px] leading-tight">{t('quick.newCategory')}</span>
+                </button>
+              )}
             </div>
-            {(allCats || (picked && !grid.includes(picked))) && (
-              <div className="mt-2">
-                <CategorySelect id="add-cat" value={categoryId} onChange={setCategoryId} kinds={[kind, 'transfer']} aria-label={t('ledger.category')} />
-              </div>
-            )}
           </div>
+          {direction === 'out' &&
+            (owedOn ? (
+              <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 p-3" data-testid="add-owed">
+                <label className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-medium">🤝 {t('owed.howMuch')}</span>
+                  <AmountInput value={owed} onChange={(e) => setOwed(e.target.value)} className="w-32" data-testid="add-owed-amount" />
+                </label>
+                <p className="text-xs text-muted">{t('owed.hint')}</p>
+                {!!minor && !!owedMinor && owedMinor < minor && <p className="text-xs font-medium">{t('owed.yourShare', pf({ amountMinor: minor - owedMinor }))}</p>}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setOwedOn(true);
+                  setOwed(minor ? minorToInput(Math.round(minor / 2)) : '');
+                }}
+                className="min-h-11 self-start rounded-2xl px-1 text-sm font-medium text-accent"
+                data-testid="add-owed-open"
+              >
+                🤝 {t('owed.someonePays')}
+              </button>
+            ))}
           <Input id="add-desc" dir="auto" data-testid="add-description" placeholder={t('quick.whatWasIt')} aria-label={t('ledger.description')} maxLength={300} value={description} onChange={(e) => setDescription(e.target.value)} />
           <button type="button" onClick={() => setDetails((v) => !v)} className="flex min-h-11 items-center justify-between gap-2 rounded-2xl bg-surface-2 px-3 text-sm" aria-expanded={details} data-testid="add-details">
             <span className="min-w-0 truncate text-muted">
@@ -222,6 +273,7 @@ export function AddTxSheet({ open, onOpenChange }: { open: boolean; onOpenChange
           )}
         </div>
       )}
+      {addingCat && <AddCategorySheet open onOpenChange={setAddingCat} kinds={[kind]} onAdded={(id) => setCategoryId(id)} />}
     </Sheet>
   );
 }

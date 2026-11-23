@@ -14,7 +14,7 @@ import { C, ChartBox, tooltipStyle, useCompactMoney, useMoneyFmt } from '../../c
 import { useCategoryMap } from '../../lib/queries';
 import { CategoryIcon } from '../../components/CategoryIcon';
 import { Donut } from '../../components/Donut';
-import { colorSlotOf, OTHER_SLOT } from '../../../shared/categoryLook';
+import { donutItems } from '../../components/donutItems';
 import type { Category } from '../../../shared/schemas/ledger';
 import { useMe, useStatsCal } from '../../lib/session';
 import { addDays, dayOf, isValidDate, isValidMonth, MAX_RANGE_DAYS } from '../../../shared/dates';
@@ -163,10 +163,8 @@ function ByCategory({ range: { from, to } }: { range: Range }) {
   if (!q.data.items.length) return <EmptyState title={t('trends.empty')} />;
   const link = (cid: string | null) => `/transactions?from=${from}&to=${to}${cid ? `&category=${cid}` : '&uncategorized=1'}`;
   const nameOf = (i: CatItem) => (i.categoryId === GENERAL_ID ? t('budget.general.name') : i.categoryId ? (cats.get(i.categoryId)?.name ?? '') : t('trends.uncategorized'));
-  const donut = q.data.items.map((i) => {
-    const c = i.categoryId && i.categoryId !== GENERAL_ID ? cats.get(i.categoryId) : null;
-    return { id: i.categoryId ?? 'none', label: nameOf(i), valueMinor: i.spentMinor, slot: c ? colorSlotOf(c) : i.categoryId === GENERAL_ID ? 'cat-7' : OTHER_SLOT, emoji: c?.emoji ?? (i.categoryId === GENERAL_ID ? '🧺' : null) };
-  });
+  const donut = donutItems(q.data.items, cats, t);
+
   const expandBtn = (k: string, count: number) => (
     <button type="button" className="mt-0.5 ms-12 text-xs font-medium text-accent" aria-expanded={open.has(k)} onClick={() => toggle(k)} data-testid="trend-expand">
       {t(open.has(k) ? 'trends.hide' : 'trends.showCount', { count })}

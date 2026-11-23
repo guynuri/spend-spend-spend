@@ -4,6 +4,7 @@ import type { Ctx } from '../types';
 import { tctx, originOf } from '../ctx';
 import { HttpError, body, notFound } from '../http';
 import { requireOwner } from '../middleware/auth';
+import { shortcutHasKey } from '../lib/shortcutCheck';
 import { newId, nowIso, randomToken, sha256Hex } from '../lib/crypto';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
 import { sendInviteEmail } from '../lib/email';
@@ -64,6 +65,9 @@ householdRoutes.patch('/', async (c) => {
   // Forecast settings (safety cushion, daily estimate) are planning: members may change them. Name, currency, timezone: owners.
   if ((b.name ?? b.currency ?? b.timezone ?? b.periodStartDay ?? b.statsByPeriod) !== undefined && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
   const { shortcutPurchaseLink, shortcutFileLink, periodStartDay, statsByPeriod, ...rest } = b;
+  if ((shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
+  // checked before anything is saved: a shared shortcut with someone's key inside would let anyone with the link add purchases
+  for (const l of [shortcutPurchaseLink, shortcutFileLink]) if (l && (await shortcutHasKey(l))) throw new HttpError(400, 'shortcut_has_key', 'This shortcut has a personal key inside');
   if (periodStartDay !== undefined || statsByPeriod !== undefined) await members(c).setPeriods({ startDay: periodStartDay, statsByPeriod });
   if (shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) {
     if (role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');

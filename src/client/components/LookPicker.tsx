@@ -15,8 +15,6 @@ const EMOJIS = [
 /** Emoji + colour for a category. `emoji` null = none (a colour dot is shown instead). */
 export function LookPicker({ emoji, color, onEmoji, onColor }: { emoji: string | null; color: string | null; onEmoji: (v: string | null) => void; onColor: (v: string) => void }) {
   const { t } = useTranslation();
-  const [own, setOwn] = useState('');
-  const ownOk = isEmoji(own);
   return (
     <div className="flex flex-col gap-3" data-testid="look-picker">
       <div>
@@ -39,34 +37,44 @@ export function LookPicker({ emoji, color, onEmoji, onColor }: { emoji: string |
           ))}
         </div>
       </div>
-      <div>
-        <p className="mb-2 text-sm font-medium">{t('categories.look.emoji')}</p>
-        <div className="grid grid-cols-8 gap-1" role="radiogroup" aria-label={t('categories.look.emoji')}>
-          {EMOJIS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              role="radio"
-              aria-checked={emoji === e}
-              onClick={() => onEmoji(emoji === e ? null : e)}
-              className={cx('flex aspect-square items-center justify-center rounded-xl text-xl transition', emoji === e ? 'bg-accent/15 ring-2 ring-accent' : 'hover:bg-surface-2')}
-              data-testid="look-emoji"
-            >
-              {e}
-            </button>
-          ))}
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <Input value={own} onChange={(e) => setOwn(e.target.value)} placeholder={t('categories.look.typeEmoji')} className="w-40" aria-label={t('categories.look.typeEmoji')} data-testid="look-emoji-own" />
-          <button type="button" disabled={!ownOk} onClick={() => onEmoji(own.trim())} className="min-h-11 rounded-2xl px-3 text-sm font-medium text-accent disabled:opacity-40">
-            {t('categories.look.use')}
+      <EmojiPicker emoji={emoji} onEmoji={onEmoji} />
+    </div>
+  );
+}
+
+/** The emoji part alone: a friendly grid to tap, or type any emoji. */
+export function EmojiPicker({ emoji, onEmoji }: { emoji: string | null; onEmoji: (v: string | null) => void }) {
+  const { t } = useTranslation();
+  const [own, setOwn] = useState('');
+  const ownOk = isEmoji(own);
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium">{t('categories.look.emoji')}</p>
+      <div className="grid grid-cols-8 gap-1" role="radiogroup" aria-label={t('categories.look.emoji')}>
+        {EMOJIS.map((e) => (
+          <button
+            key={e}
+            type="button"
+            role="radio"
+            aria-checked={emoji === e}
+            onClick={() => onEmoji(emoji === e ? null : e)}
+            className={cx('flex aspect-square items-center justify-center rounded-xl text-xl transition', emoji === e ? 'bg-accent/15 ring-2 ring-accent' : 'hover:bg-surface-2')}
+            data-testid="look-emoji"
+          >
+            {e}
           </button>
-          {emoji && (
-            <button type="button" onClick={() => onEmoji(null)} className="ms-auto min-h-11 px-2 text-sm text-muted">
-              {t('categories.look.noEmoji')}
-            </button>
-          )}
-        </div>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <Input value={own} onChange={(e) => setOwn(e.target.value)} placeholder={t('categories.look.typeEmoji')} className="w-40" aria-label={t('categories.look.typeEmoji')} data-testid="look-emoji-own" />
+        <button type="button" disabled={!ownOk} onClick={() => onEmoji(own.trim())} className="min-h-11 rounded-2xl px-3 text-sm font-medium text-accent disabled:opacity-40">
+          {t('categories.look.use')}
+        </button>
+        {emoji && (
+          <button type="button" onClick={() => onEmoji(null)} className="ms-auto min-h-11 px-2 text-sm text-muted">
+            {t('categories.look.noEmoji')}
+          </button>
+        )}
       </div>
     </div>
   );

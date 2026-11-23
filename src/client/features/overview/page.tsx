@@ -28,8 +28,8 @@ import { WhoPaid } from './WhoPaid';
 import { UsualMonthCard } from './UsualMonthCard';
 import { Hero } from './Hero';
 import { Donut } from '../../components/Donut';
+import { donutItems, type SpendItem } from '../../components/donutItems';
 import { useCategoryMap } from '../../lib/queries';
-import { colorSlotOf, OTHER_SLOT } from '../../../shared/categoryLook';
 import { GENERAL_ID } from '../../../shared/domain/budget';
 import { PeriodLabel } from '../../components/PeriodLabel';
 import type { UsualMonth } from '../../../shared/domain/usual';
@@ -48,6 +48,7 @@ interface Dashboard {
   health: HealthData;
   insights: Insight[];
   usual: UsualMonth | null;
+  owed: { minor: number; categoryId: string | null };
 }
 
 function Onboarding() {
@@ -129,21 +130,13 @@ function SpendingDonut({ period }: { period: { start: string; end: string } }) {
   const cats = useCategoryMap();
   const q = useQuery({
     queryKey: ['trends', 'categories', period.start, period.end],
-    queryFn: () => get<{ items: { categoryId: string | null; spentMinor: number }[] }>(`/api/trends/categories?from=${period.start}&to=${period.end}`),
+    queryFn: () => get<{ items: SpendItem[] }>(`/api/trends/categories?from=${period.start}&to=${period.end}`),
   });
   if (q.isPending) return <Card><Spinner /></Card>;
   if (q.error) return null;
   const link = (id: string) => `/transactions?from=${period.start}&to=${period.end}${id === 'none' ? '&uncategorized=1' : id === GENERAL_ID ? '' : `&category=${id}`}`;
-  const items = q.data.items.map((i) => {
-    const c = i.categoryId && i.categoryId !== GENERAL_ID ? cats.get(i.categoryId) : null;
-    return {
-      id: i.categoryId ?? 'none',
-      label: i.categoryId === GENERAL_ID ? t('budget.general.name') : c ? c.name : t('trends.uncategorized'),
-      valueMinor: i.spentMinor,
-      slot: c ? colorSlotOf(c) : i.categoryId === GENERAL_ID ? 'cat-7' : OTHER_SLOT,
-      emoji: c?.emoji ?? (i.categoryId === GENERAL_ID ? '🧺' : null),
-    };
-  });
+  const items = donutItems(q.data.items, cats, t);
+
   return (
     <Card data-testid="home-donut">
       <CardTitle
@@ -253,8 +246,9 @@ function GoalsMini({ goals }: { goals: Dashboard['goals'] }) {
  * Home is a list of widgets (D-R24). The order below is the default; it is kept as data so a later
  * "customize Home" (pick, drop and reorder widgets) only has to store another list.
  */
-type WidgetId = 'hero' | 'donut' | 'who' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
-export const DEFAULT_HOME: WidgetId[] = ['hero', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health', 'usual'];
+type WidgetId = 'hero' | 'owed' | 'donut' | 'who' | 'attention' | 'upcoming' | 'forecast' | 'goals' | 'health' | 'usual';
+/** 'usual' (your usual month) is kept as a widget for the coming widget library, but is not on Home by default. */
+export const DEFAULT_HOME: WidgetId[] = ['hero', 'owed', 'donut', 'who', 'attention', 'upcoming', 'forecast', 'goals', 'health'];
 
 export function Component() {
   const { t } = useTranslation();
@@ -281,6 +275,24 @@ export function Component() {
         d={{ month: d.month, today: d.today, isCurrent, period: d.period, budgetedMinor: b.budgetedMinor, spentBudgetedMinor: b.spentBudgetedMinor, expensesMinor: d.pnl.expensesMinor, incomeMinor: d.pnl.incomeMinor, f: d.budget.f, overCount: b.counts.over }}
       />
     ),
+    owed: () =>
+      d.owed.minor > 0 && d.owed.categoryId ? (
+        <Card data-testid="owed-card">
+          <div className="flex items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-good/12 text-2xl" aria-hidden>
+              🤝
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-muted">{t('owed.cardTitle')}</p>
+              <Money minor={d.owed.minor} decimals={0} className="text-2xl font-bold tracking-tight" />
+            </div>
+            <Link to={`/transactions?from=2000-01-01&to=${d.today}&category=${d.owed.categoryId}`} className="text-sm font-medium text-accent" data-testid="owed-open-list">
+              {t('owed.cardOpen')}
+            </Link>
+          </div>
+          <p className="mt-2 text-xs text-muted">{t('owed.cardBody')}</p>
+        </Card>
+      ) : null,
     donut: () => <SpendingDonut period={d.period} />,
     who: () => <WhoPaid />,
     attention: () => <Attention items={d.insights} />,

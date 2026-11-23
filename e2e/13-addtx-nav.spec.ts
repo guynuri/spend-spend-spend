@@ -47,6 +47,11 @@ test('quick add: amount, one tap on a category, save; the category comes first n
   await expect(page.getByTestId('tx-row').first()).toContainText(name);
   await page.getByTestId('tab-add').click();
   await expect(page.getByTestId('add-tx').getByTestId('quick-cat').first()).toContainText(name);
+  // "All" opens every category as icons, in place (no drop-down)
+  const add = page.getByTestId('add-tx');
+  await add.getByTestId('quick-cat-more').click();
+  expect(await add.getByTestId('quick-cat').count()).toBeGreaterThan(7);
+  await expect(add.locator('select')).toHaveCount(0);
   await page.keyboard.press('Escape');
 });
 
@@ -91,4 +96,19 @@ test('choose bottom bar pages in settings', async ({ page }) => {
   await page.getByTestId('navbar-reset').click();
   await expect(bar.getByTestId('tab-budget')).toBeVisible();
   await expect(bar.getByTestId('tab-upcoming')).toHaveCount(0);
+});
+
+test('quick add: someone will pay me back — half by default, only my share is spending', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/');
+  await page.getByTestId('tab-add').click();
+  const sheet = page.getByTestId('add-tx');
+  await sheet.getByTestId('add-amount').fill('200');
+  await sheet.getByTestId('quick-cat').first().click();
+  await sheet.getByTestId('add-owed-open').click();
+  await expect(sheet.getByTestId('add-owed-amount')).toHaveValue(/^100(\.00)?$/);
+  await expect(sheet.getByTestId('add-owed')).toContainText('100');
+  await sheet.getByTestId('add-tx-save').click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId('owed-card')).toContainText('100');
 });

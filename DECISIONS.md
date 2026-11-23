@@ -461,3 +461,30 @@ Format: date · milestone · what · why · alternatives rejected.
   no longer a member — is "Shared". Imported rows never count for the importer: importing isn't paying.
 - GET `/api/dashboard/who` for the current period; Home shows a thin split bar and a row per person,
   only for households with more than one member. Deliberately no settle-up / who-owes-whom yet.
+
+## D-R29 · 2026-11-23 · Lighter blue; donut drill-down; quick add "All" in place; quicker subcategories
+- **Colour:** the accent moves from violet to a light, fresh blue (`#2268d8` light / `#78b0ff` dark) with a
+  pale blue background; every text token still passes ≥ 4.5:1. The app icon follows.
+- **Home:** "your usual month" is off Home by default (kept as a widget for the coming widget library).
+- **Donut:** a tap selects (another tap on the selected slice opens it); only a real mouse previews on
+  hover — on phones a tap used to fire "enter" then "click", selecting and immediately unselecting.
+  Every slice gets a minimum visible length (`arcLengths`) so 1–2 % slices no longer collapse into
+  overlapping dots. A category with subcategories (and the general expenses) opens a ring of its parts
+  in shades of its own colour, with a way back.
+- **Quick add:** "All" expands the icon grid in place (every category of the kind, then transfers, plus
+  "New"); no drop-down. Order: this device's recent picks, then the household's last use of each
+  category (`lastUsed` on GET /api/categories), then the usual order.
+- **Subcategories:** a + on every category row opens the new-subcategory form directly; the form is a
+  name and an emoji, the colour is the parent's (also the server default) unless "Use another colour".
+
+## D-R30 · 2026-11-23 · "Someone will pay me back"; shared shortcuts without keys
+- **Owed to me:** a new system category (`system_key = 'owed'`, kind transfer, migration 0023 adds it to
+  every household). Marking a purchase "someone will pay me back" (quick add, or any purchase's sheet:
+  PUT `/api/transactions/:id/owed`) splits it into your share (its category, counted as spending) and
+  the rest in "Owed to me" (a transfer: never spending or income). The repayment (Bit, PayBox…) goes in
+  the same category, so the two cancel. Home shows "People owe you ₪X" (all-time balance of that
+  category) while it's above 0, linking to its transactions. An already-split purchase is changed in the
+  split editor; a linked card charge can't be split by hand, as before.
+- **Shared shortcut links:** iCloud links are public, so saving a household shortcut link now reads the
+  shortcut (iCloud's public record API) and refuses it if a capture key (`mz_…`) is inside
+  (`shortcut_has_key`). Best effort: if iCloud can't be reached the link is accepted.

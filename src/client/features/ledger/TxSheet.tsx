@@ -14,6 +14,7 @@ import { LEDGER_DEPENDENT, useAccounts, useCategoryMap } from '../../lib/queries
 import { useCanWrite } from '../../lib/session';
 import type { Tx } from '../../../shared/schemas/ledger';
 import { SplitEditor } from './SplitEditor';
+import { OwedBox } from './OwedBox';
 import { TxTitle } from '../../components/TxTitle';
 
 /** The learned rule as it was before "always for this merchant" (restored on undo). */
@@ -145,6 +146,7 @@ export function TxSheet({ tx, onClose }: { tx: Tx | null; onClose: () => void })
               ))}
             </ul>
           )}
+          {canWrite && !tx0.cardAccountId && <OwedBox key={tx0.id} tx={tx0} onSaved={setCurrent} />}
           {canWrite && !tx0.cardAccountId && (
             <Button variant="secondary" onClick={() => setSplitting(true)} data-testid="tx-split">
               <Scissors className="size-4" aria-hidden />
