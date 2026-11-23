@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import { PAGE_ITEMS } from './nav';
+import { ALL_PAGES } from './nav';
 import { monthEnd, monthStart } from '../../shared/dates';
 
 /**
@@ -62,7 +62,7 @@ export function tourSteps(o: { canWrite: boolean; intro?: boolean; pages: string
 /** The main tour's pages: those in the user's bottom bar, in bar order. */
 export const barPages = (bar: string[]) => bar.filter((p) => TOUR_PATHS.has(p));
 /** Pages with steps not yet seen, in More-list (sidebar) order. */
-export const restPages = (seen: string[]) => PAGE_ITEMS.map((i) => i.to).filter((p) => TOUR_PATHS.has(p) && !seen.includes(p));
+export const restPages = (seen: string[]) => ALL_PAGES.map((i) => i.to).filter((p) => TOUR_PATHS.has(p) && !seen.includes(p));
 
 /** First rendered (non-zero size) element marked with this tour target, or null. */
 export function findTarget(root: Pick<ParentNode, 'querySelectorAll'>, target: string): HTMLElement | null {

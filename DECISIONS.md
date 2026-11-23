@@ -358,3 +358,106 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Not verified on a device:** whether "Request Body: File = Shortcut Input" in the shared shortcut
   sends the transaction in one of those shapes. Community reports also mention Wallet automations
   occasionally passing an empty merchant / 0 amount; those are refused, not stored.
+
+## D-R22 · 2026-11-22 · Friendlier look; subcategories, emoji and colour per category
+- **Look:** violet accent, Rubik (rounded, Hebrew + Latin), softer cards (larger radius, layered shadow,
+  lighter borders), pill-highlighted tabs. Colour tokens re-picked for both themes; the contrast test
+  still holds (≥ 4.5:1 for every text token on bg and surface). The categorical palette is the 8
+  validated hues plus a neutral grey (`--mz-cat-other`).
+- **Category colour follows the category:** `categories.color` stores a palette slot (`cat-1`…`cat-8`,
+  `cat-other`), never a raw colour; without one a stable slot is derived from the id. Charts never
+  repaint by rank. On the spending ring, a clash among the shown slices moves the later one to a hue no
+  shown category owns; the folded tail ("Other") owns the grey.
+- **Donut:** the user asked for it, so the ring is used despite the general preference for bars — kept
+  honest by ≤ 5 slices + Other, a legend with names, amounts and shares (identity never by colour
+  alone), and a ranked bar list right below it on Trends.
+- **Subcategories:** `categories.parent_id`, one level, same kind as the parent, never under a system
+  category. `v_lines.category_id` reports a subcategory's lines under its parent and keeps the assigned
+  one in `sub_category_id`, so budgets, forecast, health, review, usual month and insights roll up with
+  no per-feature code. A subcategory takes its parent's group, debt flag and budget mode (kept in sync
+  on every parent change) and has no budget of its own (`subcategory_budget`). Filtering the ledger by a
+  parent includes its subcategories; Trends → by category lists each parent with an expandable split
+  (the parent's own lines shown as "Parent (directly)"). Archiving / deleting a parent archives its
+  subcategories; a category with subcategories can't become one.
+- **Known limit:** category names stay unique per household (the existing UNIQUE constraint), so two
+  parents can't both have a subcategory called "Other". Rebuilding the table to relax it wasn't worth
+  the migration risk now.
+- **Emoji:** `categories.emoji`, one emoji checked by `isEmoji` (no zod in the client bundle). Default
+  catalog categories get an emoji and colour (also backfilled by name for existing households).
+
+## D-R23 · 2026-11-22 · Pay-day periods
+- **What:** `households.period_start_day` (1–28, migration 0020) makes every budget "month" run from
+  that day to the day before it next month. One helper, `shared/period.ts` (`Cal`: `of`, `start`, `end`,
+  `days`, `dayIn`, `sql`), replaces the calendar-month arithmetic in the money math; day 1 is exactly the
+  old behaviour (same SQL), so nothing changes for households that don't set it.
+- **Labels:** a period keeps a 'YYYY-MM' label so every month-keyed table (budgets, reviews, yearly
+  limits) still works. Start day ≤ 15 → the month it starts in; > 15 → the month it mostly covers
+  (25 Oct – 24 Nov is "November"). The UI shows the dates next to the name when the day isn't the 1st.
+- **What follows the pay day:** budget (lines, pace, f), Overview, forecast ("month end" = period end,
+  horizon = end of the next period, daily baseline over complete periods), health score, insights
+  (pace compares the same number of days into each period), monthly review (a review opens once a
+  period ends), nav badges, the ledger's default range and its month stepping.
+- **Statistics:** `stats_by_period` (default on) decides whether Trends groups by the same periods or by
+  calendar months; the user asked for this choice. Occasional categories' quarterly view stays on
+  calendar quarters.
+- **Unchanged on purpose:** recurring due dates, card billing cycles and goal contributions stay
+  calendar-based — they describe real-world dates, not budget months.
+- **Changing the day:** a setting, not history: past budgets keep their 'YYYY-MM' rows and are read
+  over the new periods. Stored review snapshots keep the numbers they were saved with.
+
+## D-R24 · 2026-11-22 · Home as widgets; fewer navigation entries
+- **Home** (was Overview) leads with "Left to spend": all monthly budget lines (monthly + general) minus
+  what's been spent in them this period, and that amount per remaining day (today included). Without
+  budgets it shows spending so far with a link to set budgets. Income and spending so far sit in the
+  same card (the old "this month" card), so the separate P&L and budget cards are gone.
+- Then: the spending ring for the period (same numbers as Trends → by category), up to 3 items that need
+  attention (the rest behind "Show all"), the next 3 payments, the month-end forecast, goals, health and
+  the usual month. Home is a list of widget ids (`DEFAULT_HOME`), so a later "customize Home" (library of
+  widgets, drag to reorder) only needs to store another list per user.
+- **Navigation:** 14 entries → 9. Pages that belong together become one entry with a tab strip on each of
+  them: Upcoming · Forecast · Recurring ("Upcoming & forecast"), Trends · Monthly review ("Insights"),
+  Accounts · Import, Settings · Household. URLs are unchanged (deep links, reminders, the tour keep
+  working); a saved bottom bar holding a page that moved into a section maps to the section's entry.
+
+## D-R25 · 2026-11-22 · Quick add
+- The "+" sheet leads with a big amount (focused, numeric keyboard), then a grid of 7 categories with
+  their emoji — this device's recently used ones first, then the household's order — and "All" for the
+  full picker. "What was it?" is optional. Today and the last used account (this device) are defaults;
+  date, account and notes are behind "More details". The save button says what it will add
+  ("Add ₪45 expense"). Recent categories and the last account live in localStorage: per-device
+  conveniences, never needed for correctness.
+
+## D-R26 · 2026-11-22 · Suggested budgets
+- `shared/domain/suggest.ts`, GET `/api/budgets/suggest?squeeze=&savings=`; applied with the normal
+  PUT `/api/budgets` (recurring limits from the current period). Rules, as shown to the user:
+  usual = median of the last ≤ 6 complete periods (months with no spending count as 0); fixed-group
+  categories keep their usual amount (rounded up to ₪10); everyday categories and the pooled general
+  expenses get the squeeze (0 / 5 / 10 %, rounded to ₪50, ≥ ₪50); occasional categories get a yearly
+  limit = last 12 periods' total (rounded up to ₪100). Income = median income of the same periods.
+  If fixed + everyday + occasional / 12 + savings target (0–20 % of income) exceeds income, everyday
+  limits shrink by one factor, never below 70 % of usual; any remaining gap is reported as a shortfall
+  instead of pretending it fits.
+- **Why median, not mean:** one renovation month or a big purchase would inflate a mean-based limit
+  for months; the median of six months shrugs off one or two such months.
+
+## D-R27 · 2026-11-22 · Budget alerts and the weekly recap
+- Two more reminder kinds (migration 0021 rebuilds `reminders` to widen its CHECK; one of each per user):
+  - **budget:** checked hourly between 9:00 and 21:00 local by the existing 15-minute cron, only on ticks
+    that have nothing else to send, for at most 3 households per tick. A budget line passing 80 % and then
+    100 % of its limit gives one push each per period (`reminders.marks` remembers what was said; a line
+    that jumps straight past 100 % gets only the 100 % one). Several at once → one push listing them.
+    No in-app card: Home's "worth a look" already lists over / watch budgets.
+  - **recap:** on a chosen weekday and hour (default Sunday 10:00). The push is one short line — spent
+    in the last 7 days, the difference from the week before, and what's left this period. The full recap
+    (with the week's top categories) is a card on Home until dismissed. This is the user's "short, or in
+    the app" — both, with the detail in the app.
+- Push text for these two is built from the household's numbers on the server; like every push, it goes
+  only to the user's own devices through the encrypted Web Push channel.
+
+## D-R28 · 2026-11-22 · Who paid (simple)
+- `accounts.owner_user_id` (migration 0022, NULL = shared; validated as a household member). A spending
+  line counts for its account's owner; on a shared account, a row added by hand or by Apple Pay counts
+  for whoever added it (`created_by`); everything else — imported rows on shared accounts, and anyone
+  no longer a member — is "Shared". Imported rows never count for the importer: importing isn't paying.
+- GET `/api/dashboard/who` for the current period; Home shows a thin split bar and a row per person,
+  only for households with more than one member. Deliberately no settle-up / who-owes-whom yet.

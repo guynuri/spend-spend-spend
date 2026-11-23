@@ -262,7 +262,7 @@ authRoutes.get('/me', requireSession, async (c) => {
     const h = await g.getHousehold(m.id);
     if (h) {
       const today = todayInTz(h.timezone);
-      active = { id: h.id, name: h.name, currency: h.currency, timezone: h.timezone, hasSampleData: h.has_sample_data === 1, aiEnabled: h.ai_enabled === 1, today };
+      active = { id: h.id, name: h.name, currency: h.currency, timezone: h.timezone, hasSampleData: h.has_sample_data === 1, aiEnabled: h.ai_enabled === 1, today, periodStartDay: h.period_start_day ?? 1, statsByPeriod: (h.stats_by_period ?? 1) === 1 };
       role = m.role;
       if (h.status === 'active') badges = await loadBadges(tenantDb(c.env.DB, h.id), h, today);
       if (m.role === 'viewer') badges.reviewDue = null; // viewers can neither complete nor dismiss: never nag them

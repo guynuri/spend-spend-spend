@@ -35,6 +35,8 @@ householdRoutes.get('/', (c) => {
     aiEnabled: hh.ai_enabled === 1,
     aiConsentAt: hh.ai_consent_at,
     shortcutLinks: { purchase: hh.shortcut_purchase_link ?? null, file: hh.shortcut_file_link ?? null },
+    periodStartDay: hh.period_start_day ?? 1,
+    statsByPeriod: (hh.stats_by_period ?? 1) === 1,
     role,
   });
 });
@@ -52,13 +54,17 @@ householdRoutes.patch('/', async (c) => {
         /** iCloud links of the household's shared shortcuts (owner only); null removes one. */
         shortcutPurchaseLink: SHORTCUT_LINK.nullable().optional(),
         shortcutFileLink: SHORTCUT_LINK.nullable().optional(),
+        /** Budget periods start on this day (pay day, 1–28); statistics follow them or calendar months. */
+        periodStartDay: z.number().int().min(1).max(28).optional(),
+        statsByPeriod: z.boolean().optional(),
       })
       .strict(),
   );
   const { db, userId, role } = tctx(c);
   // Forecast settings (safety cushion, daily estimate) are planning: members may change them. Name, currency, timezone: owners.
-  if ((b.name ?? b.currency ?? b.timezone) !== undefined && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
-  const { shortcutPurchaseLink, shortcutFileLink, ...rest } = b;
+  if ((b.name ?? b.currency ?? b.timezone ?? b.periodStartDay ?? b.statsByPeriod) !== undefined && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
+  const { shortcutPurchaseLink, shortcutFileLink, periodStartDay, statsByPeriod, ...rest } = b;
+  if (periodStartDay !== undefined || statsByPeriod !== undefined) await members(c).setPeriods({ startDay: periodStartDay, statsByPeriod });
   if (shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) {
     if (role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
     await members(c).setShortcutLinks({ purchase: shortcutPurchaseLink, file: shortcutFileLink });

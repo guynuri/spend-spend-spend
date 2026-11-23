@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Suspense, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { ADMIN_ITEM, MORE_ITEM, PAGE_ITEMS, SIDEBAR_ITEMS, navSlug, type NavItem } from '../lib/nav';
+import { ADMIN_ITEM, MORE_ITEM, PAGE_ITEMS, SIDEBAR_ITEMS, navSlug, navTargetOf, sectionOf, type NavItem } from '../lib/nav';
 import { useNavTabs } from '../lib/prefs';
 import { useCanWrite, useMe } from '../lib/session';
 import { AddTxSheet } from '../features/ledger/AddTxSheet';
@@ -18,7 +18,7 @@ export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
   const { t } = useTranslation();
   const [tabs] = useNavTabs();
   // A badged page moved off the bar marks More instead.
-  if (item.to === '/more' && ((!tabs.includes('/transactions') && me?.badges.uncategorized) || (!tabs.includes('/budget') && me?.badges.overBudget) || (!tabs.includes('/review') && me?.badges.reviewDue)))
+  if (item.to === '/more' && ((!tabs.includes('/transactions') && me?.badges.uncategorized) || (!tabs.includes('/budget') && me?.badges.overBudget) || (!tabs.includes('/trends') && me?.badges.reviewDue)))
     return <span className="absolute top-1 end-3 size-2 rounded-full bg-warn" data-testid="badge-more" role="img" aria-label={t('nav.moreBadge')} />;
   if (item.to === '/transactions' && me?.badges.uncategorized)
     return (
@@ -28,7 +28,8 @@ export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
     );
   if (item.to === '/budget' && me?.badges.overBudget)
     return <span className="absolute top-1 end-3 size-2 rounded-full bg-bad lg:static lg:ms-auto" style={inline ? { position: 'static' } : undefined} data-testid="badge-over-budget" role="img" aria-label={t('nav.overBudgetBadge')} />;
-  if (item.to === '/review' && me?.badges.reviewDue)
+  // the monthly review lives in the Insights section
+  if (item.to === '/trends' && me?.badges.reviewDue)
     return <span className="absolute top-1 end-3 size-2 rounded-full bg-accent lg:static lg:ms-auto" style={inline ? { position: 'static' } : undefined} data-testid="badge-review" role="img" aria-label={t('nav.reviewBadge')} />;
   return null;
 }
@@ -36,13 +37,14 @@ export function Badge({ item, inline }: { item: NavItem; inline?: boolean }) {
 function Sidebar({ onAdd }: { onAdd?: () => void }) {
   const { t } = useTranslation();
   const me = useMe();
+  const here = navTargetOf(useLocation().pathname);
   const items = me?.user.isSuperAdmin ? [...SIDEBAR_ITEMS, ADMIN_ITEM] : SIDEBAR_ITEMS;
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-border bg-surface px-3 py-4 lg:flex" data-testid="sidebar" data-tour="nav">
-      <div className="mb-4 px-3 text-xl font-bold text-accent">{t('app.name')}</div>
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-border/60 bg-surface px-3 py-4 lg:flex" data-testid="sidebar" data-tour="nav">
+      <div className="mb-4 px-3 text-xl font-bold tracking-tight text-accent">{t('app.name')}</div>
       {me?.active && <div className="mb-3 truncate px-3 text-sm text-muted">{me.active.name}</div>}
       {onAdd && (
-        <button type="button" onClick={onAdd} data-testid="side-add" data-tour="add" className="mb-3 flex min-h-11 items-center gap-3 rounded-xl bg-accent px-3 text-sm font-semibold text-accent-fg hover:opacity-90">
+        <button type="button" onClick={onAdd} data-testid="side-add" data-tour="add" className="mb-3 flex min-h-11 items-center gap-3 rounded-2xl bg-accent px-3 text-sm font-semibold text-accent-fg hover:opacity-90">
           <Plus className="size-5 shrink-0" aria-hidden />
           {t('ledger.add')}
         </button>
@@ -54,7 +56,7 @@ function Sidebar({ onAdd }: { onAdd?: () => void }) {
             to={it.to}
             end={it.to === '/'}
             data-testid={`side-${it.testId}`}
-            className={({ isActive }) => cx('relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium', isActive ? 'bg-accent/12 text-accent' : 'text-text hover:bg-surface-2')}
+            className={({ isActive }) => cx('relative flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium', isActive || here === it.to ? 'bg-accent/12 text-accent' : 'text-text hover:bg-surface-2')}
           >
             <it.icon className="size-5 shrink-0" aria-hidden />
             <span className="truncate">{t(it.key)}</span>
@@ -71,14 +73,15 @@ function TabBar({ onAdd }: { onAdd?: () => void }) {
   const loc = useLocation();
   const [tabs] = useNavTabs();
   const items = tabs.map((p) => PAGE_ITEMS.find((i) => i.to === p)!);
-  const moreActive = !items.some((i) => (i.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(i.to)));
+  const here = navTargetOf(loc.pathname);
+  const moreActive = !items.some((i) => i.to === here);
   const cells: (NavItem | 'add')[] = [items[0]!, items[1]!, 'add', items[2]!, MORE_ITEM];
   return (
     <nav
       aria-label={t('nav.main')}
       data-testid="tabbar"
       data-tour="nav"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       <ul className="mx-auto flex max-w-xl [&>li]:min-w-0 [&>li]:flex-1">
         {cells.map((it) =>
@@ -97,10 +100,12 @@ function TabBar({ onAdd }: { onAdd?: () => void }) {
               end={it.to === '/'}
               data-testid={`tab-${navSlug(it)}`}
               className={({ isActive }) =>
-                cx('relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium', (it.to === '/more' ? moreActive : isActive) ? 'text-accent' : 'text-muted')
+                cx('group relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium', (it.to === '/more' ? moreActive : isActive || here === it.to) ? 'is-active text-accent' : 'text-muted')
               }
             >
-              <it.icon className="size-6" aria-hidden />
+              <span className="flex h-7 w-12 items-center justify-center rounded-full transition group-[.is-active]:bg-accent/12">
+                <it.icon className="size-5" aria-hidden />
+              </span>
               <span className="max-w-full truncate">{t(it.tabKey ?? it.key)}</span>
               <Badge item={it} />
             </NavLink>
@@ -134,9 +139,9 @@ export function Layout() {
     <div className="flex min-h-dvh bg-bg text-text">
       <Sidebar onAdd={onAdd} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
           <div className="flex min-h-12 items-center justify-between gap-2 px-4">
-            <span className="text-lg font-bold text-accent"><AppName /></span>
+            <span className="text-lg font-bold tracking-tight text-accent"><AppName /></span>
             {me?.active && <span className="truncate text-sm text-muted" data-testid="household-name">{me.active.name}</span>}
           </div>
         </header>
@@ -144,6 +149,7 @@ export function Layout() {
         <SampleDataBanner />
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 lg:px-8 lg:pb-10" data-testid="app-root">
           <InstallHint />
+          <SectionTabs />
           <Suspense fallback={<Spinner />}>
             <Outlet />
           </Suspense>
@@ -160,4 +166,28 @@ export function Layout() {
 function AppName() {
   const { t } = useTranslation();
   return <>{t('app.name')}</>;
+}
+
+/** Tabs joining the pages of one section (e.g. Upcoming · Forecast · Recurring), above each of them. */
+function SectionTabs() {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const me = useMe();
+  const sec = sectionOf(pathname);
+  if (!sec) return null;
+  return (
+    <nav aria-label={t(sec.key)} className="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-surface-2 p-1" data-testid="section-tabs">
+      {sec.pages.map((p) => (
+        <NavLink
+          key={p.to}
+          to={p.to}
+          className={({ isActive }) => cx('relative flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl px-3 text-sm font-medium transition', isActive ? 'bg-surface text-text shadow-sm' : 'text-muted')}
+          data-testid={`section-tab-${p.to.slice(1)}`}
+        >
+          {t(p.key)}
+          {p.to === '/review' && me?.badges.reviewDue && <span className="ms-1.5 size-2 rounded-full bg-accent" aria-hidden />}
+        </NavLink>
+      ))}
+    </nav>
+  );
 }

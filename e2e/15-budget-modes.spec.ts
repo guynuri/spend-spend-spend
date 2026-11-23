@@ -31,7 +31,7 @@ test('general expenses share one budget line; occasional categories get a yearly
   // over budget → listed first among the variable budgets
   const general = page.getByTestId('budget-list-variable').locator('[data-testid="budget-line"][data-category="general"]');
   await expect(general).toContainText('General expenses');
-  await expect(general).toContainText('Monthly');
+  await expect(general).not.toContainText('One-time');
   await expect(general.getByTestId('general-members')).toContainText('Leisure');
   await general.locator('button').first().click();
   await expect(page.getByTestId('general-breakdown')).toContainText('Leisure');

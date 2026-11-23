@@ -176,6 +176,12 @@ export function globalDb(db: D1Database) {
         )
         .bind(id, p.purchase !== undefined ? 1 : 0, p.purchase ?? null, p.file !== undefined ? 1 : 0, p.file ?? null)
         .run(),
+    /** Pay-day periods (D-R23); undefined keeps a value. */
+    setPeriods: (id: string, p: { startDay?: number; statsByPeriod?: boolean }) =>
+      db
+        .prepare('UPDATE households SET period_start_day = COALESCE(?2, period_start_day), stats_by_period = COALESCE(?3, stats_by_period) WHERE id = ?1')
+        .bind(id, p.startDay ?? null, p.statsByPeriod === undefined ? null : p.statsByPeriod ? 1 : 0)
+        .run(),
     setHouseholdStatus: (id: string, status: 'active' | 'disabled') => db.prepare('UPDATE households SET status = ?2 WHERE id = ?1').bind(id, status).run(),
     setSampleData: (id: string, v: boolean) => db.prepare('UPDATE households SET has_sample_data = ?2 WHERE id = ?1').bind(id, v ? 1 : 0),
     setAi: (id: string, enabled: boolean, userId: string, provider: string) =>

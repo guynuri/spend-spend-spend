@@ -9,7 +9,7 @@ export const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Bo
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 const variants: Record<Variant, string> = {
   primary: 'bg-accent text-accent-fg hover:brightness-110 active:brightness-95',
-  secondary: 'bg-surface-2 text-text border border-border hover:bg-border/50 active:bg-border',
+  secondary: 'bg-surface-2 text-text hover:bg-border/60 active:bg-border',
   ghost: 'bg-transparent text-text hover:bg-surface-2 active:bg-border/60',
   danger: 'bg-bad text-white hover:brightness-110 active:brightness-95',
 };
@@ -22,7 +22,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
         type={type}
         disabled={disabled || busy}
         className={cx(
-          'inline-flex select-none items-center justify-center gap-2 rounded-xl font-medium transition disabled:opacity-50',
+          'inline-flex select-none items-center justify-center gap-2 rounded-2xl font-semibold transition active:scale-[0.98] disabled:opacity-50',
           size === 'md' ? 'min-h-11 px-4 text-base' : 'min-h-9 px-3 text-sm',
           variants[variant],
           className,
@@ -46,7 +46,7 @@ export function IconButton({ label, className, children, ...rest }: ButtonHTMLAt
 
 export function Card({ className, children, ...rest }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLElement>) {
   return (
-    <section className={cx('rounded-2xl border border-border bg-surface p-4 shadow-sm', className)} {...rest}>
+    <section className={cx('rounded-3xl border border-border/60 bg-surface p-4 shadow-[var(--mz-shadow)] sm:p-5', className)} {...rest}>
       {children}
     </section>
   );
@@ -55,7 +55,7 @@ export function Card({ className, children, ...rest }: { className?: string; chi
 export function CardTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h2 className="text-base font-semibold text-text">{children}</h2>
+      <h2 className="text-base font-semibold tracking-tight text-text">{children}</h2>
       {action}
     </div>
   );
@@ -69,7 +69,7 @@ export function PageHeader({ title, actions, subtitle }: { title: ReactNode; act
     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0">
         <div className="flex items-center gap-1">
-          <h1 className="truncate text-2xl font-bold text-text">{title}</h1>
+          <h1 className="truncate text-2xl font-bold tracking-tight text-text">{title}</h1>
           {tour && TOUR_PATHS.has(pathname) && (
             <IconButton label={t('tour.pageInfo')} className="shrink-0" data-testid="page-tour" onClick={() => tour.startPage(pathname)}>
               <Info className="size-5" aria-hidden />
@@ -100,7 +100,7 @@ export function Field({ label, hint, error, children, htmlFor }: { label: ReactN
   );
 }
 
-const inputCls = 'min-h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30';
+const inputCls = 'min-h-11 w-full rounded-2xl border border-border bg-surface px-3 text-base text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cx(inputCls, className)} {...rest} />;
@@ -161,7 +161,7 @@ export function ProgressBar({ value, tone = 'accent', label, marker }: { value: 
   const pct = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1)) * 100;
   const bar: Record<Tone, string> = { good: 'bg-good', warn: 'bg-warn', bad: 'bg-bad', neutral: 'bg-muted', accent: 'bg-accent' };
   return (
-    <div className="relative h-2 w-full overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={label}>
+    <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={label}>
       <div className={cx('h-full rounded-full transition-[width]', bar[tone])} style={{ width: `${pct}%` }} />
       {marker !== undefined && <div className="absolute top-0 h-full w-0.5 bg-text/60" style={{ insetInlineStart: `${Math.max(0, Math.min(1, marker)) * 100}%` }} />}
     </div>
@@ -193,7 +193,7 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('min-h-9 rounded-lg px-3 text-sm font-medium', value === o.value ? 'bg-surface text-text shadow-sm' : 'text-muted')}
+          className={cx('min-h-9 rounded-xl px-3 text-sm font-medium transition', value === o.value ? 'bg-surface text-text shadow-sm' : 'text-muted')}
         >
           {o.label}
         </button>

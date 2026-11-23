@@ -27,6 +27,26 @@ test('categories: add from the catalog or a custom name; hide unused ones', asyn
   await expect(page.getByTestId('category-chip').filter({ hasText: 'E2E beans' })).toBeVisible();
 });
 
+test('subcategories: add one inside a category with its own emoji; it is listed under its parent', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/categories');
+  await page.getByTestId('category-chip').filter({ hasText: /^.*(Groceries|סופר ומכולת)/ }).first().click();
+  await page.getByTestId('category-add-sub').click();
+  const sheet = page.getByTestId('add-category-sheet');
+  await expect(sheet).toContainText(/Groceries|סופר ומכולת/);
+  await sheet.getByTestId('category-name').fill('E2E organic');
+  await sheet.getByTestId('look-emoji').filter({ hasText: '🥗' }).click();
+  await sheet.getByTestId('look-color').nth(2).click();
+  await sheet.getByTestId('category-save').click();
+  await expect(sheet).toBeHidden();
+  const subs = page.getByTestId('category-subs');
+  await expect(subs.getByTestId('category-chip').filter({ hasText: 'E2E organic' })).toContainText('🥗');
+  // a subcategory's budget settings come from its parent
+  await subs.getByTestId('category-chip').filter({ hasText: 'E2E organic' }).click();
+  await expect(page.getByTestId('category-follows')).toBeVisible();
+  await expect(page.getByTestId('category-mode')).toHaveCount(0);
+});
+
 test('AI suggestions: review sheet with reason, approve all, apply', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/transactions');

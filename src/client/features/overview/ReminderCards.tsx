@@ -19,7 +19,8 @@ export function ReminderCards() {
   const accounts = new Map((useAccounts().data?.accounts ?? []).map((a) => [a.id, a]));
   const bankName = useBankName();
   const seen = useApiMutation((id: string) => post(`/api/reminders/${id}/seen`), { invalidate: [REMINDERS_QK] });
-  const due = (q.data?.reminders ?? []).filter((r) => r.due && r.kind !== 'review'); // review: ReviewDueCard
+  // review: ReviewDueCard; recap: RecapCard; budget alerts have no in-app card (Home's insights cover them)
+  const due = (q.data?.reminders ?? []).filter((r) => r.due && (r.kind === 'import' || r.kind === 'daily'));
   if (!due.length) return null;
   return (
     <>

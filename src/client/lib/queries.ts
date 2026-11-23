@@ -24,3 +24,8 @@ export function useCategoryMap() {
 }
 /** Every query that depends on transactions (invalidate after any ledger write). */
 export const LEDGER_DEPENDENT: readonly (readonly string[])[] = [['transactions'], ['accounts'], ['me'], ['budget'], ['dashboard'], ['forecast'], ['trends'], ['upcoming'], ['recurring'], ['health'], ['review'], ['goals'], ['imports']];
+
+/** Household members (name + id), for "whose account" and "who paid". */
+export function useMembers() {
+  return useQuery({ queryKey: ['members'], queryFn: () => get<{ members: { userId: string; displayName: string; role: string }[] }>('/api/household/members'), staleTime: 5 * 60_000 });
+}

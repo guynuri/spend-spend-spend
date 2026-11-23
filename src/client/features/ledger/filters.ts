@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
-import { addMonths, isValidDate, monthEnd, monthOf, monthStart } from '../../../shared/dates';
-import { useMe } from '../../lib/session';
+import { addMonths, isValidDate } from '../../../shared/dates';
+import type { Cal } from '../../../shared/period';
+import { useCal, useMe } from '../../lib/session';
 
 export interface LedgerFilters {
   from: string;
@@ -13,15 +14,15 @@ export interface LedgerFilters {
   kind: string;
 }
 
-function read(sp: URLSearchParams, today: string): LedgerFilters {
-  const m = monthOf(today);
+function read(sp: URLSearchParams, today: string, cal: Cal): LedgerFilters {
+  const m = cal.of(today);
   const from = sp.get('from') ?? '';
   const to = sp.get('to') ?? '';
-  // Missing, empty or malformed dates fall back to the current month (e.g. `?from=&to=`).
+  // Missing, empty or malformed dates fall back to the current budget period (e.g. `?from=&to=`).
   const valid = isValidDate(from) && isValidDate(to) && from <= to;
   return {
-    from: valid ? from : monthStart(m),
-    to: valid ? to : monthEnd(m),
+    from: valid ? from : cal.start(m),
+    to: valid ? to : cal.end(m),
     account: sp.get('account') ?? '',
     category: sp.get('category') ?? '',
     uncategorized: sp.get('uncategorized') === '1',
@@ -46,18 +47,21 @@ function write(f: LedgerFilters) {
 export function useLedgerFilters() {
   const [sp, setSp] = useSearchParams();
   const today = useMe()?.active?.today ?? new Date().toISOString().slice(0, 10);
-  const f = read(sp, today);
+  const cal = useCal();
+  const f = read(sp, today, cal);
   // Patches are applied to the URL as it is *now*, so a late (debounced) update never undoes a
   // filter or month change made in the meantime.
-  const set = useCallback((patch: Partial<LedgerFilters>) => setSp((prev) => write({ ...read(prev, today), ...patch }), { replace: true }), [setSp, today]);
-  const isMonth = f.from.slice(8) === '01' && f.to === monthEnd(monthOf(f.from));
+  const set = useCallback((patch: Partial<LedgerFilters>) => setSp((prev) => write({ ...read(prev, today, cal), ...patch }), { replace: true }), [setSp, today, cal]);
+  // a whole budget period (a calendar month when the pay day is the 1st)
+  const period = cal.of(f.from);
+  const isMonth = f.from === cal.start(period) && f.to === cal.end(period);
   const shiftMonth = (n: number) => {
-    const mm = addMonths(monthOf(f.from), n);
-    set({ from: monthStart(mm), to: monthEnd(mm) });
+    const mm = addMonths(period, n);
+    set({ from: cal.start(mm), to: cal.end(mm) });
   };
   const apiQuery = () => {
     const p = write(f);
     return p.toString();
   };
-  return { f, set, isMonth, shiftMonth, apiQuery, activeCount: [f.account, f.category, f.uncategorized, f.kind].filter(Boolean).length };
+  return { f, set, isMonth, period, shiftMonth, apiQuery, activeCount: [f.account, f.category, f.uncategorized, f.kind].filter(Boolean).length };
 }

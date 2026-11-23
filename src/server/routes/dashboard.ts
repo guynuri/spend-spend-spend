@@ -1,6 +1,5 @@
 import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
-import { monthOf } from '../../shared/dates';
 import { displayMonth, lastCompleteMonths } from '../../shared/domain/common';
 import { usualMonth } from '../../shared/domain/usual';
 import { generalName, type BudgetMode } from '../../shared/domain/budget';
@@ -11,6 +10,7 @@ import { computeBudget } from '../db/sql/budget';
 import { forecastFor } from '../db/sql/forecast';
 import { healthBundle } from '../db/sql/health';
 import { computeInsights } from '../db/sql/insights';
+import { weekRecapFor } from '../db/sql/week';
 
 export const dashboardRoutes = tenantGroup();
 
@@ -19,8 +19,8 @@ export const dashboardRoutes = tenantGroup();
 dashboardRoutes.get('/', async (c) => {
   const { db, hh } = tctx(c);
   const base = await loadBase(db, hh);
-  const dm = displayMonth(base.today, base.latestTx);
-  const cur = monthOf(base.today);
+  const dm = displayMonth(base.today, base.latestTx, base.cal);
+  const cur = base.cal.of(base.today);
   const [budget, forecast, health, usual] = await Promise.all([computeBudget(db, base, dm.month, 1), forecastFor(db, hh, base), healthBundle(db, base, dm.month, 6), usualFor(db, base, dm.month)]);
   const { insights, actual, x } = await computeInsights(db, hh, base, dm.month, budget, forecast, health);
   const isCurrent = dm.month === cur;
@@ -28,6 +28,7 @@ dashboardRoutes.get('/', async (c) => {
   const { series: _series, ...fc } = forecast;
   return c.json({
     month: dm.month,
+    period: { start: base.cal.start(dm.month), end: base.cal.end(dm.month), startDay: base.cal.day },
     isLatestData: dm.isLatestData,
     today: base.today,
     asOf: base.asOf,
@@ -51,6 +52,42 @@ dashboardRoutes.get('/', async (c) => {
   });
 });
 
+/**
+ * Who paid this period (D-R28): spending per household member. A line counts for its account's owner;
+ * on a shared account, a row someone added by hand (or Apple Pay) counts for them; everything else, and
+ * anyone no longer a member, is "shared". Transfers and income are left out, like everywhere else.
+ */
+dashboardRoutes.get('/who', async (c) => {
+  const { db, hh } = tctx(c);
+  const base = await loadBase(db, hh);
+  const month = displayMonth(base.today, base.latestTx, base.cal).month;
+  const [rows, members] = await db.batch([
+    db.stmt(
+      `SELECT m.user_id AS uid, -SUM(l.amount_minor) AS spent
+         FROM v_lines l
+         JOIN transactions t ON t.id = l.tx_id AND t.household_id = ?1
+         JOIN accounts a ON a.id = l.account_id AND a.household_id = ?1
+         LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
+         LEFT JOIN memberships m ON m.household_id = ?1 AND m.user_id = COALESCE(a.owner_user_id, CASE WHEN t.source = 'manual' THEN t.created_by END)
+        WHERE l.household_id = ?1 AND (c.kind = 'expense' OR (l.category_id IS NULL AND l.amount_minor < 0)) AND l.date >= ?2 AND l.date <= ?3
+        GROUP BY m.user_id`,
+      base.cal.start(month),
+      base.cal.end(month),
+    ),
+    db.stmt('SELECT u.id, u.display_name AS name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.household_id = ?1 ORDER BY m.created_at'),
+  ]);
+  const spent = new Map((rows!.results as { uid: string | null; spent: number }[]).map((r) => [r.uid, r.spent]));
+  const people = (members!.results as { id: string; name: string }[]).map((u) => ({ userId: u.id, name: u.name, spentMinor: spent.get(u.id) ?? 0 }));
+  return c.json({ month, members: people, sharedMinor: spent.get(null) ?? 0, totalMinor: [...spent.values()].reduce((a, b) => a + b, 0) });
+});
+
+/** The weekly recap (the 7 days before today) for the in-app card. */
+dashboardRoutes.get('/week', async (c) => {
+  const { db, hh } = tctx(c);
+  const base = await loadBase(db, hh);
+  return c.json(await weekRecapFor(db, base));
+});
+
 /** "A usual month" over the up-to-6 complete months before the shown month, and that month so far. */
 async function usualFor(db: TenantDb, base: BaseFacts, month: string) {
   const months = lastCompleteMonths(base.complete, 6, month);
@@ -58,9 +95,9 @@ async function usualFor(db: TenantDb, base: BaseFacts, month: string) {
   // occasional spending (trips, gifts) is averaged over up to a year
   const occasionalMonths = lastCompleteMonths(base.complete, 12, month);
   const [pnl, spent, now, cats] = await db.batch([
-    pnlByMonthStmt(db, months[0]!, months[months.length - 1]!),
-    spentByCategoryStmt(db, occasionalMonths[0]!, months[months.length - 1]!),
-    spentByCategoryStmt(db, month, month),
+    pnlByMonthStmt(db, base.cal, months[0]!, months[months.length - 1]!),
+    spentByCategoryStmt(db, base.cal, occasionalMonths[0]!, months[months.length - 1]!),
+    spentByCategoryStmt(db, base.cal, month, month),
     db.stmt('SELECT id, name, system_key, budget_mode FROM categories WHERE household_id = ?1'),
   ]);
   const thisMonth = new Map<string, number>();

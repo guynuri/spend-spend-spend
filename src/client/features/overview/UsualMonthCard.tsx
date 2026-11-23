@@ -6,7 +6,7 @@ import { Money } from '../../components/Money';
 import { DateText } from '../../components/DateText';
 import { useParamFormatter } from '../../lib/format';
 import { formatPercent, type Locale } from '../../../shared/money';
-import { monthEnd, monthStart } from '../../../shared/dates';
+import { useCal } from '../../lib/session';
 import type { UsualItem, UsualMonth } from '../../../shared/domain/usual';
 
 /** Fixed categorical order (styles.css --mz-cat-*): color follows the category's rank in the usual month. */
@@ -30,6 +30,7 @@ export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; mo
   const { t, i18n } = useTranslation();
   const pf = useParamFormatter();
   const [picked, setPicked] = useState<string | null>(null);
+  const cal = useCal();
   const pct = (x: number) => formatPercent(x, i18n.language as Locale);
   if (!u)
     return (
@@ -48,13 +49,13 @@ export function UsualMonthCard({ u, month, current }: { u: UsualMonth | null; mo
   const sel = segments.find((s) => s.key === picked) ?? null;
 
   const top = u.items[0]?.avgMinor || 1;
-  const from = monthStart(month);
-  const to = monthEnd(month);
+  const from = cal.start(month);
+  const to = cal.end(month);
   const first = u.months[0]!;
   const last = u.months[u.months.length - 1]!;
   // general expenses open the budget (their categories are listed there); occasional ones show their last 12 months
   const linkFor = (i: UsualItem) =>
-    i.kind === 'general' ? `/budget?month=${month}` : i.kind === 'occasional' ? `/transactions?from=${monthStart(u.occasionalMonths[0] ?? month)}&to=${to}&category=${i.categoryId}` : `/transactions?from=${from}&to=${to}&category=${i.categoryId}`;
+    i.kind === 'general' ? `/budget?month=${month}` : i.kind === 'occasional' ? `/transactions?from=${cal.start(u.occasionalMonths[0] ?? month)}&to=${to}&category=${i.categoryId}` : `/transactions?from=${from}&to=${to}&category=${i.categoryId}`;
 
   return (
     <Card data-testid="usual-card">

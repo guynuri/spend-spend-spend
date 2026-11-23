@@ -1,4 +1,4 @@
-import { addDays, daysInMonth, dayOf, monthEnd, monthOf, monthStart } from '../../../shared/dates';
+import { addDays, addMonths } from '../../../shared/dates';
 import { lastCompleteMonths } from '../../../shared/domain/common';
 import { computeForecast, type ActualIn, type ForecastView, type PlannedIn } from '../../../shared/domain/forecast';
 import type { TenantDb } from '../tenant';
@@ -13,8 +13,10 @@ const EXPENSE_LINE = `(c.kind = 'expense' OR (l.category_id IS NULL AND l.amount
 /** Loads every forecast input with a handful of queries and runs the pure engine (PLAN §10.3). */
 export async function forecastFor(q: TenantDb, hh: HouseholdRow, base: BaseFacts, horizonEnd?: string): Promise<ForecastView> {
   const A = base.asOf;
+  const { cal } = base;
   const months = lastCompleteMonths(base.complete, 3);
-  const H = horizonEnd ?? monthEnd(monthOf(addDays(monthEnd(monthOf(base.today)), 1)));
+  // to the end of the next budget period
+  const H = horizonEnd ?? cal.end(addMonths(cal.of(base.today), 1));
   const res = await q.batch([
     q.stmt('SELECT id FROM accounts WHERE household_id = ?1 AND include_in_forecast = 1 AND archived = 0'),
     ...recurringStmts(q, addDays(A, -400)),
@@ -32,7 +34,7 @@ export async function forecastFor(q: TenantDb, hh: HouseholdRow, base: BaseFacts
       `SELECT COALESCE(-SUM(l.amount_minor), 0) AS v FROM v_lines l
          JOIN accounts a ON a.id = l.account_id AND a.household_id = ?1 AND a.include_in_forecast = 1
          LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
-        WHERE l.household_id = ?1 AND substr(l.date, 1, 7) IN (SELECT value FROM json_each(?2)) AND ${EXPENSE_LINE}
+        WHERE l.household_id = ?1 AND ${cal.sql('l.date')} IN (SELECT value FROM json_each(?2)) AND ${EXPENSE_LINE}
           AND l.kind <> 'card_lump' AND l.recurring_id IS NULL AND l.planned_id IS NULL`,
       JSON.stringify(months),
     ),
@@ -42,7 +44,7 @@ export async function forecastFor(q: TenantDb, hh: HouseholdRow, base: BaseFacts
          LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
         WHERE l.household_id = ?1 AND l.date >= ?2 AND l.date <= ?3 AND ${EXPENSE_LINE}
           AND l.kind <> 'card_lump' AND l.recurring_id IS NULL AND l.planned_id IS NULL`,
-      monthStart(monthOf(A)),
+      cal.start(cal.of(A)),
       A,
     ),
   ]);
@@ -72,9 +74,10 @@ export async function forecastFor(q: TenantDb, hh: HouseholdRow, base: BaseFacts
     ...rec,
     planned,
     actuals,
-    baseline: { setting: hh.forecast_daily_variable_minor, v, d: months.reduce((s, m) => s + daysInMonth(m), 0), monthOfA: { sum: vA, days: dayOf(A) } },
+    baseline: { setting: hh.forecast_daily_variable_minor, v, d: months.reduce((s, m) => s + cal.days(m), 0), monthOfA: { sum: vA, days: cal.dayIn(A) } },
     completeMonths: base.complete.length,
     safetyBuffer: hh.safety_buffer_minor,
     horizonEnd: H,
+    cal,
   });
 }

@@ -3,7 +3,6 @@ import { tenantGroup } from './tenant';
 import { tctx } from '../ctx';
 import { body, notFound } from '../http';
 import { dateStr, minor, posMinor, text } from '../../shared/schemas/common';
-import { monthOf } from '../../shared/dates';
 import { newId, nowIso } from '../lib/crypto';
 import { loadBase } from '../db/sql/facts';
 import { healthBundle } from '../db/sql/health';
@@ -28,7 +27,7 @@ const contribCreate = z.object({ date: dateStr, amountMinor: minor.refine((v) =>
 goalRoutes.get('/', async (c) => {
   const { db, hh } = tctx(c);
   const base = await loadBase(db, hh);
-  const b = await healthBundle(db, base, monthOf(base.today), 1);
+  const b = await healthBundle(db, base, base.cal.of(base.today), 1);
   const contribs = await db.all<{ id: string; goal_id: string; date: string; amount_minor: number; note: string | null }>('SELECT id, goal_id, date, amount_minor, note FROM goal_contributions WHERE household_id = ?1 ORDER BY date DESC');
   return c.json({ goals: b.goals, summary: b.goalsSummary, contributions: contribs.map((x) => ({ id: x.id, goalId: x.goal_id, date: x.date, amountMinor: x.amount_minor, note: x.note })), today: base.today });
 });
@@ -107,7 +106,7 @@ healthRoutes.get('/', async (c) => {
   const { db, hh } = tctx(c);
   const qv = z.object({ months: z.coerce.number().int().min(1).max(12).optional() }).safeParse(c.req.query());
   const base = await loadBase(db, hh);
-  const b = await healthBundle(db, base, monthOf(base.today), qv.success ? (qv.data.months ?? 6) : 6);
+  const b = await healthBundle(db, base, base.cal.of(base.today), qv.success ? (qv.data.months ?? 6) : 6);
   return c.json({
     month: b.current.month,
     overall: b.current.result.overall,

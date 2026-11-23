@@ -12,13 +12,15 @@ import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { useApiMutation } from '../../lib/mutate';
 import { LEDGER_DEPENDENT, useAccounts, useCategoryMap } from '../../lib/queries';
-import { useCanWrite } from '../../lib/session';
+import { useCal, useCanWrite } from '../../lib/session';
 import type { Tx, TxList } from '../../../shared/schemas/ledger';
 import { useLedgerFilters } from './filters';
 import { TxSheet } from './TxSheet';
 import { AddTxSheet } from './AddTxSheet';
 import { TodoCard } from './TodoCard';
 import { TxTitle, useTxTitle } from '../../components/TxTitle';
+import { CategoryIcon } from '../../components/CategoryIcon';
+import { PeriodLabel } from '../../components/PeriodLabel';
 
 function CategoryLabel({ tx }: { tx: Tx }) {
   const { t } = useTranslation();
@@ -70,7 +72,8 @@ export function Component() {
   const toast = useToast();
   const canWrite = useCanWrite();
   const fmt = useFormatDate();
-  const { f, set, isMonth, shiftMonth, apiQuery, activeCount } = useLedgerFilters();
+  const { f, set, isMonth, period, shiftMonth, apiQuery, activeCount } = useLedgerFilters();
+  const cal = useCal();
   const accounts = useAccounts();
   const title = useTxTitle();
   const accMap = new Map((accounts.data?.accounts ?? []).map((a) => [a.id, a.name]));
@@ -154,7 +157,7 @@ export function Component() {
           <ChevronLeft className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
         <div className="text-center font-semibold" data-testid="ledger-range">
-          {isMonth ? <DateText date={f.from.slice(0, 7)} format="month" /> : `${fmt(f.from)} – ${fmt(f.to)}`}
+          {isMonth ? <PeriodLabel month={period} cal={cal} /> : `${fmt(f.from)} – ${fmt(f.to)}`}
         </div>
         <IconButton label={t('ledger.nextMonth')} onClick={() => shiftMonth(1)} data-testid="month-next">
           <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />
@@ -216,11 +219,12 @@ export function Component() {
                 <h3 className="mb-1 px-1 text-xs font-semibold text-muted">
                   <DateText date={date} format="weekday" />
                 </h3>
-                <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+                <ul className="divide-y divide-border/70 overflow-hidden rounded-3xl border border-border/60 bg-surface shadow-[var(--mz-shadow)]">
                   {txs.map((tx) => (
                     <li key={tx.id}>
                       <button type="button" onClick={() => onRow(tx)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-start active:bg-surface-2" data-testid="tx-row" data-tour="tx-row" data-tx={tx.id}>
                         {selecting && <input type="checkbox" readOnly checked={selected.has(tx.id)} className="size-5 shrink-0" aria-label={title(tx)} />}
+                        <CategoryIcon cat={tx.hasSplits ? { id: 'split', color: 'cat-other', emoji: '✂️' } : tx.categoryId ? cats.get(tx.categoryId) : { id: 'none', color: 'cat-other', emoji: '❔' }} />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
                             <TxTitle tx={tx} />

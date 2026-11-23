@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { makeCal } from '../../src/shared/period';
 import { CURVES, computeHealth, label, lerp, recommendations, type HealthInput } from '../../src/shared/domain/health';
 import { goalView, goalsSummary, type GoalIn } from '../../src/shared/domain/goals';
 import { buildInsights, type InsightInput } from '../../src/shared/domain/insights';
@@ -116,6 +117,12 @@ describe('action items (§10.7, AC11.2)', () => {
     );
     expect(r.map((x) => x.key)).toEqual(['low_point_negative', 'stale_data', 'uncategorized', 'budget_over', 'budget_over', 'budget_over', 'budget_over_more', 'goal_behind', 'card_unsplit', 'category_spike', 'pace_more', 'recurring_suggested', 'payment_soon', 'goal_milestone', 'savings_good', 'under_budget']);
     expect(r.find((x) => x.key === 'budget_over')!.params.category).toBe('d');
+  });
+  it('a goal milestone belongs to the pay-day period its date falls in', () => {
+    const goals = [{ id: 'g', name: 'Fund', status: 'on_track', archived: false, requiredMonthlyMinor: 5, milestones: [{ pct: 50, date: '2026-10-28' }] } as never];
+    const has = (cal?: ReturnType<typeof makeCal>) => buildInsights(inp({ month: '2026-11', goals, ...(cal ? { cal } : {}) })).some((x) => x.key === 'goal_milestone');
+    expect(has()).toBe(false); // calendar months: 28 Oct is October
+    expect(has(makeCal(25))).toBe(true); // pay day 25: 25 Oct – 24 Nov is "November"
   });
   it('spike only compares pro-rated spend when f ≥ 0.5; pace needs ≥ 10 %', () => {
     const l = { categoryId: 'e', name: 'e', grp: 'variable' as const, limitMinor: null, oneTime: false, spentMinor: 20000, remainingMinor: null, utilization: null, status: null, avg3Minor: 20000 };

@@ -3,6 +3,7 @@
  * rendered on the client, so a review reads in either locale and AI is purely additive.
  */
 import type { MonthStr } from '../dates';
+import { CALENDAR, type Cal } from '../period';
 import type { Insight } from './insights';
 import type { Recommendation, Label } from './health';
 import type { GoalStatus } from './goals';
@@ -65,6 +66,8 @@ const pct = (cur: number, prev: number) => (prev ? (cur - prev) / Math.abs(prev)
 
 export interface ReviewInput {
   month: MonthStr;
+  /** Budget periods (pay day): which dates belong to `month`. Default: calendar months. */
+  cal?: Cal;
   isLatestMonth: boolean;
   health: { score: number | null; label: Label | null; change: number | null; recommendations: Recommendation[] };
   income: { totalMinor: number; prevMinor: number; byCategory: { categoryId: string | null; name: string | null; amountMinor: number }[] };
@@ -148,7 +151,8 @@ export function buildReview(i: ReviewInput): ReviewSnapshot {
   const savingsRate = i.income.totalMinor > 0 ? net / i.income.totalMinor : null;
   const over = i.budget.lines.filter((l) => l.limitMinor !== null && l.spentMinor > l.limitMinor);
   const budgeted = i.budget.lines.filter((l) => l.limitMinor !== null);
-  const milestonesThisMonth = i.goals.items.flatMap((g) => g.milestones.filter((m) => m.date.slice(0, 7) === i.month));
+  const inMonth = (d: string) => (i.cal ?? CALENDAR).of(d) === i.month;
+  const milestonesThisMonth = i.goals.items.flatMap((g) => g.milestones.filter((m) => inMonth(m.date)));
   const chips: ReviewSnapshot['summary']['chips'] = [];
   if ((i.health.change ?? 0) >= 3) chips.push('score_up');
   if (milestonesThisMonth.length) chips.push('milestone');
@@ -214,7 +218,7 @@ export function buildReview(i: ReviewInput): ReviewSnapshot {
       activeCount: i.goals.activeCount,
       savedMinor: i.goals.savedMinor,
       targetMinor: i.goals.targetMinor,
-      items: i.goals.items.map((g) => ({ name: g.name, progress: g.progress, requiredMonthlyMinor: g.requiredMonthlyMinor, status: g.status, milestones: g.milestones.filter((m) => m.date.slice(0, 7) === i.month).map((m) => m.pct) })),
+      items: i.goals.items.map((g) => ({ name: g.name, progress: g.progress, requiredMonthlyMinor: g.requiredMonthlyMinor, status: g.status, milestones: g.milestones.filter((m) => inMonth(m.date)).map((m) => m.pct) })),
       commentary: { key: i.goals.items.length === 0 ? 'review.c.goals.none' : behind.length ? 'review.c.goals.some_behind' : 'review.c.goals.all_on_track', params: { count: behind.length } },
     },
     cashflow: {

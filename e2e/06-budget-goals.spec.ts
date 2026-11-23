@@ -15,7 +15,7 @@ test('add a budget from the sheet; the status colour follows; one-time limit app
   await page.getByTestId('limit-save').click();
   await expect(groceries()).toHaveAttribute('data-status', 'over');
   await expect(groceries().getByRole('progressbar').locator('div').first()).toHaveClass(/bg-bad/);
-  await expect(groceries()).toContainText('Monthly');
+  await expect(groceries()).not.toContainText('One-time');
   await groceries().getByTestId('limit-edit').click();
   await page.getByTestId('limit-input').fill('100000');
   await page.getByTestId('limit-save').click();
@@ -96,10 +96,11 @@ test('add a goal and a contribution; progress and milestones update', async ({ p
   await expect(page.getByTestId('dash-goals')).toContainText('Emergency fund E2E');
 });
 
-test('overview shows the cards in order and the health explanation', async ({ page }) => {
+test('home shows what is left to spend first, then the cards in order, and the health explanation', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/');
-  const ids = ['forecast-card', 'pnl-card', 'usual-card', 'insights', 'budget-card', 'dash-goals', 'health-card'];
+  await expect(page.getByTestId('hero-card')).toBeVisible();
+  const ids = ['hero-card', 'home-donut', 'insights', 'forecast-card', 'dash-goals', 'health-card', 'usual-card'];
   const tops: number[] = [];
   for (const id of ids) tops.push((await page.getByTestId(id).first().boundingBox())!.y);
   expect([...tops].sort((a, b) => a - b)).toEqual(tops);

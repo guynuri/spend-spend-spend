@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { bool01, dateStr, id, minor, posMinor, text } from './common';
 import { BANK_IDS } from '../banks';
+import { isEmoji } from '../categoryLook';
 
 export const accountType = z.enum(['checking', 'savings', 'cash', 'credit_card', 'investment']);
 export const accountCreate = z
@@ -14,6 +15,8 @@ export const accountCreate = z
     openingDate: dateStr.nullable().optional(),
     includeInForecast: bool01.optional(),
     isLiquid: bool01.optional(),
+    /** Whose account it is (a member's user id), or null for a shared one. */
+    ownerUserId: id.nullable().optional(),
   })
   .strict();
 export const accountPatch = accountCreate.partial().extend({ archived: bool01.optional() }).strict();
@@ -22,9 +25,40 @@ export const balanceSet = z.object({ date: dateStr, balanceMinor: minor }).stric
 export const categoryKind = z.enum(['income', 'expense', 'transfer']);
 /** How an expense category is budgeted: its own monthly line, pooled into general expenses, or yearly (occasional). */
 export const budgetMode = z.enum(['monthly', 'general', 'occasional']);
-export const categoryCreate = z.object({ name: text(40).min(1), kind: categoryKind, grp: z.enum(['fixed', 'variable']).nullable().optional(), isDebt: bool01.optional(), budgetMode: budgetMode.optional() }).strict();
+/** One emoji (see isEmoji), or '' / null to clear it. */
+export const categoryEmoji = z
+  .string()
+  .trim()
+  .max(16)
+  .refine((v) => v === '' || isEmoji(v), 'emoji')
+  .transform((v) => (v === '' ? null : v));
+export const categoryColor = z.enum(['cat-1', 'cat-2', 'cat-3', 'cat-4', 'cat-5', 'cat-6', 'cat-7', 'cat-8', 'cat-other']);
+export const categoryCreate = z
+  .object({
+    name: text(40).min(1),
+    kind: categoryKind,
+    grp: z.enum(['fixed', 'variable']).nullable().optional(),
+    isDebt: bool01.optional(),
+    budgetMode: budgetMode.optional(),
+    /** A subcategory of this top-level category (its kind, group and budget mode come from the parent). */
+    parentId: id.optional(),
+    emoji: categoryEmoji.nullable().optional(),
+    color: categoryColor.optional(),
+  })
+  .strict();
 export const categoryPatch = z
-  .object({ name: text(40).min(1).optional(), grp: z.enum(['fixed', 'variable']).nullable().optional(), isDebt: bool01.optional(), budgetMode: budgetMode.optional(), archived: bool01.optional(), sort: z.number().int().min(0).max(1000).optional() })
+  .object({
+    name: text(40).min(1).optional(),
+    grp: z.enum(['fixed', 'variable']).nullable().optional(),
+    isDebt: bool01.optional(),
+    budgetMode: budgetMode.optional(),
+    archived: bool01.optional(),
+    sort: z.number().int().min(0).max(1000).optional(),
+    /** Move under a top-level category, or null to make it top-level. */
+    parentId: id.nullable().optional(),
+    emoji: categoryEmoji.nullable().optional(),
+    color: categoryColor.optional(),
+  })
   .strict();
 
 export const ruleField = z.enum(['description', 'operation_type']);
@@ -102,6 +136,8 @@ export interface Account {
   balanceDate: string | null;
   varianceMinor: number | null;
   latestSnapshot: { date: string; balanceMinor: number; source: string } | null;
+  /** Whose account it is; null = shared (D-R28). */
+  ownerUserId: string | null;
 }
 export interface Category {
   id: string;
@@ -113,6 +149,11 @@ export interface Category {
   budgetMode: 'monthly' | 'general' | 'occasional';
   systemKey: string | null;
   icon: string | null;
+  /** Palette slot (cat-1..cat-8, cat-other) or null (a stable one is derived from the id). */
+  color: string | null;
+  emoji: string | null;
+  /** The top-level category this one is a subcategory of. */
+  parentId: string | null;
   sort: number;
   archived: boolean;
 }

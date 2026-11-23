@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: 'Heebo Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Rubik Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --color-bg: var(--mz-bg);
   --color-surface: var(--mz-surface);
   --color-surface-2: var(--mz-surface-2);
@@ -21,50 +21,60 @@
 }
 
 :root {
-  --mz-bg: #f4f6f5;
+  --mz-bg: #f6f4fb;
   --mz-surface: #ffffff;
-  --mz-surface-2: #edf1f0;
-  --mz-border: #d9e1df;
-  --mz-text: #15201d;
-  --mz-muted: #56655f;
-  --mz-accent: #0d7068;
+  --mz-surface-2: #f0edf8;
+  --mz-border: #e6e2f0;
+  --mz-text: #1e1b2e;
+  --mz-muted: #5f5a75;
+  --mz-accent: #5b44d4;
   --mz-accent-fg: #ffffff;
   --mz-good: #18794e;
-  --mz-warn: #a35200;
-  --mz-bad: #c0262d;
-  --mz-chart-1: #0d7068;
-  --mz-chart-2: #8a9a95;
-  --mz-chart-3: #c0262d;
-  /* Categorical series, fixed order (validated: adjacent CVD ΔE ≥ 8.4, normal ≥ 19.3; light needs visible labels). */
+  --mz-warn: #9a5000;
+  --mz-bad: #c22a3c;
+  --mz-chart-1: #5b44d4;
+  --mz-chart-2: #a9a4bd;
+  --mz-chart-3: #c22a3c;
+  /* Soft, layered card shadow (friendly look: no hard edges). */
+  --mz-shadow: 0 1px 2px rgb(30 27 46 / 0.04), 0 8px 24px -12px rgb(30 27 46 / 0.12);
+  /* Categorical series, fixed order (validated: adjacent CVD ΔE ≥ 8.4, normal ≥ 19.3; light needs visible labels).
+     A category keeps its own slot (categories.color), so its colour never depends on rank. */
   --mz-cat-1: #2a78d6;
   --mz-cat-2: #eb6834;
   --mz-cat-3: #1baf7a;
   --mz-cat-4: #eda100;
   --mz-cat-5: #e87ba4;
   --mz-cat-6: #008300;
+  --mz-cat-7: #6250d6;
+  --mz-cat-8: #e34948;
+  --mz-cat-other: #a9a4bd;
 }
 
 .dark {
-  --mz-bg: #0e1312;
-  --mz-surface: #161d1b;
-  --mz-surface-2: #1f2826;
-  --mz-border: #2c3735;
-  --mz-text: #e6edeb;
-  --mz-muted: #9aaba6;
-  --mz-accent: #3cc4b5;
-  --mz-accent-fg: #062320;
-  --mz-good: #4cc38a;
-  --mz-warn: #f0a44b;
-  --mz-bad: #ff6b6b;
-  --mz-chart-1: #3cc4b5;
-  --mz-chart-2: #6b7c77;
-  --mz-chart-3: #ff6b6b;
+  --mz-bg: #12111c;
+  --mz-surface: #1c1a2b;
+  --mz-surface-2: #262338;
+  --mz-border: #322e47;
+  --mz-text: #eeecf6;
+  --mz-muted: #a7a2c2;
+  --mz-accent: #a597ff;
+  --mz-accent-fg: #1a1240;
+  --mz-good: #5ccb96;
+  --mz-warn: #f2a85a;
+  --mz-bad: #ff7d88;
+  --mz-chart-1: #a597ff;
+  --mz-chart-2: #5d5875;
+  --mz-chart-3: #ff7d88;
+  --mz-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
   --mz-cat-1: #3987e5;
   --mz-cat-2: #d95926;
   --mz-cat-3: #199e70;
   --mz-cat-4: #c98500;
   --mz-cat-5: #d55181;
   --mz-cat-6: #0ca30c;
+  --mz-cat-7: #9085e9;
+  --mz-cat-8: #e66767;
+  --mz-cat-other: #5d5875;
 }
 
 html {

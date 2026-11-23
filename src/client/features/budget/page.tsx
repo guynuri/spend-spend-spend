@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { AlertOctagon, CheckCircle2, ChevronLeft, ChevronRight, Eye, Pencil, Plus } from 'lucide-react';
+import { AlertOctagon, CheckCircle2, ChevronLeft, ChevronRight, Eye, Pencil, Plus, Sparkles } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Line, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { put } from '../../api';
 import { Badge, Button, Card, CardTitle, EmptyState, ErrorState, Field, IconButton, PageHeader, ProgressBar, Segmented, Select, Spinner, type Tone } from '../../components/ui';
@@ -12,12 +12,16 @@ import { ExplainSheet } from '../../components/ExplainSheet';
 import { Sheet } from '../../components/Sheet';
 import { C, ChartBox, tooltipStyle, useCompactMoney, useMoneyFmt } from '../../components/charts';
 import { useApiMutation } from '../../lib/mutate';
-import { useCanWrite } from '../../lib/session';
+import { useCal, useCanWrite } from '../../lib/session';
 import { formatPercent, minorToInput, parseMoneyInput, type Locale } from '../../../shared/money';
-import { addMonths, monthEnd, monthStart } from '../../../shared/dates';
+import { addMonths } from '../../../shared/dates';
+import { PeriodLabel } from '../../components/PeriodLabel';
 import { GENERAL_ID, type BudgetLine, type BudgetStatus, type OccasionalLine } from '../../../shared/domain/budget';
 import { UnsplitCardBanner } from '../ledger/UnsplitCardBanner';
 import { useBudget, type BudgetResponse } from './useBudget';
+import { CategoryIcon } from '../../components/CategoryIcon';
+import { SuggestButton, SuggestSheet } from './Suggest';
+import { useCategoryMap } from '../../lib/queries';
 
 /** Unicode isolate so amounts never reorder inside RTL sentences. */
 const iso = (s: string) => `⁨${s}⁩`;
@@ -105,16 +109,18 @@ function BudgetForm({ line, lines, month, onDone }: { line: BudgetLine | null; l
 
 function LineRow({ line, onOpen, onEdit }: { line: BudgetLine; onOpen: () => void; onEdit: () => void }) {
   const { t } = useTranslation();
+  const cats = useCategoryMap();
   const canWrite = useCanWrite();
   const tone: Tone = line.status ? TONE[line.status] : 'accent';
   const limit = line.limitMinor === null ? <span className="text-xs text-muted">{t('budget.noLimit')}</span> : <Money minor={line.limitMinor} decimals={0} className="text-sm" />;
   return (
     <li className="py-3" data-testid="budget-line" data-status={line.status ?? 'none'} data-category={line.categoryId} data-one-time={line.oneTime}>
       <div className="flex items-center justify-between gap-2">
+        <CategoryIcon cat={line.categoryId === GENERAL_ID ? { id: GENERAL_ID, color: 'cat-7', emoji: '🧺' } : cats.get(line.categoryId)} />
         <button type="button" onClick={onOpen} className="min-h-11 min-w-0 flex-1 text-start">
           <div className="flex min-w-0 items-center gap-1">
             <bdi className="truncate font-medium">{line.name}</bdi>
-            {line.limitMinor !== null && <Badge tone={line.oneTime ? 'accent' : 'neutral'}>{t(line.oneTime ? 'budget.oneTime' : 'budget.monthly')}</Badge>}
+            {line.limitMinor !== null && line.oneTime && <Badge tone="accent">{t('budget.oneTime')}</Badge>}
           </div>
           {line.members && line.members.length > 0 && (
             <div className="truncate text-xs text-muted" data-testid="general-members">
@@ -193,6 +199,7 @@ function TopList<T>({ id, title, items, render, ulClass = 'divide-y divide-borde
 }
 
 function Charts({ data, onOpen }: { data: BudgetResponse; onOpen: (l: BudgetLine) => void }) {
+  const cal = useCal();
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
   const money = useMoneyFmt();
@@ -243,7 +250,7 @@ function Charts({ data, onOpen }: { data: BudgetResponse; onOpen: (l: BudgetLine
                     {inner}
                   </button>
                 ) : (
-                  <Link to={`/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${l.categoryId}`} className="block min-h-11">
+                  <Link to={`/transactions?from=${cal.start(data.month)}&to=${cal.end(data.month)}&category=${l.categoryId}`} className="block min-h-11">
                     {inner}
                   </Link>
                 )}
@@ -260,6 +267,7 @@ function Charts({ data, onOpen }: { data: BudgetResponse; onOpen: (l: BudgetLine
 type SheetLine = Pick<BudgetLine, 'categoryId' | 'name' | 'members'> & { limitMinor?: number | null; oneTime?: boolean; occasional?: boolean };
 
 function CategorySheet({ line, data, onClose }: { line: SheetLine | null; data: BudgetResponse; onClose: () => void }) {
+  const cal = useCal();
   const { t, i18n } = useTranslation();
   const fmt = useFormatDate();
   const money = useMoneyFmt();
@@ -289,7 +297,7 @@ function CategorySheet({ line, data, onClose }: { line: SheetLine | null; data: 
               <ul className="divide-y divide-border" data-testid="general-breakdown">
                 {line.members.map((m) => (
                   <li key={m.categoryId}>
-                    <Link to={`/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${m.categoryId}`} className="flex min-h-11 items-center justify-between gap-2 text-sm">
+                    <Link to={`/transactions?from=${cal.start(data.month)}&to=${cal.end(data.month)}&category=${m.categoryId}`} className="flex min-h-11 items-center justify-between gap-2 text-sm">
                       <bdi className="truncate">{m.name}</bdi>
                       <span className="shrink-0 text-muted">
                         <Money minor={m.spentMinor} decimals={0} /> · {t('budget.avg3')} <Money minor={m.avg3Minor} decimals={0} />
@@ -301,7 +309,7 @@ function CategorySheet({ line, data, onClose }: { line: SheetLine | null; data: 
             </>
           ) : (
             <Link
-              to={line.occasional ? `/transactions?from=${monthStart(addMonths(data.month, -11))}&to=${monthEnd(data.month)}&category=${line.categoryId}` : `/transactions?from=${monthStart(data.month)}&to=${monthEnd(data.month)}&category=${line.categoryId}`}
+              to={line.occasional ? `/transactions?from=${cal.start(addMonths(data.month, -11))}&to=${cal.end(data.month)}&category=${line.categoryId}` : `/transactions?from=${cal.start(data.month)}&to=${cal.end(data.month)}&category=${line.categoryId}`}
               className="inline-flex min-h-11 items-center justify-center rounded-xl bg-surface-2 px-4 font-medium"
             >
               {t('budget.viewTransactions')}
@@ -426,6 +434,7 @@ function OccasionalCard({ data, onOpen }: { data: BudgetResponse; onOpen: (l: Oc
 }
 
 export function Component() {
+  const cal = useCal();
   const { t, i18n } = useTranslation();
   const canWrite = useCanWrite();
   const [sp, setSp] = useSearchParams();
@@ -433,6 +442,7 @@ export function Component() {
   const money0 = useMoneyFmt(0);
   const [open, setOpen] = useState<SheetLine | null>(null);
   const [editing, setEditing] = useState<BudgetLine | 'new' | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
   const loc = i18n.language as Locale;
   if (q.isPending) return <Spinner />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -451,13 +461,13 @@ export function Component() {
   );
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('budget.title')} actions={budgeted.length > 0 && addButton} />
+      <PageHeader title={t('budget.title')} actions={budgeted.length > 0 && canWrite && (<>{addButton}<SuggestButton onClick={() => setSuggesting(true)} /></>)} />
       <div className="flex items-center justify-between">
         <IconButton label={t('ledger.prevMonth')} onClick={() => go(-1)} data-testid="month-prev">
           <ChevronLeft className="size-5 rtl:-scale-x-100" aria-hidden />
         </IconButton>
-        <span className="font-semibold" data-testid="budget-month">
-          <DateText date={d.month} format="month" />
+        <span className="text-center font-semibold" data-testid="budget-month">
+          <PeriodLabel month={d.month} cal={cal} />
         </span>
         <IconButton label={t('ledger.nextMonth')} onClick={() => go(1)} data-testid="month-next">
           <ChevronRight className="size-5 rtl:-scale-x-100" aria-hidden />
@@ -516,7 +526,24 @@ export function Component() {
         </div>
       </Card>
       {d.lines.length === 0 && <EmptyState title={t('budget.empty')} />}
-      {d.lines.length > 0 && budgeted.length === 0 && <EmptyState title={t('budget.noBudgets')} body={t('budget.howItWorks')} action={addButton} />}
+      {d.lines.length > 0 && budgeted.length === 0 && (
+        <EmptyState
+          title={t('budget.noBudgets')}
+          body={t('budget.howItWorks')}
+          action={
+            canWrite && (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setSuggesting(true)} data-testid="suggest-open-empty">
+                  <Sparkles className="size-4" aria-hidden />
+                  {t('budget.suggest.open')}
+                </Button>
+                {addButton}
+              </div>
+            )
+          }
+        />
+      )}
+      {suggesting && <SuggestSheet open onOpenChange={setSuggesting} />}
       {(['variable', 'fixed'] as const).map(
         (g) =>
           group(g).length > 0 && (

@@ -26,6 +26,13 @@ interface Row {
   include_in_forecast: number;
   is_liquid: number;
   archived: number;
+  owner_user_id: string | null;
+}
+
+/** An owner must be a member of this household. */
+async function checkOwner(db: ReturnType<typeof tctx>['db'], owner: string | null | undefined) {
+  if (!owner) return;
+  if (!(await db.first('SELECT 1 FROM memberships WHERE household_id = ?1 AND user_id = ?2', owner))) throw new HttpError(400, 'not_a_member', 'Not a member of this household');
 }
 
 accountRoutes.get('/', async (c) => {
@@ -65,6 +72,7 @@ accountRoutes.get('/', async (c) => {
       includeInForecast: r.include_in_forecast === 1,
       isLiquid: r.is_liquid === 1,
       archived: r.archived === 1,
+      ownerUserId: r.owner_user_id ?? null,
       balanceMinor: (bm.get(r.id)?.balance ?? r.opening_balance_minor) + (r.type === 'credit_card' ? (pm.get(r.id) ?? 0) : 0),
       balanceDate: today,
       // An investment balance moves with the market, so a gap vs. transactions is expected, not an error.
@@ -78,6 +86,7 @@ accountRoutes.get('/', async (c) => {
 accountRoutes.post('/', async (c) => {
   const b = await body(c, accountCreate);
   const { db, userId } = tctx(c);
+  await checkOwner(db, b.ownerUserId);
   const id = newId();
   await db.batch([
     db.insertStmt('accounts', {
@@ -91,6 +100,7 @@ accountRoutes.post('/', async (c) => {
       opening_date: b.openingDate ?? null,
       include_in_forecast: b.includeInForecast ?? (b.type === 'checking' ? 1 : 0),
       is_liquid: b.isLiquid ?? (b.type === 'credit_card' || b.type === 'investment' ? 0 : 1),
+      owner_user_id: b.ownerUserId ?? null,
       created_at: nowIso(),
     }),
     db.audit(userId, 'account.create', 'account', id),
@@ -103,12 +113,14 @@ accountRoutes.patch('/:id', async (c) => {
   const b = await body(c, accountPatch);
   const { db } = tctx(c);
   const id = c.req.param('id');
+  await checkOwner(db, b.ownerUserId);
   const r = await db.run(
     `UPDATE accounts SET name = COALESCE(?3, name), type = COALESCE(?4, type), institution = COALESCE(?5, institution),
        account_mask = COALESCE(?6, account_mask), opening_balance_minor = COALESCE(?7, opening_balance_minor),
        opening_date = CASE WHEN ?8 = 1 THEN ?9 ELSE opening_date END,
        include_in_forecast = COALESCE(?10, include_in_forecast), is_liquid = COALESCE(?11, is_liquid), archived = COALESCE(?12, archived),
-       bank_id = CASE WHEN ?13 = 1 THEN ?14 ELSE bank_id END, is_investment = COALESCE(?15, is_investment)
+       bank_id = CASE WHEN ?13 = 1 THEN ?14 ELSE bank_id END, is_investment = COALESCE(?15, is_investment),
+       owner_user_id = CASE WHEN ?16 = 1 THEN ?17 ELSE owner_user_id END
      WHERE household_id = ?1 AND id = ?2`,
     id,
     b.name ?? null,
@@ -124,6 +136,8 @@ accountRoutes.patch('/:id', async (c) => {
     b.bankId !== undefined ? 1 : 0,
     b.bankId ?? null,
     b.type ? stored(b.type).is_investment : null,
+    b.ownerUserId !== undefined ? 1 : 0,
+    b.ownerUserId ?? null,
   );
   if (!r.meta.changes) throw notFound();
   await refreshCardPayments(db);

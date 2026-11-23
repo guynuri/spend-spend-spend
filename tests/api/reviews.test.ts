@@ -5,12 +5,13 @@ import type { BaseFacts } from '../../src/server/db/sql/facts';
 
 describe('defaultReviewMonth', () => {
   it('never picks the running month, even when data covers its last day', () => {
-    const base = { today: '2026-11-30', asOf: '2026-11-30', complete: ['2026-09', '2026-10', '2026-11'] } as BaseFacts;
+    const base = { today: '2026-11-30', asOf: '2026-11-30', complete: ['2026-09', '2026-10', '2026-11'], cal: CALENDAR, statsCal: CALENDAR } as BaseFacts;
     expect(defaultReviewMonth(base)).toBe('2026-10');
     expect(defaultReviewMonth({ ...base, complete: [] })).toBe('2026-10');
   });
 });
 import { CHAPTERS, type ReviewSnapshot } from '../../src/shared/domain/review';
+import { CALENDAR } from '../../src/shared/period';
 
 describe('monthly review (AC12.1–12.2)', () => {
   it('draft has all 7 chapters; complete stores an immutable snapshot listed in history', async () => {

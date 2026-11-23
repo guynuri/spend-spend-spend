@@ -109,3 +109,39 @@ test('a due reminder shows on Overview and its links land in the right place', a
   // clean up for later specs
   sql('DELETE FROM reminders');
 });
+
+test('pay day: the month runs from pay day to pay day on Budget and Transactions', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/settings');
+  const card = page.getByTestId('payday-card');
+  await card.getByTestId('payday-day').selectOption('10');
+  await expect(card.getByTestId('payday-example')).toContainText('10');
+  await card.getByTestId('payday-save').click();
+  await page.goto('/budget');
+  await expect(page.getByTestId('budget-month').getByTestId('period-label')).toContainText(/10 .* – 9 /);
+  await page.goto('/transactions');
+  await expect(page.getByTestId('ledger-range')).toContainText(/10 .* – 9 /);
+  // back to calendar months for the other specs
+  await page.goto('/settings');
+  await page.getByTestId('payday-card').getByTestId('payday-day').selectOption('1');
+  await page.getByTestId('payday-card').getByTestId('payday-save').click();
+  await expect(page.getByTestId('payday-card').getByTestId('payday-save')).toBeDisabled();
+});
+
+test('budget alerts and a weekly recap can be turned on in Settings', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/settings');
+  const card = page.getByTestId('reminders-card');
+  for (const kind of ['budget', 'recap'] as const) {
+    await card.getByTestId('reminder-new').click();
+    await card.getByTestId('rem-kind').selectOption(kind);
+    if (kind === 'recap') await card.getByTestId('rem-recap-hour').selectOption('10');
+    await card.getByTestId('rem-save').click();
+    await expect(card.getByTestId('reminder-add')).toHaveCount(0);
+  }
+  await expect(card.getByTestId('reminder-row').filter({ hasText: 'Budget alerts' })).toBeVisible();
+  await expect(card.getByTestId('reminder-row').filter({ hasText: 'Weekly recap' })).toContainText('10:00');
+  // one of each: no longer offered
+  await card.getByTestId('reminder-new').click();
+  await expect(card.getByTestId('rem-kind').locator('option[value="recap"]')).toHaveCount(0);
+});

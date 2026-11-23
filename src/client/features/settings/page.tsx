@@ -11,6 +11,7 @@ import { AiSettings } from '../ai/AiSettings';
 import { SecurityCard } from './Security';
 import { RemindersCard } from './Reminders';
 import { LiveCaptureCard } from './LiveCapture';
+import { PayDayCard } from './PayDay';
 import { useCanWrite, useMe } from '../../lib/session';
 
 export function AppearanceCard() {
@@ -109,6 +110,7 @@ export function Component() {
       <PageHeader title={t('settings.title')} />
       <AppearanceCard />
       <NavBarCard />
+      {me?.active && <PayDayCard />}
       {me?.active && <RemindersCard />}
       {me?.active && canWrite && <LiveCaptureCard />}
       {me?.active && <AiSettings />}

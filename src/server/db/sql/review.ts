@@ -1,4 +1,4 @@
-import { addMonths, monthEnd, monthOf, monthStart, type MonthStr } from '../../../shared/dates';
+import { addMonths, type MonthStr } from '../../../shared/dates';
 import { buildReview, type ReviewSnapshot } from '../../../shared/domain/review';
 import type { TenantDb } from '../tenant';
 import type { HouseholdRow } from '../rows';
@@ -12,14 +12,14 @@ import { computeInsights } from './insights';
 
 /** Default review month: newest available month (ended + data-complete), else the previous calendar month. Never the running month. */
 export function defaultReviewMonth(base: BaseFacts): MonthStr {
-  return availableReviewMonths(base)[0] ?? addMonths(monthOf(base.today), -1);
+  return availableReviewMonths(base)[0] ?? addMonths(base.cal.of(base.today), -1);
 }
 
 /**
- * Months whose review is available, newest first: data-complete months (see completeMonths) whose calendar
- * month has ended. Computed on read, so a review appears automatically once a month ends — no cron.
+ * Months whose review is available, newest first: data-complete months (see completeMonths) whose budget
+ * period has ended. Computed on read, so a review appears automatically once a month ends — no cron.
  */
-export const availableReviewMonths = (base: BaseFacts): MonthStr[] => base.complete.filter((m) => m < monthOf(base.today)).reverse();
+export const availableReviewMonths = (base: BaseFacts): MonthStr[] => base.complete.filter((m) => m < base.cal.of(base.today)).reverse();
 
 /** The newest available month whose review is neither completed nor dismissed (nav badge, overview card, alerts); else null. */
 export async function reviewDue(q: TenantDb, base: BaseFacts): Promise<MonthStr | null> {
@@ -37,14 +37,14 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
   const { insights } = await computeInsights(q, hh, base, month, budget, forecast, health);
   const [byCat, txs, occ] = await q.batch([
     q.stmt(
-      `SELECT substr(l.date, 1, 7) AS m, l.category_id AS cid, c.name AS name, c.budget_mode AS mode,
+      `SELECT ${base.cal.sql('l.date')} AS m, l.category_id AS cid, c.name AS name, c.budget_mode AS mode,
               CASE WHEN c.kind = 'income' OR (l.category_id IS NULL AND l.amount_minor > 0) THEN 'income' ELSE 'expense' END AS side,
               SUM(l.amount_minor) AS amt
          FROM v_lines l LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
         WHERE l.household_id = ?1 AND l.date >= ?2 AND l.date <= ?3 AND (c.kind IS NULL OR c.kind <> 'transfer')
         GROUP BY m, cid, side`,
-      monthStart(month),
-      monthEnd(month),
+      base.cal.start(month),
+      base.cal.end(month),
     ),
     // Expense lines, not transactions: a split card charge shows as what it bought. An unsplit card charge
     // (uncategorized or on the "not split" placeholder) is not a purchase and is left out.
@@ -56,10 +56,10 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
          LEFT JOIN categories c ON c.id = l.category_id AND c.household_id = ?1
         WHERE l.household_id = ?1 AND l.date >= ?2 AND l.date <= ?3 AND l.amount_minor < 0 AND (c.kind IS NULL OR c.kind <> 'transfer')
           AND NOT (l.kind = 'card_lump' AND (COALESCE(c.system_key, '') = 'card_unsplit' OR (l.split_id IS NULL AND c.id IS NULL)))`,
-      monthStart(month),
-      monthEnd(month),
+      base.cal.start(month),
+      base.cal.end(month),
     ),
-    occasionalByMonthStmt(q, prev, month),
+    occasionalByMonthStmt(q, base.cal, prev, month),
   ]);
   const rows = byCat!.results as { cid: string | null; name: string | null; mode: string | null; side: string; amt: number }[];
   const occMap = toMonthMap(occ);
@@ -82,6 +82,7 @@ export async function buildReviewFor(q: TenantDb, hh: HouseholdRow, month: Month
   const lastComplete = defaultReviewMonth(base);
   return buildReview({
     month,
+    cal: base.cal,
     isLatestMonth: month >= lastComplete,
     health: { score: cur.result.overall, label: cur.result.label, change: health.change, recommendations: health.recommendations },
     income: { totalMinor: p.get(month)?.income ?? 0, prevMinor: p.get(prev)?.income ?? 0, byCategory: rows.filter((r) => r.side === 'income').map((r) => ({ categoryId: r.cid, name: r.name, amountMinor: r.amt })) },
