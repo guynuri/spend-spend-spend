@@ -488,3 +488,21 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Shared shortcut links:** iCloud links are public, so saving a household shortcut link now reads the
   shortcut (iCloud's public record API) and refuses it if a capture key (`mz_…`) is inside
   (`shortcut_has_key`). Best effort: if iCloud can't be reached the link is accepted.
+
+## D-R31 · 2026-11-24 · Customizable Home; the donut opens in place
+- **Home layout per user, on the server:** `users.home_widgets` (migration 0024) holds the widget ids in
+  order (JSON; NULL = the default list in `src/shared/home.ts`). It's on the profile rather than in
+  localStorage (unlike the bottom bar) so it follows the user to every device and survives removing the
+  installed app. PATCH `/api/me` takes `homeWidgets` (known ids, no repeats; `null` resets); any role may
+  arrange their own Home. Unknown ids in a stored list are dropped when read.
+- **Editor:** the sliders button in Home's header (or "Customize Home" under the widgets) opens `/?edit=1` (so Back
+  leaves it): the widgets on Home with a drag grip and −, and the others with +. Every change saves at
+  once (optimistic, saves serialized). Dragging is our own pointer-capture list (`SortableList`, no
+  library): the row follows the finger, the others slide aside, the page scrolls near the edges; arrow
+  keys on the grip do the same for keyboards and screen readers. New widgets: "Budgets" (the ones
+  closest to their limit) and "Latest transactions". Widgets that render nothing take no space.
+- **Donut drill-down:** a category opens its subcategories in place even when only one subcategory has
+  spending (it used to need two, so a single-subcategory parent jumped to the transactions page);
+  "Other" opens into the slices folded into it; general-expenses members open one level deeper.
+  Inside a category, "Its transactions" still links to the list.
+- **Tour:** two new Home steps — the ring (opens in place) and the customize button.

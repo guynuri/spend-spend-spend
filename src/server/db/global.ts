@@ -13,6 +13,8 @@ export interface UserRow {
   is_super_admin: number;
   locale: string | null;
   theme: string | null;
+  /** JSON array of Home widget ids; NULL = default layout. */
+  home_widgets: string | null;
 }
 export interface InviteRow {
   id: string;
@@ -48,13 +50,16 @@ export function globalDb(db: D1Database) {
     raw: db,
     // ---------- users ----------
     hasSuperAdmin: async () => !!(await db.prepare('SELECT 1 FROM users WHERE is_super_admin = 1 LIMIT 1').first()),
-    getUser: (id: string) => db.prepare('SELECT id, display_name, is_super_admin, locale, theme FROM users WHERE id = ?1').bind(id).first<UserRow>(),
+    getUser: (id: string) => db.prepare('SELECT id, display_name, is_super_admin, locale, theme, home_widgets FROM users WHERE id = ?1').bind(id).first<UserRow>(),
     createUserStmt: (u: { id: string; displayName: string; isSuperAdmin?: boolean; locale?: string | null }) =>
       db.prepare('INSERT INTO users (id, display_name, is_super_admin, locale, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(u.id, u.displayName, u.isSuperAdmin ? 1 : 0, u.locale ?? null, nowIso()),
-    updateUser: (id: string, p: { locale?: string; theme?: string; displayName?: string }) =>
+    /** `homeWidgets`: undefined keeps it, null resets to the default layout. */
+    updateUser: (id: string, p: { locale?: string; theme?: string; displayName?: string; homeWidgets?: string[] | null }) =>
       db
-        .prepare('UPDATE users SET locale = COALESCE(?2, locale), theme = COALESCE(?3, theme), display_name = COALESCE(?4, display_name) WHERE id = ?1')
-        .bind(id, p.locale ?? null, p.theme ?? null, p.displayName ?? null)
+        .prepare(
+          'UPDATE users SET locale = COALESCE(?2, locale), theme = COALESCE(?3, theme), display_name = COALESCE(?4, display_name), home_widgets = CASE WHEN ?5 = 1 THEN ?6 ELSE home_widgets END WHERE id = ?1',
+        )
+        .bind(id, p.locale ?? null, p.theme ?? null, p.displayName ?? null, p.homeWidgets === undefined ? 0 : 1, p.homeWidgets ? JSON.stringify(p.homeWidgets) : null)
         .run(),
     touchLogin: (id: string) => db.prepare('UPDATE users SET last_login_at = ?2 WHERE id = ?1').bind(id, nowIso()),
 

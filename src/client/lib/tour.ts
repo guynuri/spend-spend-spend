@@ -23,6 +23,8 @@ export const TOUR_STEPS: TourStep[] = [
   { id: 'reviewDue', path: '/', target: 'review-due' },
   { id: 'monthSummary', path: '/', target: 'pnl' },
   { id: 'forecastCard', path: '/', target: 'dash-forecast' },
+  { id: 'homeDonut', path: '/', target: 'home-donut' },
+  { id: 'homeEdit', path: '/', target: 'home-edit' },
   { id: 'search', path: '/transactions?{ledger}', target: 'ledger-search' },
   { id: 'filters', path: '/transactions?{ledger}', target: 'ledger-filters' },
   { id: 'todo', path: '/transactions?{ledger}', target: 'todo' },
