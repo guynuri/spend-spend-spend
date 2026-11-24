@@ -60,3 +60,13 @@ describe('donut drill-down', () => {
     expect(other.children?.map((c) => c.id)).toEqual(['c5', 'c6', 'c7']);
   });
 });
+
+describe('donut drill-down, refunds', () => {
+  const cat = (id: string, parentId: string | null = null) => ({ id, name: id, parentId, color: 'cat-1', emoji: null }) as unknown as Category;
+  const cats = new Map(['food', 'organic'].map((id) => [id, cat(id, id === 'organic' ? 'food' : null)]));
+  const t = ((k: string) => k) as never;
+  it('a parent whose only subcategory was refunded opens its transactions, not a ring of "directly"', () => {
+    const items = donutItems([{ categoryId: 'food', spentMinor: 450, subs: [{ categoryId: 'food', spentMinor: 500 }, { categoryId: 'organic', spentMinor: -50 }] }], cats, t);
+    expect(items[0]!.children).toBeUndefined();
+  });
+});

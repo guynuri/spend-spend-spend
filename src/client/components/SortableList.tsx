@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GripVertical } from 'lucide-react';
 import { cx } from './ui';
@@ -41,6 +41,7 @@ export function SortableList<T extends string>({
   const list = useRef<HTMLUListElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [said, setSaid] = useState('');
+  const hintId = useId();
   const g = useRef<{ startY: number; startScroll: number; lastY: number; centers: number[]; top: number; h: number; raf: number; d: Drag } | null>(null);
 
   // stop the edge-scroll loop if the list unmounts mid-drag
@@ -124,7 +125,7 @@ export function SortableList<T extends string>({
               type="button"
               className="inline-flex size-11 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-xl text-muted hover:bg-surface-2 active:cursor-grabbing"
               aria-label={t('sortable.grip', { name: label(id) })}
-              aria-describedby="sortable-hint"
+              aria-describedby={hintId}
               onPointerDown={down(i)}
               onPointerMove={move}
               onPointerUp={up}
@@ -152,7 +153,7 @@ export function SortableList<T extends string>({
           );
         })}
       </ul>
-      <p id="sortable-hint" className="sr-only">
+      <p id={hintId} className="sr-only">
         {t('sortable.hint')}
       </p>
       <p className="sr-only" aria-live="polite">

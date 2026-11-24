@@ -10,14 +10,16 @@ import type { HomeWidgetId } from '../../shared/home';
 let saving: Promise<unknown> = Promise.resolve();
 let inflight = 0;
 let failed = false;
-/** What the saves still in flight will change, laid over any profile fetched meanwhile. */
+/** What the saves still in flight will change (and whose profile), laid over any profile fetched meanwhile. */
 let pending: Partial<MeResponse['user']> = {};
+let pendingUser: string | null = null;
 
 /**
  * A fetched profile with the unsaved changes on top: a refetch that lands while saves are still going
- * (another tab, a ledger write refreshing badges) must not undo what the user just did.
+ * (another tab, a ledger write refreshing badges) must not undo what the user just did. Only for the
+ * user who made them (someone else signing in on this tab never sees them).
  */
-export const withPendingPrefs = (d: MeResponse): MeResponse => (inflight ? { ...d, user: { ...d.user, ...pending } } : d);
+export const withPendingPrefs = (d: MeResponse): MeResponse => (inflight && d.user.id === pendingUser ? { ...d, user: { ...d.user, ...pending } } : d);
 
 /**
  * Persists locale/theme/Home layout to the user profile when signed in. The cached profile is updated first
@@ -29,6 +31,10 @@ export function useSavePrefs() {
   return useCallback(
     (p: { locale?: 'en' | 'he'; theme?: 'light' | 'dark' | 'system'; homeWidgets?: HomeWidgetId[] | null }) => {
       if (!me) return;
+      // a profile fetch already on its way may have been answered before this save: drop it
+      void qc.cancelQueries({ queryKey: ['me'] });
+      if (pendingUser !== me.user.id) pending = {};
+      pendingUser = me.user.id;
       inflight++;
       pending = { ...pending, ...p };
       qc.setQueryData<MeResponse>(['me'], (old) => (old ? { ...old, user: { ...old.user, ...p } } : old));
@@ -40,6 +46,9 @@ export function useSavePrefs() {
         })
         .finally(() => {
           if (--inflight > 0) return;
+          // a fetch still running now may have been answered before the last save landed: drop it too
+          // (it reverts to the cached, already-updated profile); fetches from here on see the saved state
+          void qc.cancelQueries({ queryKey: ['me'] });
           pending = {};
           if (failed) {
             failed = false;

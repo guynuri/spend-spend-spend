@@ -38,6 +38,8 @@ describe('customizable Home (D-R31)', () => {
     expect((await json('PATCH', '/api/me', { cookie: o.cookie, body: { homeWidgets: ['hero', 'hero'] } })).status).toBe(400);
     await DB.prepare('UPDATE users SET home_widgets = ?2 WHERE id = ?1').bind(o.userId, JSON.stringify(['old-widget', 'goals'])).run();
     expect((await json<Me>('GET', '/api/me', { cookie: o.cookie })).body.user.homeWidgets).toEqual(['goals']);
+    await DB.prepare('UPDATE users SET home_widgets = ?2 WHERE id = ?1').bind(o.userId, '{}').run();
+    expect((await json<Me>('GET', '/api/me', { cookie: o.cookie })).body.user.homeWidgets).toBeNull();
     await DB.prepare('UPDATE users SET home_widgets = ?2 WHERE id = ?1').bind(o.userId, 'not json').run();
     expect((await json<Me>('GET', '/api/me', { cookie: o.cookie })).body.user.homeWidgets).toBeNull();
   });

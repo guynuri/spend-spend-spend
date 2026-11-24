@@ -307,7 +307,7 @@ export function Component() {
     health: () => <HealthCard data={d.health} />,
     usual: () => <UsualMonthCard u={d.usual} month={d.month} current={isCurrent} />,
     budgets: () => <BudgetsWidget />,
-    recent: () => <RecentWidget />,
+    recent: () => <RecentWidget period={d.period} />,
   };
   const title = first ? t('home.hello', { name: first }) : t('dashboard.title');
   if (editing)

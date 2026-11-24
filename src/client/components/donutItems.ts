@@ -28,13 +28,21 @@ export function donutItems(items: SpendItem[], cats: Map<string, Category>, t: T
   return items.map((i) => {
     const c = i.categoryId && i.categoryId !== GENERAL_ID ? cats.get(i.categoryId) : null;
     const id = i.categoryId ?? 'none';
-    const subsOf = (cid: string, subs: Part[] | undefined) => (subs?.length ? { children: subs.map((s) => part(s, cid)) } : {});
-    // the server sends `subs` only when a real subcategory has spending, so even one is worth opening
+    // only parts with spending (a refunded subcategory has none); opening is worth it when at least one
+    // real subcategory is left, else the slice opens its transactions instead of a ring of "directly"
+    const kids = (cid: string, subs: Part[] | undefined) => {
+      const pos = (subs ?? []).filter((s) => s.spentMinor > 0);
+      return pos.some((s) => s.categoryId !== cid) ? pos.map((s) => part(s, cid)) : undefined;
+    };
+    const withKids = (cid: string, subs: Part[] | undefined) => {
+      const k = kids(cid, subs);
+      return k ? { children: k } : {};
+    };
     const children =
       i.categoryId === GENERAL_ID
-        ? (i.members ?? []).map((m) => ({ ...part(m, ''), label: cats.get(m.categoryId)?.name ?? '', ...subsOf(m.categoryId, m.subs) }))
-        : i.subs && i.categoryId
-          ? i.subs.map((s) => part(s, i.categoryId!))
+        ? (i.members ?? []).filter((m) => m.spentMinor > 0).map((m) => ({ ...part(m, ''), label: cats.get(m.categoryId)?.name ?? '', ...withKids(m.categoryId, m.subs) }))
+        : i.categoryId
+          ? kids(i.categoryId, i.subs)
           : undefined;
     return {
       id,

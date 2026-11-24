@@ -55,11 +55,11 @@ export function BudgetsWidget() {
   );
 }
 
-/** The newest few transactions of this period. */
-export function RecentWidget() {
+/** The newest few transactions of the period Home shows (the latest month with data, early in a month). */
+export function RecentWidget({ period }: { period: { start: string; end: string } }) {
   const { t } = useTranslation();
   const cats = useCategoryMap();
-  const q = useQuery({ queryKey: ['transactions', 'home-recent'], queryFn: () => get<TxList>('/api/transactions') });
+  const q = useQuery({ queryKey: ['transactions', 'home-recent', period.start, period.end], queryFn: () => get<TxList>(`/api/transactions?from=${period.start}&to=${period.end}`) });
   if (q.isPending) return <Card><Spinner /></Card>;
   if (q.error) return null;
   const items = q.data.items.slice(0, 5);
@@ -89,7 +89,7 @@ export function RecentWidget() {
                   <DateText date={tx.date} format="dayMonth" />
                 </p>
               </div>
-              <Money minor={tx.amountMinor} decimals={0} tone className="text-sm font-semibold" />
+              <Money minor={tx.amountMinor} decimals={0} tone={cats.get(tx.categoryId ?? '')?.kind !== 'transfer'} className="text-sm font-semibold" />
             </li>
           ))}
         </ul>

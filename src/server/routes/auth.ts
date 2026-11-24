@@ -254,7 +254,8 @@ authRoutes.post('/demo', requireSession, async (c) => {
 function homeWidgetsOf(raw: string | null) {
   if (!raw) return null;
   try {
-    return parseHomeWidgets(JSON.parse(raw));
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) ? parseHomeWidgets(v) : null;
   } catch {
     return null;
   }
