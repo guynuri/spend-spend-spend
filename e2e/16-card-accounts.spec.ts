@@ -57,7 +57,7 @@ test('live card tracking: create a key (shown once), see the setup steps, revoke
   expect((await test.json()).message).toContain('Connected');
   await page.reload();
   await expect(card.getByTestId('live-key-status')).toHaveAttribute('data-result', 'test');
-  await expect(card.getByTestId('live-key-status')).toContainText('connection test');
+  await expect(card.getByTestId('live-key-status')).toContainText('test run');
   expect((await send('nothing useful')).status()).toBe(400);
   await page.reload();
   await expect(card.getByTestId('live-key-status')).toHaveAttribute('data-result', 'unreadable_purchase');

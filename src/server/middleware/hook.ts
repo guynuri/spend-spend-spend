@@ -46,8 +46,14 @@ export const hookResult: MiddlewareHandler<AppCtx> = async (c, next) => {
   }
   if (body?.error && !body.message) {
     const { status, headers } = c.res;
-    c.res = new Response(JSON.stringify({ status: 'error', code: body.error.code, message: body.error.message, error: body.error }), { status, headers });
+    c.res = new Response(JSON.stringify({ ...body, message: body.error.message }), { status, headers });
   }
   const id = c.get('captureKeyId');
-  if (id) await globalDb(c.env.DB).captureKeyResult(id, body?.error?.code ?? body?.status ?? String(c.res.status), c.get('hookDetail') ?? null);
+  // diagnostics only: a failed write must never turn an answered request (a purchase already saved) into an error
+  if (id)
+    try {
+      await globalDb(c.env.DB).captureKeyResult(id, body?.error?.code ?? body?.status ?? String(c.res.status), c.get('hookDetail') ?? null);
+    } catch {
+      /* ignore */
+    }
 };

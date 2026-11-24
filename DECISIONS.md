@@ -521,3 +521,7 @@ Format: date · milestone · what · why · alternatives rejected.
   permissions only when someone can answer, and a "Run Immediately" automation can't, so it fails.
 - **Messages on errors:** every hook answer has a top-level `message` (errors keep `error: {code, message}`),
   so "Get Dictionary Value message" → "Show Notification" says why instead of showing nothing.
+- **Review follow-ups:** a hand run's "test" result is shown neutral, and its message says that after a
+  real purchase it means the automation passes nothing on (Input ≠ Shortcut Input); the diagnostic write
+  can never change a hook's answer; the result middleware runs before the rate limit (429s get a message);
+  stored field names are only known ones (others counted), so no purchase data lands in `last_detail`.

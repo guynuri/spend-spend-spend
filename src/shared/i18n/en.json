@@ -1575,11 +1575,11 @@
       "s7": "Share → “Copy iCloud Link”, and paste the link below."
     },
     "trouble": "Got “There was a problem with the automation”? Look at your key above. “Not used yet” means the phone never reached the app: run the shortcut once by hand and choose “Always Allow”, and check that the automation’s “Run Shortcut” points to it with Input = Shortcut Input. Otherwise the line under the key says what the app received.",
-    "lastAttempt": "Last attempt {{when}}",
+    "lastAttempt": "Last attempt",
     "result": {
       "added": "a purchase was added ✓",
       "duplicate": "already added",
-      "test": "connection test ✓",
+      "test": "test run, no purchase in it (fine when run by hand)",
       "skipped": "foreign currency, skipped",
       "imported": "file imported ✓",
       "unreadable_purchase": "the purchase arrived but couldn’t be read",
@@ -1589,10 +1589,13 @@
       "which_account": "no matching account for the file",
       "no_rows": "the file had no transactions",
       "unsupported_file": "unreadable file",
-      "rate_limited": "too many tries, try again in a minute",
-      "other": "failed ({{code}})"
+      "other": "failed ({{code}})",
+      "file_too_large": "the file is too large",
+      "file_type": "not an Excel or CSV file",
+      "file_empty": "the file was empty",
+      "row_invalid": "a row in the file couldn’t be read"
     },
-    "received": "Received: {{detail}}"
+    "received": "Received:"
   },
   "charts": {
     "other": "Other",

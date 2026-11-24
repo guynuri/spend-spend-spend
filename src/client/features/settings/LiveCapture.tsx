@@ -12,6 +12,7 @@ import { Button, Card, CardTitle, ErrorState, Field, IconButton, Input, Spinner 
 import { useApiMutation } from '../../lib/mutate';
 import { useAccounts } from '../../lib/queries';
 import { useRole } from '../../lib/session';
+import { intlLocale, type Locale } from '../../../shared/money';
 
 interface CaptureKey {
   id: string;
@@ -21,28 +22,31 @@ interface CaptureKey {
   lastResult: string | null;
   lastDetail: string | null;
 }
-const GOOD = new Set(['added', 'duplicate', 'test', 'skipped', 'imported']);
+const GOOD = new Set(['added', 'duplicate', 'skipped', 'imported']);
+/** A hand run: fine as a test, but after a real purchase it means the automation passed nothing on. */
+const NEUTRAL = new Set(['test']);
 
 /** "Last attempt 24 Nov, 21:14 · a purchase was added ✓", and what arrived when it went wrong. */
 function KeyStatus({ k }: { k: CaptureKey }) {
   const { t, i18n } = useTranslation();
   if (!k.lastUsedAt) return <span className="text-xs text-muted">{t('live.neverUsed')}</span>;
-  const when = new Intl.DateTimeFormat(i18n.language === 'he' ? 'he-IL' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(k.lastUsedAt));
+  const when = new Intl.DateTimeFormat(intlLocale(i18n.language as Locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(k.lastUsedAt));
   const code = k.lastResult;
-  const ok = !code || GOOD.has(code);
+  const ok = !code || GOOD.has(code) || NEUTRAL.has(code);
   return (
     <span className="block text-xs text-muted" data-testid="live-key-status" data-result={code ?? ''}>
-      {t('live.lastAttempt', { when })}
+      {t('live.lastAttempt')} <bdi>{when}</bdi>
       {code && (
         <>
           {' · '}
-          <span className={ok ? 'text-good' : 'font-medium text-bad'}>{t(`live.result.${code}`, { defaultValue: t('live.result.other', { code }) })}</span>
+          <span className={code && NEUTRAL.has(code) ? '' : ok ? 'text-good' : 'font-medium text-bad'}>{t(`live.result.${code}`, { defaultValue: t('live.result.other', { code }) })}</span>
         </>
       )}
       {!ok && k.lastDetail && (
-        <bdi className="block" dir="ltr">
-          {t('live.received', { detail: k.lastDetail })}
-        </bdi>
+        <span className="block">
+          {t('live.received')}{' '}
+          <bdi dir="ltr">{k.lastDetail}</bdi>
+        </span>
       )}
     </span>
   );

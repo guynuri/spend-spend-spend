@@ -27,21 +27,31 @@ import { refreshCardPayments } from '../db/sql/cards';
 import { commitImport, enrich } from './imports';
 
 export const hookRoutes = new Hono<AppCtx>();
-hookRoutes.use('*', rateLimit('hook', 60, 60_000));
+// first, so a rate-limit answer gets its readable `message` too
 hookRoutes.use('*', hookResult);
+hookRoutes.use('*', rateLimit('hook', 60, 60_000));
 
-/** What arrived, for the key's last-result line: content type, size and (for JSON objects) field names — never values. */
+/** Field names a purchase may arrive under; any other name is counted, never stored (it could be data). */
+const KNOWN_FIELD = /^(merchant|merchant name|business|name|amount|price|total|currency|card|card or pass|pass|card name|wallet card|date|transaction|shortcut input)$/;
+
+/** What arrived, for the key's last-result line: content type, size and known field names — never values. */
 function describeBody(raw: string, type: string | undefined): string {
   const t = (type ?? '').split(';')[0]!.trim() || 'no type';
-  let keys = '';
+  let names: string[] | null = null;
   try {
     const v: unknown = JSON.parse(raw);
-    if (v && typeof v === 'object' && !Array.isArray(v)) keys = ` · fields: ${Object.keys(v).slice(0, 8).join(', ')}`;
-    else if (Array.isArray(v)) keys = ` · list of ${v.length}`;
+    if (v && typeof v === 'object' && !Array.isArray(v)) names = Object.keys(v);
+    else if (Array.isArray(v)) return `${t} · ${raw.length} chars · list of ${v.length}`;
   } catch {
-    /* not JSON */
+    // "Key: value" lines or form fields (both readable by readPurchase)
+    const lines = raw.split(/\r?\n/).map((l) => /^\s*([^:]{1,30}):/.exec(l)?.[1]).filter((k): k is string => !!k);
+    if (lines.length >= 2) names = lines;
+    else if (/^[^=&\s]+=[^&]*(&[^=&\s]+=[^&]*)*$/.test(raw.trim())) names = [...new URLSearchParams(raw.trim()).keys()];
   }
-  return `${t} · ${raw.length} chars${keys}`;
+  if (!names) return `${t} · ${raw.length} chars`;
+  const known = names.map((k) => k.trim().toLowerCase()).filter((k) => KNOWN_FIELD.test(k));
+  const other = names.length - known.length;
+  return `${t} · ${raw.length} chars · fields: ${[...known.slice(0, 8), ...(other ? [`${other} other`] : [])].join(', ') || 'none'}`;
 }
 
 /** A body with nothing in it: the shortcut run by hand (no Wallet transaction to pass on). */
@@ -52,24 +62,26 @@ const MSG = {
   en: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} at ${merchant} → ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'Already added',
-    test: 'Connected ✓ Your key works. Real Apple Pay purchases will now be added automatically.',
+    test: 'Connected ✓ Your key works, but no purchase was sent: expected when you run the shortcut by hand. If you see this after paying, set the automation’s Input to “Shortcut Input”.',
     unreadable: 'Could not read the purchase. In Money Money Money → Settings → Live card tracking, use “Didn’t work?” for the step-by-step setup.',
     foreign: 'Foreign-currency purchase: it will arrive with the card file',
     noCard: (card: string) => `No credit-card account matches “${card}”. Add one in Money Money Money → Accounts.`,
     imported: (n: number, dup: number, account: string) => `${n} new transaction${n === 1 ? '' : 's'} imported into ${account}${dup ? ` (${dup} already there)` : ''}`,
     unrecognized: 'This file needs a column mapping: open it on the Import page once.',
     noAccount: 'No matching account for this file: open it on the Import page.',
+    badFile: 'This isn’t a bank or card file the app can read (Excel or CSV, up to 5 MB).',
   },
   he: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} ב־${merchant} ← ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'כבר נוסף',
-    test: 'מחובר ✓ המפתח עובד. מעכשיו קניות Apple Pay יתווספו אוטומטית.',
+    test: 'מחובר ✓ המפתח עובד, אבל לא נשלחה קנייה: זה צפוי כשמפעילים את הקיצור ידנית. אם זה מופיע אחרי תשלום, מגדירים באוטומציה קלט = „קלט הקיצור”.',
     unreadable: 'לא הצלחנו לקרוא את הקנייה. ב־Money Money Money ← הגדרות ← מעקב חי אחר הכרטיס, „לא עבד?” מציג את ההגדרה צעד אחר צעד.',
     foreign: 'קנייה במטבע חוץ: היא תגיע עם קובץ הכרטיס',
     noCard: (card: string) => `אין חשבון כרטיס אשראי שמתאים ל„${card}”. אפשר להוסיף ב־Money Money Money ← חשבונות.`,
     imported: (n: number, dup: number, account: string) => `${n} תנועות חדשות יובאו ל${account}${dup ? ` (${dup} כבר היו)` : ''}`,
     unrecognized: 'צריך למפות את העמודות של הקובץ הזה: פותחים אותו פעם אחת בדף הייבוא.',
     noAccount: 'לא נמצא חשבון מתאים לקובץ: פותחים אותו בדף הייבוא.',
+    badFile: 'זה לא קובץ בנק או כרטיס שהאפליקציה יודעת לקרוא (Excel או CSV, עד 5MB).',
   },
 };
 
@@ -157,7 +169,7 @@ hookRoutes.post('/file', async (c) => {
     given = null;
   }
   const s = sniffFile(nameFor(bytes, given), bytes.length, bytes.slice(0, 4096));
-  if (!s.ok) throw new HttpError(400, s.error, s.error);
+  if (!s.ok) throw new HttpError(400, s.error, msg.badFile);
   // SheetJS only loads for this route
   const [{ toGrid }, { pickParser }, { cardAccountResult }] = await Promise.all([import('../../shared/import/grid'), import('../../shared/import/registry'), import('../../shared/import/cardAccount')]);
   let grid;

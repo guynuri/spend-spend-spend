@@ -38,7 +38,9 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const token = key.body.token;
     expect((await json<{ keys: { id: string; lastUsedAt: string | null }[] }>('GET', '/api/capture-keys', { cookie })).body.keys).toHaveLength(1);
     expect((await hook('purchase', null, JSON.stringify({ merchant: 'x', amount: 1 }), { 'content-type': 'application/json' })).status).toBe(401);
-    expect((await hook('purchase', 'mz_wrong-key-wrong-key-wrong', JSON.stringify({ merchant: 'x', amount: 1 }), { 'content-type': 'application/json' })).status).toBe(401);
+    const wrong = await hook('purchase', 'mz_wrong-key-wrong-key-wrong', JSON.stringify({ merchant: 'x', amount: 1 }), { 'content-type': 'application/json' });
+    expect(wrong.status).toBe(401);
+    expect(wrong.body.message).toBeTruthy(); // the shortcut's notification says why
 
     // Apple Pay purchase → a captured entry on the Max account; a retry is not added twice; foreign waits
     const buy = (b: object) => hook('purchase', token, JSON.stringify(b), { 'content-type': 'application/json' });
@@ -127,11 +129,13 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     expect(await keyNow()).toMatchObject({ lastResult: 'unreadable_purchase', lastDetail: expect.stringContaining('14 chars') });
     const odd = await hook('purchase', token, JSON.stringify({ Shop: 'Aroma secret', Total: 'x' }), { 'content-type': 'application/json' });
     expect(odd.status).toBe(400);
-    expect(odd.body).toMatchObject({ status: 'error', code: 'unreadable_purchase' });
+    expect(odd.body).toMatchObject({ message: expect.any(String), error: { code: 'unreadable_purchase' } });
     const detail = (await keyNow()).lastDetail!;
     expect(detail).toContain('application/json');
-    expect(detail).toContain('fields: Shop, Total');
+    expect(detail).toContain('fields: total, 1 other'); // known names only; others counted (they could be data)
     expect(detail).not.toContain('Aroma');
+    await hook('purchase', token, JSON.stringify({ 'Aroma ₪19.00': true }), { 'content-type': 'application/json' });
+    expect((await keyNow()).lastDetail).not.toContain('Aroma');
     // run by hand (no Wallet transaction): a connection test, not an error
     for (const empty of ['', '{}', '  ']) {
       const t = await hook('purchase', token, empty);
