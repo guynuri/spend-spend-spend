@@ -1,4 +1,4 @@
-import type { Context } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import type { AppCtx } from '../types';
 import type { HouseholdRow } from '../db/rows';
 import { HttpError } from '../http';
@@ -25,6 +25,35 @@ export async function hookAuth(c: Context<AppCtx>): Promise<{ db: TenantDb; hh: 
   const hh = await g.getHousehold(key.household_id);
   if (!hh || hh.status !== 'active') throw new HttpError(403, 'household_disabled', 'Household disabled');
   await g.touchCaptureKey(key.id);
+  c.set('captureKeyId', key.id);
   c.set('userId', key.user_id);
   return { db: tenantDb(c.env.DB, hh.id), hh, userId: key.user_id };
 }
+
+/**
+ * Every hook answer carries a top-level `message` (errors too), so the shortcut's "Get Dictionary Value
+ * message" → "Show Notification" always says what happened; and the key remembers what its last request
+ * came to (D-R32), so Settings can tell "the phone never reached the app" from "it sent something unreadable".
+ */
+export const hookResult: MiddlewareHandler<AppCtx> = async (c, next) => {
+  await next();
+  type Out = { status?: string; message?: string; error?: { code?: string; message?: string } };
+  let body: Out | null = null;
+  try {
+    body = (await c.res.clone().json()) as Out;
+  } catch {
+    /* not JSON */
+  }
+  if (body?.error && !body.message) {
+    const { status, headers } = c.res;
+    c.res = new Response(JSON.stringify({ ...body, message: body.error.message }), { status, headers });
+  }
+  const id = c.get('captureKeyId');
+  // diagnostics only: a failed write must never turn an answered request (a purchase already saved) into an error
+  if (id)
+    try {
+      await globalDb(c.env.DB).captureKeyResult(id, body?.error?.code ?? body?.status ?? String(c.res.status), c.get('hookDetail') ?? null);
+    } catch {
+      /* ignore */
+    }
+};

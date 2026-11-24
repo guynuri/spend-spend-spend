@@ -49,6 +49,19 @@ test('live card tracking: create a key (shown once), see the setup steps, revoke
   await expect(card.getByTestId('live-token')).toContainText('mz_');
   // the steps carry the new key
   await expect(card).toContainText(`Bearer ${(await card.getByTestId('live-token').textContent())!.trim()}`);
+  // the key's line says what its last request came to: never used, a hand-run test, then an unreadable purchase
+  const token = (await card.getByTestId('live-token').textContent())!.trim();
+  await expect(card.getByTestId('live-keys')).toContainText('Not used yet');
+  const send = (body: string) => page.request.post('/api/hook/purchase', { headers: { authorization: `Bearer ${token}` }, data: body });
+  const test = await send('');
+  expect((await test.json()).message).toContain('Connected');
+  await page.reload();
+  await expect(card.getByTestId('live-key-status')).toHaveAttribute('data-result', 'test');
+  await expect(card.getByTestId('live-key-status')).toContainText('test run');
+  expect((await send('nothing useful')).status()).toBe(400);
+  await page.reload();
+  await expect(card.getByTestId('live-key-status')).toHaveAttribute('data-result', 'unreadable_purchase');
+  await expect(card.getByTestId('live-key-status')).toContainText('Received:');
   await expectNoHorizontalOverflow(page);
   await card.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'e2e/screenshots/en/state-live-capture.png' });
@@ -71,6 +84,9 @@ test('owner publishes the shared shortcut: one-tap install first, the manual ste
   // now: install button + the few automation steps; the full steps are collapsed
   await expect(page.getByTestId('live-install-purchase')).toHaveAttribute('href', link);
   await expect(page.getByTestId('live-quick-purchase')).toContainText('Run Shortcut');
+  // run it by hand once first, so iOS asks for its permissions (an automation can't); and what to do if it fails
+  await expect(page.getByTestId('live-quick-purchase')).toContainText('Always Allow');
+  await expect(page.getByTestId('live-trouble')).toContainText('There was a problem with the automation');
   const manual = page.getByTestId('live-manual-purchase');
   await expect(manual.getByText('Get Contents of URL').first()).toBeHidden();
   await manual.locator('summary').click();

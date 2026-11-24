@@ -38,7 +38,9 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const token = key.body.token;
     expect((await json<{ keys: { id: string; lastUsedAt: string | null }[] }>('GET', '/api/capture-keys', { cookie })).body.keys).toHaveLength(1);
     expect((await hook('purchase', null, JSON.stringify({ merchant: 'x', amount: 1 }), { 'content-type': 'application/json' })).status).toBe(401);
-    expect((await hook('purchase', 'mz_wrong-key-wrong-key-wrong', JSON.stringify({ merchant: 'x', amount: 1 }), { 'content-type': 'application/json' })).status).toBe(401);
+    const wrong = await hook('purchase', 'mz_wrong-key-wrong-key-wrong', JSON.stringify({ merchant: 'x', amount: 1 }), { 'content-type': 'application/json' });
+    expect(wrong.status).toBe(401);
+    expect(wrong.body.message).toBeTruthy(); // the shortcut's notification says why
 
     // Apple Pay purchase → a captured entry on the Max account; a retry is not added twice; foreign waits
     const buy = (b: object) => hook('purchase', token, JSON.stringify(b), { 'content-type': 'application/json' });
@@ -119,6 +121,30 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const bad = await hook('purchase', token, 'nothing useful');
     expect(bad.status).toBe(400);
     expect(bad.body.error?.code).toBe('unreadable_purchase');
+    // errors carry a top-level message too, so the shortcut's notification says why
+    expect(bad.body.message).toMatch(/Could not read the purchase/);
+    // the key remembers its last result and what arrived (type, size, field names — never values)
+    type K = { lastUsedAt: string | null; lastResult: string | null; lastDetail: string | null };
+    const keyNow = async () => (await json<{ keys: K[] }>('GET', '/api/capture-keys', { cookie })).body.keys[0]!;
+    expect(await keyNow()).toMatchObject({ lastResult: 'unreadable_purchase', lastDetail: expect.stringContaining('14 chars') });
+    const odd = await hook('purchase', token, JSON.stringify({ Shop: 'Aroma secret', Total: 'x' }), { 'content-type': 'application/json' });
+    expect(odd.status).toBe(400);
+    expect(odd.body).toMatchObject({ message: expect.any(String), error: { code: 'unreadable_purchase' } });
+    const detail = (await keyNow()).lastDetail!;
+    expect(detail).toContain('application/json');
+    expect(detail).toContain('fields: total, 1 other'); // known names only; others counted (they could be data)
+    expect(detail).not.toContain('Aroma');
+    await hook('purchase', token, JSON.stringify({ 'Aroma ₪19.00': true }), { 'content-type': 'application/json' });
+    expect((await keyNow()).lastDetail).not.toContain('Aroma');
+    // run by hand (no Wallet transaction): a connection test, not an error
+    for (const empty of ['', '{}', '  ']) {
+      const t = await hook('purchase', token, empty);
+      expect(t.status).toBe(200);
+      expect(t.body).toMatchObject({ status: 'test', message: expect.stringContaining('Connected') });
+    }
+    expect((await keyNow()).lastResult).toBe('test');
+    await hook('purchase', token, JSON.stringify({ merchant: 'Aroma', amount: '₪19.00', card: 'Max' }), { 'content-type': 'application/json' });
+    expect((await keyNow()).lastResult).toBe('added');
 
     // the household's shared shortcut links: owner sets, everyone reads, only iCloud links
     const link = 'https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef';

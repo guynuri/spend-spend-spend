@@ -234,6 +234,8 @@ export function globalDb(db: D1Database) {
         .bind(tokenHash)
         .first<{ id: string; household_id: string; user_id: string; role: string }>(),
     touchCaptureKey: (id: string) => db.prepare('UPDATE capture_keys SET last_used_at = ?2 WHERE id = ?1').bind(id, nowIso()).run(),
+    captureKeyResult: (id: string, result: string, detail: string | null) =>
+      db.prepare('UPDATE capture_keys SET last_result = ?2, last_detail = ?3 WHERE id = ?1').bind(id, result.slice(0, 40), detail?.slice(0, 200) ?? null).run(),
 
     // ---------- rate limits ----------
     /** Increments and returns the count for key in the current fixed window. */

@@ -1513,7 +1513,7 @@
       "s7": "Optional: add “Get Dictionary Value” (key “message”) from Contents of URL, then “Show Notification” with it, to see each purchase as it's added.",
       "s8": "Tap Done. Pay once with Apple Pay and look at Transactions: the purchase appears on that card's account."
     },
-    "applePayNote": "Purchases in foreign currency are skipped: their shekel amount comes with the card file. A purchase added this way is replaced by the card file's row when you import it, keeping its category.",
+    "applePayNote": "Purchases in foreign currency are skipped: their shekel amount comes with the card file. A purchase added this way is replaced by the card file’s row when you import it, keeping its category.",
     "shareTitle": "3. Send a bank or card file from the Share button",
     "shareBody": "A shortcut in the Share sheet sends an Excel you downloaded (Max, Isracard, Cal or your bank) straight to the app. Set it up once:",
     "urlFile": "Address for files",
@@ -1534,17 +1534,18 @@
       "installFile": "Install the “Send to Money Money Money” shortcut",
       "pasteKey": "When Shortcuts asks for your key, paste it (creating a key above copies it).",
       "automationTitle": "Then make the automation. Apple doesn't let any app share automations, so this part is done on the phone:",
-      "testPurchase": "Test it with a real Apple Pay purchase: a notification shows what was added. (Running the shortcut by hand sends an empty purchase.)",
+      "testPurchase": "Then test with a real Apple Pay purchase: a notification shows what was added, and the line under your key above shows the result.",
       "useFile": "Then, in the card company's or bank's app or website, download the Excel and tap Share → “Send to Money Money Money”.",
       "didntWork": "Didn't work? Show the step-by-step setup",
       "manualIntro": "Instead of the shortcut, the automation can send the purchase itself. Delete the automation you made, then:",
       "askOwner": "Your household's owner can make this a one-tap install from this page."
     },
     "quickPurchase": {
-      "s1": "Shortcuts → Automation → + → “Transaction” (called “Wallet” on newer iOS).",
-      "s2": "Select your credit cards, choose “Run Immediately”, then Next → “New Blank Automation”.",
-      "s3": "Add the action “Run Shortcut” and choose “Money Money Money – Apple Pay”.",
-      "s4": "Tap the arrow on that action, set Input to “Shortcut Input”, and tap Done."
+      "s1": "First, open Shortcuts and tap “Money Money Money – Apple Pay” once. When iOS asks whether it may connect or send data, choose “Always Allow”: an automation can’t ask, and without this it fails with “There was a problem with the automation”. A notification says “Connected ✓”.",
+      "s2": "Shortcuts → Automation → + → “Transaction” (called “Wallet” on newer iOS).",
+      "s3": "Select your credit cards, choose “Run Immediately”, then Next → “New Blank Automation”.",
+      "s4": "Add the action “Run Shortcut” and choose “Money Money Money – Apple Pay”.",
+      "s5": "Tap the arrow on that action, set Input to “Shortcut Input”, and tap Done."
     },
     "publish": {
       "title": "Make this a one-tap install for your household",
@@ -1561,7 +1562,7 @@
       "s3": "Add “Get Contents of URL” with the address for purchases. Show more: Method “POST”; Headers: “Authorization” = “Bearer ” followed by the Text; Request Body “File” = Shortcut Input.",
       "s4": "Add “Get Dictionary Value” (key “message”) from Contents of URL, then “Show Notification” with it.",
       "s5": "Open the shortcut's details (ⓘ) → Setup → add an Import Question on the Text action: “Paste your Money Money Money key”. The shared copy then has no key in it.",
-      "s6": "Make your own automation with the steps above and test it with a real Apple Pay purchase.",
+      "s6": "Run it once by hand and choose “Always Allow” when asked (it answers “Connected ✓”). Then make your own automation with the steps above and test it with a real Apple Pay purchase.",
       "s7": "Share → “Copy iCloud Link”, and paste the link below."
     },
     "buildFile": {
@@ -1572,7 +1573,29 @@
       "s5": "Add “Get Dictionary Value” (key “message”) and “Show Notification” with it.",
       "s6": "In the details (ⓘ) → Setup, add an Import Question on the Text action: “Paste your Money Money Money key”.",
       "s7": "Share → “Copy iCloud Link”, and paste the link below."
-    }
+    },
+    "trouble": "Got “There was a problem with the automation”? Look at your key above. “Not used yet” means the phone never reached the app: run the shortcut once by hand and choose “Always Allow”, and check that the automation’s “Run Shortcut” points to it with Input = Shortcut Input. Otherwise the line under the key says what the app received.",
+    "lastAttempt": "Last attempt",
+    "result": {
+      "added": "a purchase was added ✓",
+      "duplicate": "already added",
+      "test": "test run, no purchase in it (fine when run by hand)",
+      "skipped": "foreign currency, skipped",
+      "imported": "file imported ✓",
+      "unreadable_purchase": "the purchase arrived but couldn’t be read",
+      "unknown_card": "no credit-card account matches the card",
+      "body_too_large": "too much data arrived",
+      "unrecognized_file": "the file needs a column mapping",
+      "which_account": "no matching account for the file",
+      "no_rows": "the file had no transactions",
+      "unsupported_file": "unreadable file",
+      "other": "failed ({{code}})",
+      "file_too_large": "the file is too large",
+      "file_type": "not an Excel or CSV file",
+      "file_empty": "the file was empty",
+      "row_invalid": "a row in the file couldn’t be read"
+    },
+    "received": "Received:"
   },
   "charts": {
     "other": "Other",
