@@ -57,6 +57,15 @@ test('subcategories: add one inside a category with its own emoji; it is listed 
   const today = (await (await page.request.get('/api/me')).json()).active.today as string;
   for (const categoryId of [sub.id, parent.id])
     await page.request.post('/api/transactions', { headers: H, data: { date: today, amountMinor: 5000000, direction: 'out', description: 'E2E big shop', accountId: acc.id, categoryId } });
+  // Home: the ring opens the parent's subcategories right there, with a link to its transactions
+  await page.goto('/');
+  const home = page.getByTestId('home-donut');
+  await home.getByTestId('donut-row').filter({ hasText: /Groceries|סופר ומכולת/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(home.getByTestId('donut-row').filter({ hasText: 'E2E organic' })).toBeVisible();
+  await home.getByTestId('donut-open-list').click();
+  await expect(page).toHaveURL(new RegExp(`/transactions\\?.*category=${parent.id}`));
+
   await page.goto('/trends');
   const donut = page.getByTestId('trend-donut');
   await donut.getByTestId('donut-row').filter({ hasText: /Groceries|סופר ומכולת/ }).click();

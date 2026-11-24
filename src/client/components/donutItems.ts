@@ -11,7 +11,7 @@ export type SpendItem = { categoryId: string | null; spentMinor: number; members
 /**
  * Ring slices from the by-category spending: each category in its own colour and emoji; a parent's
  * subcategories become its `children` (its own lines as "Parent (directly)"), and the general expenses
- * open into their categories.
+ * open into their categories (and those into their subcategories).
  */
 export function donutItems(items: SpendItem[], cats: Map<string, Category>, t: TFunction): DonutInput[] {
   const part = (p: Part, parentId: string): DonutInput => {
@@ -28,9 +28,11 @@ export function donutItems(items: SpendItem[], cats: Map<string, Category>, t: T
   return items.map((i) => {
     const c = i.categoryId && i.categoryId !== GENERAL_ID ? cats.get(i.categoryId) : null;
     const id = i.categoryId ?? 'none';
+    const subsOf = (cid: string, subs: Part[] | undefined) => (subs?.length ? { children: subs.map((s) => part(s, cid)) } : {});
+    // the server sends `subs` only when a real subcategory has spending, so even one is worth opening
     const children =
       i.categoryId === GENERAL_ID
-        ? (i.members ?? []).map((m) => ({ ...part(m, ''), label: cats.get(m.categoryId)?.name ?? '' }))
+        ? (i.members ?? []).map((m) => ({ ...part(m, ''), label: cats.get(m.categoryId)?.name ?? '', ...subsOf(m.categoryId, m.subs) }))
         : i.subs && i.categoryId
           ? i.subs.map((s) => part(s, i.categoryId!))
           : undefined;
@@ -40,7 +42,7 @@ export function donutItems(items: SpendItem[], cats: Map<string, Category>, t: T
       valueMinor: i.spentMinor,
       slot: c ? colorSlotOf(c) : i.categoryId === GENERAL_ID ? 'cat-7' : OTHER_SLOT,
       emoji: c?.emoji ?? (i.categoryId === GENERAL_ID ? '🧺' : null),
-      ...(children && children.length > 1 ? { children } : {}),
+      ...(children?.length ? { children } : {}),
     };
   });
 }

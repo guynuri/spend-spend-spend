@@ -15,7 +15,7 @@ export type DonutSlice = DonutInput;
 
 /**
  * Slices for the spending ring: positive amounts only, largest first, the first `max` kept and the rest
- * folded into one "Other" slice (never a generated colour). A category keeps its own colour; when two
+ * folded into one "Other" slice (never a generated colour) whose `children` are the folded ones. A category keeps its own colour; when two
  * shown categories share one, the later takes a colour no shown category owns, so no two slices on
  * the ring look alike.
  */
@@ -33,7 +33,8 @@ export function donutSlices(items: DonutInput[], max: number, otherLabel: string
     used.add(slot);
     return { ...i, slot };
   });
-  if (fold) out.push({ id: OTHER_SLOT, label: otherLabel, valueMinor: pos.slice(max).reduce((a, i) => a + i.valueMinor, 0), slot: OTHER_SLOT });
+  // "Other" opens into the slices folded into it, so a small category is never out of reach
+  if (fold) out.push({ id: OTHER_SLOT, label: otherLabel, valueMinor: pos.slice(max).reduce((a, i) => a + i.valueMinor, 0), slot: OTHER_SLOT, children: pos.slice(max) });
   return out;
 }
 

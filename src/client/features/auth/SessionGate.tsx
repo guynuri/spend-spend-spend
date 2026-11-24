@@ -6,6 +6,7 @@ import { ApiError, get } from '../../api';
 import { SessionCtx } from '../../lib/session';
 import { setLocale } from '../../i18n';
 import { applyTheme } from '../../theme';
+import { withPendingPrefs } from '../../lib/prefs';
 import type { MeResponse } from '../../../shared/schemas/me';
 import { ErrorState, Spinner } from '../../components/ui';
 import { AuthLayout } from './AuthLayout';
@@ -14,7 +15,7 @@ import { NoHousehold } from './NoHousehold';
 export const ME_KEY = ['me'] as const;
 
 export function useMeQuery() {
-  return useQuery({ queryKey: ME_KEY, queryFn: () => get<MeResponse>('/api/me'), staleTime: 60_000 });
+  return useQuery({ queryKey: ME_KEY, queryFn: () => get<MeResponse>('/api/me').then(withPendingPrefs), staleTime: 60_000 });
 }
 
 export function SessionGate() {

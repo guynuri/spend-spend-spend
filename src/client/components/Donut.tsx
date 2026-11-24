@@ -6,6 +6,7 @@ import { cx } from './ui';
 import { OTHER_SLOT, slotVar } from '../../shared/categoryLook';
 import { arcLengths, donutSlices, shades, type DonutInput, type DonutSlice } from '../../shared/donut';
 import { formatPercent, type Locale } from '../../shared/money';
+import { GENERAL_ID } from '../../shared/domain/budget';
 
 const SIZE = 208;
 const STROKE = 20;
@@ -25,24 +26,38 @@ const mouse = (e: PointerEvent) => e.pointerType === 'mouse';
 /**
  * Spending split into a ring: up to five slices in their own colours plus "Other", the total (or the
  * selected slice) in the middle, and a legend with names and amounts so no slice is read by colour alone.
- * A tap selects a slice (another tap on it opens it). A slice with `children` opens a ring of its parts in
- * shades of its colour, with a way back; a slice without opens through `onOpen` (e.g. its transactions).
+ * A tap selects a slice (another tap on it opens it). A slice with `children` opens, in place, a ring of
+ * its parts — a category's subcategories in shades of its colour, "Other" into what was folded into it —
+ * with a way back and, for a category, a link to its transactions; a slice without opens through
+ * `onOpen` (e.g. its transactions).
  */
-export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { items: DonutInput[]; label: string; centerLabel: ReactNode; onOpen?: (id: string) => void; max?: number; testId?: string }) {
+export function Donut({ items, label, centerLabel, onOpen, max = 5, testId, tourId }: { items: DonutInput[]; label: string; centerLabel: ReactNode; onOpen?: (id: string) => void; max?: number; testId?: string; /** `data-tour` on the ring. */ tourId?: string }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
-  const [parentId, setParentId] = useState<string | null>(null);
+  /** The opened slices, outermost first. */
+  const [path, setPath] = useState<string[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
-  const top = donutSlices(items, max, t('charts.other'));
-  const parent = parentId ? top.find((s) => s.id === parentId && s.children?.length) : undefined;
-  const slices: DonutSlice[] = parent
-    ? (() => {
-        const kids = donutSlices(parent.children!, max, t('charts.other'));
-        const tones = shades(colorOf(parent), kids.length);
-        return kids.map((k, i) => ({ ...k, color: tones[i] }));
-      })()
-    : top;
+  // Walk the path: each opened slice's parts, shaded with the category colour they belong to (if any).
+  const levels: { slices: DonutSlice[]; parent: DonutSlice | null; base: string | null }[] = [{ slices: donutSlices(items, max, t('charts.other')), parent: null, base: null }];
+  for (const id of path) {
+    const cur = levels[levels.length - 1]!;
+    const p = cur.slices.find((s) => s.id === id && s.children?.length);
+    if (!p) break; // the data changed under an opened slice: stay where it still exists
+    const base = p.id === OTHER_SLOT ? cur.base : colorOf(p);
+    const kids = donutSlices(p.children!, max, t('charts.other'));
+    const tones = base ? shades(base, kids.length) : null;
+    levels.push({ slices: tones ? kids.map((k, i) => ({ ...k, color: tones[i] })) : kids, parent: p, base });
+  }
+  const { slices, parent } = levels[levels.length - 1]!;
+  const up = levels.length > 1 ? levels[levels.length - 2]!.parent : null;
+  const go = (next: string[]) => {
+    setPath(next);
+    setActive(null);
+    setHover(null);
+  };
+  /** A real category (not "Other", not the general expenses, not a parent's own lines) opens its transactions. */
+  const opens = (id: string) => !!onOpen && id !== OTHER_SLOT && id !== GENERAL_ID && !id.includes(':');
   const total = slices.reduce((a, s) => a + s.valueMinor, 0);
   const shown = hover ?? active;
   const sel = slices.find((s) => s.id === shown) ?? null;
@@ -62,11 +77,8 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
     return arc;
   });
   const open = (s: DonutSlice) => {
-    if (s.children?.length && !parent) {
-      setParentId(s.id);
-      setActive(null);
-      setHover(null);
-    } else if (onOpen && s.id !== OTHER_SLOT && !s.id.includes(':')) onOpen(s.id);
+    if (s.children?.length) go([...path.slice(0, levels.length - 1), s.id]);
+    else if (opens(s.id) || (onOpen && s.id === GENERAL_ID)) onOpen!(s.id);
   };
   // first tap selects; a second tap on the selected slice opens it
   const tapSlice = (s: DonutSlice) => (active === s.id ? open(s) : setActive(s.id));
@@ -74,13 +86,21 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
   return (
     <div className="flex flex-col gap-3" data-testid={testId}>
       {parent && (
-        <button type="button" onClick={() => setParentId(null)} className="inline-flex min-h-11 items-center gap-1 self-start rounded-2xl px-2 text-sm font-medium text-accent hover:bg-surface-2" data-testid="donut-back">
-          <ChevronLeft className="size-4 rtl:-scale-x-100" aria-hidden />
-          {t('charts.allCategories')}
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <button type="button" onClick={() => go(path.slice(0, levels.length - 2))} className="inline-flex min-h-11 items-center gap-1 rounded-2xl px-2 text-sm font-medium text-accent hover:bg-surface-2" data-testid="donut-back">
+            <ChevronLeft className="size-4 rtl:-scale-x-100" aria-hidden />
+            {up ? t('charts.backTo', { name: up.label }) : t('charts.allCategories')}
+          </button>
+          {opens(parent.id) && (
+            <button type="button" onClick={() => onOpen!(parent.id)} className="inline-flex min-h-11 items-center gap-1 rounded-2xl px-2 text-sm font-medium text-accent hover:bg-surface-2" data-testid="donut-open-list">
+              {t('charts.seeTransactions')}
+              <ChevronRight className="size-4 rtl:-scale-x-100" aria-hidden />
+            </button>
+          )}
+        </div>
       )}
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-        <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
+        <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }} data-tour={tourId}>
           <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} role="img" aria-label={parent ? `${label}: ${parent.label}` : label} className="-rotate-90 touch-manipulation">
             <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke="var(--mz-surface-2)" strokeWidth={STROKE} />
             {arcs.map(({ s, start, len }) => (
@@ -147,7 +167,7 @@ export function Donut({ items, label, centerLabel, onOpen, max = 5, testId }: { 
                 <span className="w-20 text-end text-sm font-semibold tabular">
                   <Money minor={s.valueMinor} decimals={0} />
                 </span>
-                {!parent && s.children?.length ? <ChevronRight className="size-4 shrink-0 text-muted rtl:-scale-x-100" aria-label={t('charts.hasParts')} /> : <span className="w-4 shrink-0" aria-hidden />}
+                {s.children?.length ? <ChevronRight className="size-4 shrink-0 text-muted rtl:-scale-x-100" aria-label={t(s.id === OTHER_SLOT ? 'charts.otherParts' : 'charts.hasParts')} /> : <span className="w-4 shrink-0" aria-hidden />}
               </button>
             </li>
           ))}

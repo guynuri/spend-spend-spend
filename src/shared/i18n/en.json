@@ -1471,6 +1471,14 @@
       "reminders": {
         "title": "Reminders",
         "body": "Your own nudges, e.g. to import a fresh statement weekly or log today’s spending. They pop up here and, if you allow notifications, on this phone."
+      },
+      "homeDonut": {
+        "title": "Where it’s going",
+        "body": "Your spending by category. Tap a category with subcategories (or “Other”) to open its parts right here; “Its transactions” lists them."
+      },
+      "homeEdit": {
+        "title": "Make Home yours",
+        "body": "Choose which widgets are on Home and drag them into your order. Your layout is saved to your profile, so it follows you to every device."
       }
     }
   },
@@ -1569,7 +1577,10 @@
   "charts": {
     "other": "Other",
     "allCategories": "All categories",
-    "hasParts": "Has subcategories"
+    "hasParts": "Has subcategories",
+    "backTo": "Back to {{name}}",
+    "seeTransactions": "Its transactions",
+    "otherParts": "Opens the smaller categories"
   },
   "home": {
     "leftToSpend": "Left to spend",
@@ -1605,6 +1616,74 @@
     "who": {
       "title": "Who paid this month",
       "shared": "Shared"
+    },
+    "noBudgets": "No budgets set yet.",
+    "noRecent": "No transactions this month yet.",
+    "edit": {
+      "open": "Customize Home",
+      "title": "Customize Home",
+      "subtitle": "Your widgets, in your order",
+      "onHome": "On your Home",
+      "intro": "Drag the ⠿ handle to change the order; − removes a widget. Changes save right away and follow you to every device.",
+      "remove": "Remove {{name}}",
+      "add": "Add {{name}}",
+      "more": "Add widgets",
+      "allShown": "Every widget is already on your Home.",
+      "emptyList": "Nothing on Home yet — add widgets below.",
+      "reset": "Back to default",
+      "done": "Done",
+      "emptyTitle": "Your Home is empty",
+      "emptyBody": "Add the widgets you want to see here."
+    },
+    "widgets": {
+      "hero": {
+        "title": "Left to spend",
+        "body": "What’s left in your budgets, and per day"
+      },
+      "owed": {
+        "title": "People owe you",
+        "body": "Shows only while someone owes you money"
+      },
+      "donut": {
+        "title": "Where it’s going",
+        "body": "Spending by category; tap one to see its subcategories"
+      },
+      "who": {
+        "title": "Who paid",
+        "body": "Each person’s share; only with more than one member"
+      },
+      "attention": {
+        "title": "Worth a look",
+        "body": "Things that need attention now"
+      },
+      "upcoming": {
+        "title": "Coming up",
+        "body": "The next payments and income"
+      },
+      "forecast": {
+        "title": "Month-end forecast",
+        "body": "Where your balance should land"
+      },
+      "goals": {
+        "title": "Goals",
+        "body": "Progress on your savings goals"
+      },
+      "health": {
+        "title": "Health score",
+        "body": "Your finances in one score, 0–100"
+      },
+      "usual": {
+        "title": "Your usual month",
+        "body": "This month next to a typical one"
+      },
+      "budgets": {
+        "title": "Budgets",
+        "body": "The budgets closest to their limit"
+      },
+      "recent": {
+        "title": "Latest transactions",
+        "body": "The newest few this month"
+      }
     }
   },
   "quick": {
@@ -1626,5 +1705,10 @@
     "cardTitle": "People owe you",
     "cardBody": "Not counted as your spending. When someone pays you back, put the payment in “Owed to me”.",
     "cardOpen": "See who"
+  },
+  "sortable": {
+    "grip": "Move {{name}}",
+    "hint": "Drag to change the order, or use the up and down arrow keys.",
+    "moved": "{{name}}: position {{n}} of {{total}}"
   }
 }

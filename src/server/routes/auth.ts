@@ -10,6 +10,7 @@ import {
 } from '@simplewebauthn/server';
 import { APP_NAME } from '../../shared/app';
 import { todayInTz } from '../../shared/dates';
+import { parseHomeWidgets } from '../../shared/home';
 import { patchMeSchema, type MeResponse } from '../../shared/schemas/me';
 import type { AppCtx } from '../types';
 import { globalDb } from '../db/global';
@@ -249,6 +250,15 @@ authRoutes.post('/demo', requireSession, async (c) => {
 });
 
 // ---------------- me / session ----------------
+/** The saved Home layout, cleaned (ids no longer known are dropped); null when never saved or unreadable. */
+function homeWidgetsOf(raw: string | null) {
+  if (!raw) return null;
+  try {
+    return parseHomeWidgets(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
 authRoutes.get('/me', requireSession, async (c) => {
   const g = globalDb(c.env.DB);
   const s = c.get('session')!;
@@ -269,7 +279,7 @@ authRoutes.get('/me', requireSession, async (c) => {
     }
   }
   const res: MeResponse = {
-    user: { id: user.id, displayName: user.display_name, isSuperAdmin: user.is_super_admin === 1, locale: (user.locale as 'en' | 'he' | null) ?? null, theme: (user.theme as MeResponse['user']['theme']) ?? null },
+    user: { id: user.id, displayName: user.display_name, isSuperAdmin: user.is_super_admin === 1, locale: (user.locale as 'en' | 'he' | null) ?? null, theme: (user.theme as MeResponse['user']['theme']) ?? null, homeWidgets: homeWidgetsOf(user.home_widgets) },
     households: households.map((h) => ({ id: h.id, name: h.name, role: h.role })),
     active,
     role,
