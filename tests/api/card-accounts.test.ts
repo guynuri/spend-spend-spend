@@ -119,6 +119,28 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const bad = await hook('purchase', token, 'nothing useful');
     expect(bad.status).toBe(400);
     expect(bad.body.error?.code).toBe('unreadable_purchase');
+    // errors carry a top-level message too, so the shortcut's notification says why
+    expect(bad.body.message).toMatch(/Could not read the purchase/);
+    // the key remembers its last result and what arrived (type, size, field names — never values)
+    type K = { lastUsedAt: string | null; lastResult: string | null; lastDetail: string | null };
+    const keyNow = async () => (await json<{ keys: K[] }>('GET', '/api/capture-keys', { cookie })).body.keys[0]!;
+    expect(await keyNow()).toMatchObject({ lastResult: 'unreadable_purchase', lastDetail: expect.stringContaining('14 chars') });
+    const odd = await hook('purchase', token, JSON.stringify({ Shop: 'Aroma secret', Total: 'x' }), { 'content-type': 'application/json' });
+    expect(odd.status).toBe(400);
+    expect(odd.body).toMatchObject({ status: 'error', code: 'unreadable_purchase' });
+    const detail = (await keyNow()).lastDetail!;
+    expect(detail).toContain('application/json');
+    expect(detail).toContain('fields: Shop, Total');
+    expect(detail).not.toContain('Aroma');
+    // run by hand (no Wallet transaction): a connection test, not an error
+    for (const empty of ['', '{}', '  ']) {
+      const t = await hook('purchase', token, empty);
+      expect(t.status).toBe(200);
+      expect(t.body).toMatchObject({ status: 'test', message: expect.stringContaining('Connected') });
+    }
+    expect((await keyNow()).lastResult).toBe('test');
+    await hook('purchase', token, JSON.stringify({ merchant: 'Aroma', amount: '₪19.00', card: 'Max' }), { 'content-type': 'application/json' });
+    expect((await keyNow()).lastResult).toBe('added');
 
     // the household's shared shortcut links: owner sets, everyone reads, only iCloud links
     const link = 'https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef';

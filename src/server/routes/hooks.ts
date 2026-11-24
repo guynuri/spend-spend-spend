@@ -10,7 +10,7 @@ import { Hono, type Context } from 'hono';
 import type { AppCtx } from '../types';
 import { HttpError } from '../http';
 import { rateLimit } from '../middleware/auth';
-import { hookAuth } from '../middleware/hook';
+import { hookAuth, hookResult } from '../middleware/hook';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
 import { normKey } from '../../shared/normalize';
@@ -28,12 +28,31 @@ import { commitImport, enrich } from './imports';
 
 export const hookRoutes = new Hono<AppCtx>();
 hookRoutes.use('*', rateLimit('hook', 60, 60_000));
+hookRoutes.use('*', hookResult);
+
+/** What arrived, for the key's last-result line: content type, size and (for JSON objects) field names — never values. */
+function describeBody(raw: string, type: string | undefined): string {
+  const t = (type ?? '').split(';')[0]!.trim() || 'no type';
+  let keys = '';
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (v && typeof v === 'object' && !Array.isArray(v)) keys = ` · fields: ${Object.keys(v).slice(0, 8).join(', ')}`;
+    else if (Array.isArray(v)) keys = ` · list of ${v.length}`;
+  } catch {
+    /* not JSON */
+  }
+  return `${t} · ${raw.length} chars${keys}`;
+}
+
+/** A body with nothing in it: the shortcut run by hand (no Wallet transaction to pass on). */
+const isEmptyInput = (raw: string) => /^\s*(\{\s*\}|\[\s*\]|""|null)?\s*$/.test(raw);
 
 /** Messages the shortcut shows as a notification, in the household's language. */
 const MSG = {
   en: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} at ${merchant} → ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'Already added',
+    test: 'Connected ✓ Your key works. Real Apple Pay purchases will now be added automatically.',
     unreadable: 'Could not read the purchase. In Money Money Money → Settings → Live card tracking, use “Didn’t work?” for the step-by-step setup.',
     foreign: 'Foreign-currency purchase: it will arrive with the card file',
     noCard: (card: string) => `No credit-card account matches “${card}”. Add one in Money Money Money → Accounts.`,
@@ -44,6 +63,7 @@ const MSG = {
   he: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} ב־${merchant} ← ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'כבר נוסף',
+    test: 'מחובר ✓ המפתח עובד. מעכשיו קניות Apple Pay יתווספו אוטומטית.',
     unreadable: 'לא הצלחנו לקרוא את הקנייה. ב־Money Money Money ← הגדרות ← מעקב חי אחר הכרטיס, „לא עבד?” מציג את ההגדרה צעד אחר צעד.',
     foreign: 'קנייה במטבע חוץ: היא תגיע עם קובץ הכרטיס',
     noCard: (card: string) => `אין חשבון כרטיס אשראי שמתאים ל„${card}”. אפשר להוסיף ב־Money Money Money ← חשבונות.`,
@@ -63,6 +83,9 @@ hookRoutes.post('/purchase', async (c) => {
   // JSON from our own steps, or whatever the shared shortcut passes on (readPurchase)
   const raw = await c.req.text();
   if (raw.length > 20_000) throw new HttpError(413, 'body_too_large', 'Body too large');
+  c.set('hookDetail', describeBody(raw, c.req.header('content-type')));
+  // run by hand from the Shortcuts app: a connection test (and the moment iOS asks for its permissions)
+  if (isEmptyInput(raw)) return c.json({ status: 'test', message: msg.test });
   const b = readPurchase(raw);
   const amt = b ? parsePaidAmount(b.amount) : null;
   if (!b || !amt) throw new HttpError(400, 'unreadable_purchase', msg.unreadable);
@@ -126,6 +149,7 @@ const nameFor = (head: Uint8Array, given: string | null) => {
 hookRoutes.post('/file', async (c) => {
   const { db, hh, userId, msg } = await auth(c);
   const bytes = new Uint8Array(await c.req.arrayBuffer());
+  c.set('hookDetail', `${(c.req.header('content-type') ?? '').split(';')[0]!.trim() || 'no type'} · ${bytes.length} bytes`);
   let given: string | null;
   try {
     given = decodeURIComponent(c.req.header('x-file-name') ?? '') || null;

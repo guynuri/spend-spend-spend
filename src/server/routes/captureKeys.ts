@@ -25,15 +25,18 @@ export interface CaptureKey {
   label: string | null;
   createdAt: string;
   lastUsedAt: string | null;
+  /** What the last request with this key came to ('added', 'test', 'unreadable_purchase', …) and what it carried. */
+  lastResult: string | null;
+  lastDetail: string | null;
 }
 
 captureKeyRoutes.get('/', async (c) => {
   const { db, userId } = tctx(c);
-  const rows = await db.all<{ id: string; label: string | null; created_at: string; last_used_at: string | null }>(
-    'SELECT id, label, created_at, last_used_at FROM capture_keys WHERE household_id = ?1 AND user_id = ?2 AND revoked_at IS NULL ORDER BY created_at',
+  const rows = await db.all<{ id: string; label: string | null; created_at: string; last_used_at: string | null; last_result: string | null; last_detail: string | null }>(
+    'SELECT id, label, created_at, last_used_at, last_result, last_detail FROM capture_keys WHERE household_id = ?1 AND user_id = ?2 AND revoked_at IS NULL ORDER BY created_at',
     userId,
   );
-  return c.json({ keys: rows.map((r) => ({ id: r.id, label: r.label, createdAt: r.created_at, lastUsedAt: r.last_used_at }) satisfies CaptureKey) });
+  return c.json({ keys: rows.map((r) => ({ id: r.id, label: r.label, createdAt: r.created_at, lastUsedAt: r.last_used_at, lastResult: r.last_result, lastDetail: r.last_detail }) satisfies CaptureKey) });
 });
 
 captureKeyRoutes.post('/', async (c) => {

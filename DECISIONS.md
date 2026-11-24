@@ -506,3 +506,18 @@ Format: date · milestone · what · why · alternatives rejected.
   "Other" opens into the slices folded into it; general-expenses members open one level deeper.
   Inside a category, "Its transactions" still links to the list.
 - **Tour:** two new Home steps — the ring (opens in place) and the customize button.
+
+## D-R32 · 2026-11-24 · Live card tracking: diagnosing "There was a problem with the automation"
+- **What we saw:** a Wallet automation ("When reading at least one of 2 cards…") ran and iOS reported
+  only "There was a problem with the automation", with no word from the app. That's a Shortcuts-level
+  failure, and from the server there was no way to tell whether the request ever arrived.
+- **Last result per key:** `capture_keys.last_result` / `last_detail` (migration 0025), written by a hook
+  middleware after every keyed request: a short code ('added', 'test', 'unreadable_purchase', …) and
+  what arrived (content type, size, JSON field names — never values). Settings shows it under the key
+  with the time: "Not used yet" now clearly means the phone never reached the app.
+- **Hand run = connection test:** an empty body (the shortcut run from the Shortcuts app, with no Wallet
+  transaction) answers 200 "Connected ✓" instead of "couldn't read". The setup now starts with running
+  the shortcut once by hand and choosing "Always Allow": iOS asks a shortcut's network / data-sharing
+  permissions only when someone can answer, and a "Run Immediately" automation can't, so it fails.
+- **Messages on errors:** every hook answer has a top-level `message` (errors keep `error: {code, message}`),
+  so "Get Dictionary Value message" → "Show Notification" says why instead of showing nothing.

@@ -18,6 +18,10 @@ export interface AppVars {
   role?: Role;
   household?: HouseholdRow;
   db?: TenantDb;
+  /** The phone-automation key behind a /api/hook request (for its last-result line in Settings). */
+  captureKeyId?: string;
+  /** What a hook request carried (type, size, field names), stored with the key's last result. */
+  hookDetail?: string;
 }
 
 export interface AppCtx {
