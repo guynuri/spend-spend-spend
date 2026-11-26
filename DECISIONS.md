@@ -540,3 +540,6 @@ Format: date · milestone · what · why · alternatives rejected.
   automations be shared, so those two actions remain the phone-side part.
 - **Folded:** the card shows a one-line summary per part and the main action (Install / create a key);
   the steps, notes and troubleshooting open from "How to set it up", "Didn't work?" and "Explain more".
+- **App icon (2026-11-26):** an original small piggy bank with a coin going into the slot, in the app's
+  blues (gradient background, white-to-pale-blue pig). It sits inside the 80 % safe circle, so the
+  maskable icon uses the full artwork with no flat-colour padding.
