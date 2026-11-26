@@ -134,7 +134,13 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const keyNow = async () => (await json<{ keys: K[] }>('GET', '/api/capture-keys', { cookie })).body.keys[0]!;
     expect(await keyNow()).toMatchObject({ lastResult: 'added' });
     await hook('purchase', token, 'Aroma Tel Aviv', { 'content-type': 'text/plain' });
-    expect(await keyNow()).toMatchObject({ lastResult: 'no_amount', lastDetail: 'text/plain · 14 chars · no number' });
+    expect(await keyNow()).toMatchObject({ lastResult: 'no_amount', lastDetail: 'text/plain · 14 chars · no amount' });
+    // a digit in the name is not an amount: no ₪7 purchase at "Eleven"
+    expect((await hook('purchase', token, '7-Eleven', { 'content-type': 'text/plain' })).body.error?.code).toBe('no_amount');
+    // the Text was passed but its Amount came out empty: not "add a Text action", just unreadable
+    const emptyAmount = await hook('purchase', token, 'Merchant: Aroma\nAmount: \nCard or Pass: Max', { 'content-type': 'text/plain' });
+    expect(emptyAmount.body.error?.code).toBe('unreadable_purchase');
+    expect((await keyNow()).lastDetail).toContain('fields: merchant, amount, card or pass');
     const odd = await hook('purchase', token, JSON.stringify({ Shop: 'Aroma secret', Total: 'x' }), { 'content-type': 'application/json' });
     expect(odd.status).toBe(400);
     expect(odd.body).toMatchObject({ message: expect.any(String), error: { code: 'unreadable_purchase' } });

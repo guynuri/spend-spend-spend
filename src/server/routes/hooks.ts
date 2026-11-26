@@ -14,7 +14,7 @@ import { hookAuth, hookResult } from '../middleware/hook';
 import { newId, nowIso } from '../lib/crypto';
 import { householdToday } from '../lib/today';
 import { normKey } from '../../shared/normalize';
-import { matchCaptureCard, parsePaidAmount, readPurchase } from '../../shared/domain/capture';
+import { AMOUNT_HINT, PURCHASE_FIELD, isNameOnly, matchCaptureCard, parsePaidAmount, readPurchase } from '../../shared/domain/capture';
 import { isValidDate } from '../../shared/dates';
 import { inferAccount } from '../../shared/banks';
 import { formatMoney } from '../../shared/money';
@@ -31,9 +31,6 @@ export const hookRoutes = new Hono<AppCtx>();
 hookRoutes.use('*', hookResult);
 hookRoutes.use('*', rateLimit('hook', 60, 60_000));
 
-/** Field names a purchase may arrive under; any other name is counted, never stored (it could be data). */
-const KNOWN_FIELD = /^(merchant|merchant name|business|name|amount|price|total|currency|card|card or pass|pass|card name|wallet card|date|transaction|shortcut input)$/;
-
 /** What arrived, for the key's last-result line: content type, size and known field names — never values. */
 function describeBody(raw: string, type: string | undefined): string {
   const t = (type ?? '').split(';')[0]!.trim() || 'no type';
@@ -48,9 +45,9 @@ function describeBody(raw: string, type: string | undefined): string {
     if (lines.length >= 2) names = lines;
     else if (/^[^=&\s]+=[^&]*(&[^=&\s]+=[^&]*)*$/.test(raw.trim())) names = [...new URLSearchParams(raw.trim()).keys()];
   }
-  // whether the text had any number in it (a purchase needs its amount); the text itself is never kept
-  if (!names) return `${t} · ${raw.length} chars · ${/\d/.test(raw) ? 'has a number' : 'no number'}`;
-  const known = names.map((k) => k.trim().toLowerCase()).filter((k) => KNOWN_FIELD.test(k));
+  // whether the text had anything that reads as an amount (a digit in a name doesn't); the text is never kept
+  if (!names) return `${t} · ${raw.length} chars · ${AMOUNT_HINT.test(raw) ? 'has an amount' : 'no amount'}`;
+  const known = names.map((k) => k.trim().toLowerCase()).filter((k) => PURCHASE_FIELD.test(k));
   const other = names.length - known.length;
   return `${t} · ${raw.length} chars · fields: ${[...known.slice(0, 8), ...(other ? [`${other} other`] : [])].join(', ') || 'none'}`;
 }
@@ -101,11 +98,11 @@ hookRoutes.post('/purchase', async (c) => {
   c.set('hookDetail', describeBody(raw, c.req.header('content-type')));
   // run by hand from the Shortcuts app: a connection test (and the moment iOS asks for its permissions)
   if (isEmptyInput(raw)) return c.json({ status: 'test', message: msg.test });
+  // plain text that is only a name: Wallet's transaction reached the shortcut as is (iOS turns it into its
+  // name), so the amount was lost on the phone; never read a digit in the name ("7-Eleven") as the amount
+  if (isNameOnly(raw)) throw new HttpError(400, 'no_amount', msg.noAmount);
   const b = readPurchase(raw);
   const amt = b ? parsePaidAmount(b.amount) : null;
-  // plain text with no number at all: Wallet's transaction reached the shortcut as just a name (iOS turns
-  // it into text when the automation passes it on as is), so the amount was lost on the phone
-  if (!b && !/\d/.test(raw) && !/^\s*[{[]/.test(raw)) throw new HttpError(400, 'no_amount', msg.noAmount);
   if (!b || !amt) throw new HttpError(400, 'unreadable_purchase', msg.unreadable);
   if (amt.currency === 'foreign') return c.json({ status: 'skipped', message: msg.foreign });
   const accounts = await db.all<{ id: string; name: string; bank_id: string | null; account_mask: string | null }>(

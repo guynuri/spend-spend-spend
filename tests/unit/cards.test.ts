@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 import { cardPaymentParts, chooseCardAccount, cycleMonth, issuerOf } from '../../src/shared/domain/cards';
-import { matchCaptureCard, parsePaidAmount, readPurchase } from '../../src/shared/domain/capture';
+import { isNameOnly, matchCaptureCard, parsePaidAmount, readPurchase } from '../../src/shared/domain/capture';
 import { cardAccountResult, installmentOf } from '../../src/shared/import/cardAccount';
 import { pickParser } from '../../src/shared/import/registry';
 import { sniffFile } from '../../src/shared/import/sniff';
@@ -133,5 +133,13 @@ describe('reading a purchase from a shortcut, whatever its shape (D-R21)', () =>
     // form fields, and JSON longer than the plain-text limit
     expect(readPurchase('merchant=Cafe&amount=12')).toMatchObject({ merchant: 'Cafe', amount: '12' });
     expect(readPurchase(JSON.stringify({ merchant: 'Cafe', amount: '₪12', note: 'x'.repeat(2100) }))).toMatchObject({ merchant: 'Cafe' });
+  });
+});
+
+describe('a name without an amount (Wallet transaction passed on as is)', () => {
+  it('is a plain name, even with digits in it; never fields, JSON, form or text with an amount', () => {
+    for (const s of ['Aroma Tel Aviv', '7-Eleven', 'Super-Pharm 24', 'ארומה']) expect(isNameOnly(s), s).toBe(true);
+    for (const s of ['', 'Aroma ₪18', 'Cafe 12.50', '88 ש״ח', 'Merchant: Aroma\nAmount: \nCard or Pass: Max', 'סוחר: ארומה', '{"merchant":"x"}', 'merchant=x&amount=1'])
+      expect(isNameOnly(s), s).toBe(false);
   });
 });
