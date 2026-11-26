@@ -181,6 +181,25 @@ export function globalDb(db: D1Database) {
         )
         .bind(id, p.purchase !== undefined ? 1 : 0, p.purchase ?? null, p.file !== undefined ? 1 : 0, p.file ?? null)
         .run(),
+    /** The app-wide shared shortcut links (D-R34), offered to households without their own. */
+    appShortcutLinks: async () => {
+      const rows = (await db.prepare("SELECT key, value FROM app_settings WHERE key IN ('shortcut_purchase_link', 'shortcut_file_link')").all<{ key: string; value: string }>()).results;
+      const v = (k: string) => rows.find((r) => r.key === k)?.value ?? null;
+      return { purchase: v('shortcut_purchase_link'), file: v('shortcut_file_link') };
+    },
+    /** undefined keeps a link, null removes it. */
+    setAppShortcutLinks: async (p: { purchase?: string | null; file?: string | null }, userId: string) => {
+      const stmts: D1PreparedStatement[] = [];
+      for (const [k, v] of [['shortcut_purchase_link', p.purchase], ['shortcut_file_link', p.file]] as const) {
+        if (v === undefined) continue;
+        stmts.push(
+          v === null
+            ? db.prepare('DELETE FROM app_settings WHERE key = ?1').bind(k)
+            : db.prepare('INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3, updated_by = ?4').bind(k, v, nowIso(), userId),
+        );
+      }
+      if (stmts.length) await db.batch(stmts);
+    },
     /** Pay-day periods (D-R23); undefined keeps a value. */
     setPeriods: (id: string, p: { startDay?: number; statsByPeriod?: boolean }) =>
       db

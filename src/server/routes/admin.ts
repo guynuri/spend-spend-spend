@@ -4,7 +4,9 @@ import type { AppCtx, Ctx } from '../types';
 import { globalDb } from '../db/global';
 import { householdInitStatements } from '../db/householdInit';
 import { tenantDb } from '../db/tenant';
-import { body, notFound } from '../http';
+import { HttpError, body, notFound } from '../http';
+import { checkShortcut } from '../lib/shortcutCheck';
+import { SHORTCUT_LINK_RE } from '../../shared/shortcuts';
 import { newId, randomToken, sha256Hex } from '../lib/crypto';
 import { requireSuperAdmin } from '../middleware/auth';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
@@ -79,4 +81,25 @@ adminRoutes.post('/admin/users/:id/recovery', async (c) => {
   const token = randomToken();
   await g.createInvite({ tokenHash: await sha256Hex(token), kind: 'recovery', householdId: null, role: null, targetUserId: uid, createdBy: c.get('userId')!, ttlMs: RECOVERY_TTL_MS });
   return c.json({ link: `${originOf(c)}/recover#${token}` }, 201);
+});
+
+/** App-wide settings (D-R34): the shared Shortcuts every household without its own is offered. */
+adminRoutes.get('/admin/settings', async (c) => c.json({ shortcutLinks: await globalDb(c.env.DB).appShortcutLinks() }));
+
+adminRoutes.patch('/admin/settings', async (c) => {
+  const link = z.string().regex(SHORTCUT_LINK_RE).nullable().optional();
+  const b = await body(c, z.object({ shortcutPurchaseLink: link, shortcutFileLink: link }).strict());
+  // iCloud links are public, so no one's key may be inside; and unlike a household's own link this one
+  // reaches every household, so it must be verified: if iCloud can't be read, refuse (try again later)
+  if (c.env.SHORTCUT_CHECK !== 'skip')
+    for (const l of [b.shortcutPurchaseLink, b.shortcutFileLink]) {
+      if (!l) continue;
+      const r = await checkShortcut(l);
+      if (r === 'key') throw new HttpError(400, 'shortcut_has_key', 'This shortcut has a personal key inside');
+      if (r === 'unverified') throw new HttpError(503, 'shortcut_unverified', 'Could not check the shortcut with iCloud');
+    }
+  await globalDb(c.env.DB).setAppShortcutLinks({ purchase: b.shortcutPurchaseLink, file: b.shortcutFileLink }, c.get('userId')!);
+  // audit_log is per household; an app-wide change goes to the Worker's logs (app_settings keeps who/when for the current value)
+  console.warn(JSON.stringify({ rid: c.get('rid'), event: 'admin.settings.update', by: c.get('userId'), purchase: b.shortcutPurchaseLink, file: b.shortcutFileLink }));
+  return c.json({ ok: true });
 });

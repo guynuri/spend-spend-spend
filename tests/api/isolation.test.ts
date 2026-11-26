@@ -35,6 +35,8 @@ export const ROUTES: Record<string, Cls> = {
   'PATCH /api/admin/households/:id': 'admin',
   'POST /api/admin/households/:id/owner-invite': 'admin',
   'POST /api/admin/users/:id/recovery': 'admin',
+  'GET /api/admin/settings': 'admin',
+  'PATCH /api/admin/settings': 'admin',
   'GET /api/household': 'tenant',
   'PATCH /api/household': 'tenant',
   'GET /api/household/members': 'tenant',

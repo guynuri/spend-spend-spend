@@ -546,3 +546,17 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Seen on a device (2026-11-26):** a shortcut's "Receive" input types have no Wallet transaction, so the
   shared shortcut can't pick Merchant / Amount / Card from its input. The Text stays in each person's
   automation; the shared shortcut only forwards it (receives Text, Request Body File = Shortcut Input).
+
+## D-R34 · 2026-11-26 · Shared shortcuts for every household
+- A shortcut carries no household and no key (each person pastes their own key via the Import Question),
+  so one iCloud link serves all households. `app_settings` (migration 0026, global) holds the app-wide
+  links; the super-admin sets them on the Admin page (`GET/PATCH /api/admin/settings`, same iCloud-link
+  and "no key inside" checks as a household's). `GET /api/household` returns `shortcutLinks` = the
+  household's own, else the app's, plus `shortcutLinksOwn`; an owner can still publish their own
+  ("Use your own shortcut instead"), and removing it falls back to the app's.
+- The automation stays per person (Apple doesn't let automations be shared).
+- **Review follow-ups:** the app-wide link is verified, not best-effort: `checkShortcut` tells key / ok /
+  unverified apart, and the admin save refuses (503 `shortcut_unverified`, try again) when iCloud can't be
+  read. A household's own link keeps the best-effort check. `SHORTCUT_CHECK=skip` turns the iCloud call off
+  in tests and local e2e. App-wide changes are logged to the Worker's logs (audit_log is per household).
+  The link regex lives in `shared/shortcuts.ts` for server and client.
