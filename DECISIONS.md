@@ -525,3 +525,9 @@ Format: date · milestone · what · why · alternatives rejected.
   real purchase it means the automation passes nothing on (Input ≠ Shortcut Input); the diagnostic write
   can never change a hook's answer; the result middleware runs before the rate limit (429s get a message);
   stored field names are only known ones (others counted), so no purchase data lands in `last_detail`.
+- **Seen on a device (2026-11-26):** with the automation's "Run Shortcut" Input = Shortcut Input, the
+  shared shortcut's "Request Body: File" sent `text/plain`, 15 characters, no number: iOS turns Wallet's
+  transaction into its name, and the amount is lost on the phone. The quick setup now adds a Text action
+  in the automation ("Merchant: … / Amount: … / Card or Pass: …" from Shortcut Input's fields) and passes
+  that Text to the shortcut; the server already reads "Key: value" lines. A text body with no number at
+  all now answers `no_amount` with exactly this fix (and the key's line says "no number").

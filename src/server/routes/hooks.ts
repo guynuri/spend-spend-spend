@@ -48,7 +48,8 @@ function describeBody(raw: string, type: string | undefined): string {
     if (lines.length >= 2) names = lines;
     else if (/^[^=&\s]+=[^&]*(&[^=&\s]+=[^&]*)*$/.test(raw.trim())) names = [...new URLSearchParams(raw.trim()).keys()];
   }
-  if (!names) return `${t} · ${raw.length} chars`;
+  // whether the text had any number in it (a purchase needs its amount); the text itself is never kept
+  if (!names) return `${t} · ${raw.length} chars · ${/\d/.test(raw) ? 'has a number' : 'no number'}`;
   const known = names.map((k) => k.trim().toLowerCase()).filter((k) => KNOWN_FIELD.test(k));
   const other = names.length - known.length;
   return `${t} · ${raw.length} chars · fields: ${[...known.slice(0, 8), ...(other ? [`${other} other`] : [])].join(', ') || 'none'}`;
@@ -62,7 +63,8 @@ const MSG = {
   en: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} at ${merchant} → ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'Already added',
-    test: 'Connected ✓ Your key works, but no purchase was sent: expected when you run the shortcut by hand. If you see this after paying, set the automation’s Input to “Shortcut Input”.',
+    noAmount: 'Only the shop’s name arrived, without the amount. In the automation, add a Text action before “Run Shortcut” with Merchant / Amount / Card or Pass, and pass that Text: Money Money Money → Settings → Live card tracking shows how.',
+    test: 'Connected ✓ Your key works, but no purchase was sent: expected when you run the shortcut by hand. If you see this after paying, set the automation’s “Run Shortcut” Input to the Text with Merchant / Amount / Card or Pass.',
     unreadable: 'Could not read the purchase. In Money Money Money → Settings → Live card tracking, use “Didn’t work?” for the step-by-step setup.',
     foreign: 'Foreign-currency purchase: it will arrive with the card file',
     noCard: (card: string) => `No credit-card account matches “${card}”. Add one in Money Money Money → Accounts.`,
@@ -74,7 +76,8 @@ const MSG = {
   he: {
     added: (amount: string, merchant: string, account: string, category: string | null) => `${amount} ב־${merchant} ← ${account}${category ? ` · ${category}` : ''}`,
     duplicate: 'כבר נוסף',
-    test: 'מחובר ✓ המפתח עובד, אבל לא נשלחה קנייה: זה צפוי כשמפעילים את הקיצור ידנית. אם זה מופיע אחרי תשלום, מגדירים באוטומציה קלט = „קלט הקיצור”.',
+    noAmount: 'הגיע רק שם בית העסק, בלי הסכום. באוטומציה מוסיפים פעולת „טקסט” לפני „הפעל קיצור” עם Merchant / Amount / Card or Pass, ומעבירים את הטקסט: ב־Money Money Money ← הגדרות ← מעקב חי אחר הכרטיס מוסבר איך.',
+    test: 'מחובר ✓ המפתח עובד, אבל לא נשלחה קנייה: זה צפוי כשמפעילים את הקיצור ידנית. אם זה מופיע אחרי תשלום, מגדירים בפעולה „הפעל קיצור” באוטומציה קלט = הטקסט עם Merchant / Amount / Card or Pass.',
     unreadable: 'לא הצלחנו לקרוא את הקנייה. ב־Money Money Money ← הגדרות ← מעקב חי אחר הכרטיס, „לא עבד?” מציג את ההגדרה צעד אחר צעד.',
     foreign: 'קנייה במטבע חוץ: היא תגיע עם קובץ הכרטיס',
     noCard: (card: string) => `אין חשבון כרטיס אשראי שמתאים ל„${card}”. אפשר להוסיף ב־Money Money Money ← חשבונות.`,
@@ -100,6 +103,9 @@ hookRoutes.post('/purchase', async (c) => {
   if (isEmptyInput(raw)) return c.json({ status: 'test', message: msg.test });
   const b = readPurchase(raw);
   const amt = b ? parsePaidAmount(b.amount) : null;
+  // plain text with no number at all: Wallet's transaction reached the shortcut as just a name (iOS turns
+  // it into text when the automation passes it on as is), so the amount was lost on the phone
+  if (!b && !/\d/.test(raw) && !/^\s*[{[]/.test(raw)) throw new HttpError(400, 'no_amount', msg.noAmount);
   if (!b || !amt) throw new HttpError(400, 'unreadable_purchase', msg.unreadable);
   if (amt.currency === 'foreign') return c.json({ status: 'skipped', message: msg.foreign });
   const accounts = await db.all<{ id: string; name: string; bank_id: string | null; account_mask: string | null }>(

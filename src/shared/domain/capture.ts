@@ -53,7 +53,7 @@ export interface PurchaseIn {
 }
 
 // In priority order: a bare "Name" is the merchant only when no merchant key is there (it can be the card's).
-const MERCHANT_KEYS = [/^(merchant|merchant name|business|בית עסק|שם בית עסק)$/, /^(name|שם)$/];
+const MERCHANT_KEYS = [/^(merchant|merchant name|business|סוחר|בית עסק|שם בית עסק)$/, /^(name|שם)$/];
 const AMOUNT_KEYS = [/^(amount|price|total|סכום)$/];
 const CARD_KEYS = [/^(card|card or pass|pass|card name|כרטיס|כרטיס או כרטיס|wallet card)$/];
 /**
