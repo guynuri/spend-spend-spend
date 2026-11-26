@@ -543,3 +543,6 @@ Format: date · milestone · what · why · alternatives rejected.
 - **App icon (2026-11-26):** an original small piggy bank with a coin going into the slot, in the app's
   blues (gradient background, white-to-pale-blue pig). It sits inside the 80 % safe circle, so the
   maskable icon uses the full artwork with no flat-colour padding.
+- **Seen on a device (2026-11-26):** a shortcut's "Receive" input types have no Wallet transaction, so the
+  shared shortcut can't pick Merchant / Amount / Card from its input. The Text stays in each person's
+  automation; the shared shortcut only forwards it (receives Text, Request Body File = Shortcut Input).

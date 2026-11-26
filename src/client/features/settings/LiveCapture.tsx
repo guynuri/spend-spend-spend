@@ -100,7 +100,7 @@ function PublishLink({ kind, link }: { kind: Kind; link: string | null }) {
 /** A collapsed "Explain more" / "How to set it up": the details stay out of the way until someone needs them. */
 function More({ label, testId, children, plain }: { label: string; testId?: string; children: ReactNode; /** a light inline toggle (for background text) instead of a box */ plain?: boolean }) {
   return (
-    <details className={plain ? '-my-2' : 'rounded-xl border border-border px-3 py-1'} data-testid={testId}>
+    <details className={plain ? '' : 'rounded-xl border border-border px-3 py-1'} data-testid={testId}>
       <summary className="min-h-11 cursor-pointer content-center font-medium text-accent">{label}</summary>
       <div className="mb-2 mt-1 flex flex-col gap-2">{children}</div>
     </details>
@@ -153,12 +153,13 @@ function ShortcutSetup({ kind, link, keyShown, isOwner, url, note }: { kind: Kin
                 <p>{t('live.quick.useFile')}</p>
               )}
               <p className="text-xs text-muted">{note}</p>
+              {trouble}
             </More>
           </div>
           <More label={t('live.quick.didntWork')} testId={`live-manual-${kind}`}>
-            {trouble}
             <p className="text-muted">{t('live.quick.manualIntro')}</p>
             {manual}
+            <p className="text-xs text-muted">{note}</p>
           </More>
         </>
       ) : (
@@ -261,6 +262,9 @@ export function LiveCaptureCard() {
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.keyTitle')}</h3>
           <p className="text-muted">{t('live.keyShort')}</p>
+          <More plain label={t('live.more')} testId="live-key-more">
+            <p className="text-muted">{t('live.keyBody')}</p>
+          </More>
           {q.isPending ? (
             <Spinner />
           ) : q.error ? (
