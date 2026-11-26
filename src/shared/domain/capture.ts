@@ -53,7 +53,7 @@ export interface PurchaseIn {
 }
 
 // In priority order: a bare "Name" is the merchant only when no merchant key is there (it can be the card's).
-const MERCHANT_KEYS = [/^(merchant|merchant name|business|בית עסק|שם בית עסק)$/, /^(name|שם)$/];
+const MERCHANT_KEYS = [/^(merchant|merchant name|business|סוחר|בית עסק|שם בית עסק)$/, /^(name|שם)$/];
 const AMOUNT_KEYS = [/^(amount|price|total|סכום)$/];
 const CARD_KEYS = [/^(card|card or pass|pass|card name|כרטיס|כרטיס או כרטיס|wallet card)$/];
 /**
@@ -66,6 +66,23 @@ const AMOUNT_IN_TEXT = [
   /\d[\d.,]*[.,]\d{1,2}(?!\d)/,
   /\d[\d.,]*(?![\s\S]*\d)/,
 ];
+/** Something that reads as a paid amount: a currency sign or word, or a number with decimals ("7-Eleven" is not). */
+export const AMOUNT_HINT = /[₪$€£]|ש"?״?ח|\b(?:ils|nis|usd|eur|gbp)\b|\d[.,]\d{1,2}(?!\d)/i;
+/** Field names a purchase may arrive under (any language we read). */
+export const PURCHASE_FIELD = /^(merchant|merchant name|business|סוחר|בית עסק|שם בית עסק|name|שם|amount|price|total|סכום|currency|card|card or pass|pass|card name|כרטיס|כרטיס או כרטיס|wallet card|date|transaction|shortcut input)$/;
+
+/**
+ * Plain text that is only a name (Wallet's transaction passed on as is: iOS sends its name, without the
+ * amount). Not JSON, not form fields, no "Merchant: / Amount: / Card:" line, and nothing that reads as
+ * an amount — so "7-Eleven" is a name, not a ₪7 purchase.
+ */
+export function isNameOnly(raw: string): boolean {
+  const s = raw.trim();
+  if (!s || /^[{[]/.test(s) || URL_ENCODED.test(s)) return false;
+  if (s.split(/\r?\n/).some((l) => PURCHASE_FIELD.test(/^\s*([^:]{1,30}):/.exec(l)?.[1]?.trim().toLowerCase() ?? ''))) return false;
+  return !AMOUNT_HINT.test(s);
+}
+
 /** "merchant=Cafe&amount=12": a shortcut whose Request Body is set to Form. */
 const URL_ENCODED = /^[^\s=&]+=[^&]*(?:&[^\s=&]+=[^&]*)+$/;
 

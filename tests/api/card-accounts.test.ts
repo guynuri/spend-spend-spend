@@ -118,15 +118,29 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
     const wallet = await hook('purchase', token, JSON.stringify({ Merchant: 'Aroma', Amount: '₪18.00', 'Card or Pass': 'Max •••• 1111' }));
     expect(wallet.status).toBe(201);
     expect((await hook('purchase', token, 'Merchant: Cafe Cafe\nAmount: ₪22.50\nCard or Pass: Max')).status).toBe(201);
-    const bad = await hook('purchase', token, 'nothing useful');
+    const bad = await hook('purchase', token, '{"foo": 1}');
     expect(bad.status).toBe(400);
     expect(bad.body.error?.code).toBe('unreadable_purchase');
     // errors carry a top-level message too, so the shortcut's notification says why
     expect(bad.body.message).toMatch(/Could not read the purchase/);
+    // Wallet's transaction passed on as is: iOS sends just a name (seen on a device: text/plain, 15 chars, no amount)
+    const nameOnly = await hook('purchase', token, 'Aroma Tel Aviv', { 'content-type': 'text/plain' });
+    expect(nameOnly.status).toBe(400);
+    expect(nameOnly.body).toMatchObject({ error: { code: 'no_amount' }, message: expect.stringContaining('Text action') });
+    // the fix on the phone: a Text action with three lines, passed to the shortcut
+    expect((await hook('purchase', token, 'Merchant: Aroma Tel Aviv\nAmount: ‏23.50 ₪\nCard or Pass: Max', { 'content-type': 'text/plain' })).status).toBe(201);
     // the key remembers its last result and what arrived (type, size, field names — never values)
     type K = { lastUsedAt: string | null; lastResult: string | null; lastDetail: string | null };
     const keyNow = async () => (await json<{ keys: K[] }>('GET', '/api/capture-keys', { cookie })).body.keys[0]!;
-    expect(await keyNow()).toMatchObject({ lastResult: 'unreadable_purchase', lastDetail: expect.stringContaining('14 chars') });
+    expect(await keyNow()).toMatchObject({ lastResult: 'added' });
+    await hook('purchase', token, 'Aroma Tel Aviv', { 'content-type': 'text/plain' });
+    expect(await keyNow()).toMatchObject({ lastResult: 'no_amount', lastDetail: 'text/plain · 14 chars · no amount' });
+    // a digit in the name is not an amount: no ₪7 purchase at "Eleven"
+    expect((await hook('purchase', token, '7-Eleven', { 'content-type': 'text/plain' })).body.error?.code).toBe('no_amount');
+    // the Text was passed but its Amount came out empty: not "add a Text action", just unreadable
+    const emptyAmount = await hook('purchase', token, 'Merchant: Aroma\nAmount: \nCard or Pass: Max', { 'content-type': 'text/plain' });
+    expect(emptyAmount.body.error?.code).toBe('unreadable_purchase');
+    expect((await keyNow()).lastDetail).toContain('fields: merchant, amount, card or pass');
     const odd = await hook('purchase', token, JSON.stringify({ Shop: 'Aroma secret', Total: 'x' }), { 'content-type': 'application/json' });
     expect(odd.status).toBe(400);
     expect(odd.body).toMatchObject({ message: expect.any(String), error: { code: 'unreadable_purchase' } });
