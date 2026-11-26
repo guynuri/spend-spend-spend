@@ -21,10 +21,12 @@ export const householdRoutes = tenantGroup();
 const members = (c: Ctx) => tctx(c).db.members;
 
 /** A shared shortcut's iCloud link (and nothing else: it is shown to every member as a link). */
-const SHORTCUT_LINK = z.string().regex(/^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/);
+export const SHORTCUT_LINK = z.string().regex(/^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/);
 
-householdRoutes.get('/', (c) => {
+householdRoutes.get('/', async (c) => {
   const { hh, role } = tctx(c);
+  const own = { purchase: hh.shortcut_purchase_link ?? null, file: hh.shortcut_file_link ?? null };
+  const app = await members(c).appShortcutLinks();
   return c.json({
     id: hh.id,
     name: hh.name,
@@ -35,7 +37,10 @@ householdRoutes.get('/', (c) => {
     hasSampleData: hh.has_sample_data === 1,
     aiEnabled: hh.ai_enabled === 1,
     aiConsentAt: hh.ai_consent_at,
-    shortcutLinks: { purchase: hh.shortcut_purchase_link ?? null, file: hh.shortcut_file_link ?? null },
+    /** What members install: the household's own shortcut, else the app-wide one (D-R34). */
+    shortcutLinks: { purchase: own.purchase ?? app.purchase, file: own.file ?? app.file },
+    /** The household's own links only (the owner's "replace / remove" applies to these). */
+    shortcutLinksOwn: own,
     periodStartDay: hh.period_start_day ?? 1,
     statsByPeriod: (hh.stats_by_period ?? 1) === 1,
     role,

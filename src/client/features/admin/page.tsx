@@ -10,6 +10,7 @@ import { DateText } from '../../components/DateText';
 import { useMe } from '../../lib/session';
 import { useApiMutation } from '../../lib/mutate';
 import { SessionCard } from '../household/page';
+import { AppShortcuts } from './AppShortcuts';
 
 interface AdminHousehold {
   id: string;
@@ -120,6 +121,7 @@ export function Component() {
           </ul>
         )}
       </Card>
+      <AppShortcuts />
       {!me?.active && <SessionCard />}
     </div>
   );

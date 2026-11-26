@@ -111,3 +111,25 @@ test('owner publishes the shared shortcut: one-tap install first, the manual ste
   await setup.getByTestId('live-link-remove-purchase').click();
   await expect(page.getByTestId('live-install-purchase')).toHaveCount(0);
 });
+
+test('the super-admin sets the shared shortcuts once; a household without its own gets the Install button', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('/admin');
+  const card = page.getByTestId('admin-shortcuts');
+  await expect(card).toBeVisible();
+  const link = 'https://www.icloud.com/shortcuts/abcdefabcdefabcdefabcdefabcdefab';
+  await card.getByTestId('admin-shortcut-input-purchase').fill('https://example.com/nope');
+  await expect(card.getByTestId('admin-shortcut-save-purchase')).toBeDisabled();
+  await card.getByTestId('admin-shortcut-input-purchase').fill(link);
+  await card.getByTestId('admin-shortcut-save-purchase').click();
+  await expect(card.getByTestId('admin-shortcut-current-purchase')).toHaveText(link);
+  await expectNoHorizontalOverflow(page);
+  // the admin's own household has none of its own: it offers the app's, and the owner may still use their own
+  await page.goto('/settings');
+  await expect(page.getByTestId('live-install-purchase')).toHaveAttribute('href', link);
+  await expect(page.getByTestId('live-publish-purchase').locator('summary')).toContainText('your own');
+  // clean up (other specs expect no shared link)
+  await page.goto('/admin');
+  await card.getByTestId('admin-shortcut-remove-purchase').click();
+  await expect(card.getByTestId('admin-shortcut-current-purchase')).toHaveCount(0);
+});

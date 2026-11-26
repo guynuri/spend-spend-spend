@@ -28,6 +28,8 @@ export function householdMembers(db: D1Database, householdId: string) {
     revokeInvite: (id: string) => g.revokeInvite(householdId, id),
     update: (p: Parameters<typeof g.updateHousehold>[1]) => g.updateHousehold(householdId, p),
     setShortcutLinks: (p: Parameters<typeof g.setShortcutLinks>[1]) => g.setShortcutLinks(householdId, p),
+    /** The app-wide shared shortcuts, used when the household hasn't published its own (D-R34). */
+    appShortcutLinks: () => g.appShortcutLinks(),
     setPeriods: (p: Parameters<typeof g.setPeriods>[1]) => g.setPeriods(householdId, p),
     setAi: (enabled: boolean, userId: string, provider: string) => g.setAi(householdId, enabled, userId, provider),
     setSampleData: (v: boolean) => g.setSampleData(householdId, v).run(),

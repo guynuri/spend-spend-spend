@@ -57,14 +57,14 @@ const LINK = /^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/;
 
 /** The household's shared shortcuts (iCloud links the owner published once). */
 function useShortcutLinks() {
-  return useQuery({ queryKey: ['household'], queryFn: () => get<{ shortcutLinks: Record<Kind, string | null> }>('/api/household') });
+  return useQuery({ queryKey: ['household'], queryFn: () => get<{ shortcutLinks: Record<Kind, string | null>; shortcutLinksOwn: Record<Kind, string | null> }>('/api/household') });
 }
 
 /**
  * Owner only: build the shortcut once (steps), then paste its iCloud link so everyone in the household
  * installs it with one tap. Shows the current link with a way to replace or remove it.
  */
-function PublishLink({ kind, link }: { kind: Kind; link: string | null }) {
+function PublishLink({ kind, link, shared }: { kind: Kind; /** the household's own link */ link: string | null; /** the app-wide link is in use (D-R34) */ shared: boolean }) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const save = useApiMutation((v: string | null) => patch('/api/household', { [kind === 'purchase' ? 'shortcutPurchaseLink' : 'shortcutFileLink']: v }), {
@@ -75,8 +75,9 @@ function PublishLink({ kind, link }: { kind: Kind; link: string | null }) {
   const ok = LINK.test(value.trim());
   return (
     <details className="rounded-xl border border-border p-3" data-testid={`live-publish-${kind}`}>
-      <summary className="min-h-11 cursor-pointer content-center font-medium">{t(link ? 'live.publish.change' : 'live.publish.title')}</summary>
+      <summary className="min-h-11 cursor-pointer content-center font-medium">{t(link ? 'live.publish.change' : shared ? 'live.publish.titleOwn' : 'live.publish.title')}</summary>
       <div className="mt-2 flex flex-col gap-2">
+        {shared && !link && <p className="text-muted">{t('live.publish.sharedNote')}</p>}
         <p className="text-muted">{t('live.publish.body')}</p>
         <Steps section={kind === 'purchase' ? 'buildPurchase' : 'buildFile'} count={7} />
         <Field label={t('live.publish.label')} htmlFor={`live-link-${kind}`} error={value.trim() && !ok ? t('live.publish.invalid') : undefined}>
@@ -112,7 +113,7 @@ function More({ label, testId, children, plain }: { label: string; testId?: stri
  * Apple doesn't let any app do one tap away; the full manual steps behind "Didn't work?". Without a
  * link, the manual steps behind "How to set it up" (and, for the owner, how to publish one).
  */
-function ShortcutSetup({ kind, link, keyShown, isOwner, url, note }: { kind: Kind; link: string | null; keyShown: string; isOwner: boolean; url: string; note: string }) {
+function ShortcutSetup({ kind, link, own, keyShown, isOwner, url, note }: { kind: Kind; link: string | null; own: string | null; keyShown: string; isOwner: boolean; url: string; note: string }) {
   const { t } = useTranslation();
   const purchase = kind === 'purchase';
   const manual = (
@@ -172,7 +173,7 @@ function ShortcutSetup({ kind, link, keyShown, isOwner, url, note }: { kind: Kin
           </More>
         </>
       )}
-      {isOwner && <PublishLink kind={kind} link={link} />}
+      {isOwner && <PublishLink kind={kind} link={own} shared={!!link && !own} />}
     </div>
   );
 }
@@ -236,7 +237,9 @@ export function LiveCaptureCard() {
     },
   });
   const revoke = useApiMutation((id: string) => del(`/api/capture-keys/${id}`), { invalidate: [QK] });
-  const links = useShortcutLinks().data?.shortcutLinks ?? { purchase: null, file: null };
+  const sl = useShortcutLinks().data;
+  const links = sl?.shortcutLinks ?? { purchase: null, file: null };
+  const own = sl?.shortcutLinksOwn ?? { purchase: null, file: null };
   const isOwner = useRole() === 'owner';
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   const keyShown = fresh ?? t('live.yourKey');
@@ -309,13 +312,13 @@ export function LiveCaptureCard() {
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.applePayTitle')}</h3>
           <p className="text-muted">{t('live.applePayBody')}</p>
-          <ShortcutSetup kind="purchase" link={links.purchase} keyShown={keyShown} isOwner={isOwner} url={`${origin}/api/hook/purchase`} note={t('live.applePayNote')} />
+          <ShortcutSetup kind="purchase" link={links.purchase} own={own.purchase} keyShown={keyShown} isOwner={isOwner} url={`${origin}/api/hook/purchase`} note={t('live.applePayNote')} />
         </section>
 
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.shareTitle')}</h3>
           <p className="text-muted">{t('live.shareBody')}</p>
-          <ShortcutSetup kind="file" link={links.file} keyShown={keyShown} isOwner={isOwner} url={`${origin}/api/hook/file`} note={t('live.sharePrivacy')} />
+          <ShortcutSetup kind="file" link={links.file} own={own.file} keyShown={keyShown} isOwner={isOwner} url={`${origin}/api/hook/file`} note={t('live.sharePrivacy')} />
         </section>
 
         <section className="flex flex-col gap-2">

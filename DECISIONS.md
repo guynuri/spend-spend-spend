@@ -546,3 +546,12 @@ Format: date · milestone · what · why · alternatives rejected.
 - **Seen on a device (2026-11-26):** a shortcut's "Receive" input types have no Wallet transaction, so the
   shared shortcut can't pick Merchant / Amount / Card from its input. The Text stays in each person's
   automation; the shared shortcut only forwards it (receives Text, Request Body File = Shortcut Input).
+
+## D-R34 · 2026-11-26 · Shared shortcuts for every household
+- A shortcut carries no household and no key (each person pastes their own key via the Import Question),
+  so one iCloud link serves all households. `app_settings` (migration 0026, global) holds the app-wide
+  links; the super-admin sets them on the Admin page (`GET/PATCH /api/admin/settings`, same iCloud-link
+  and "no key inside" checks as a household's). `GET /api/household` returns `shortcutLinks` = the
+  household's own, else the app's, plus `shortcutLinksOwn`; an owner can still publish their own
+  ("Use your own shortcut instead"), and removing it falls back to the app's.
+- The automation stays per person (Apple doesn't let automations be shared).

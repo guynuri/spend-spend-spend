@@ -4,7 +4,9 @@ import type { AppCtx, Ctx } from '../types';
 import { globalDb } from '../db/global';
 import { householdInitStatements } from '../db/householdInit';
 import { tenantDb } from '../db/tenant';
-import { body, notFound } from '../http';
+import { HttpError, body, notFound } from '../http';
+import { shortcutHasKey } from '../lib/shortcutCheck';
+import { SHORTCUT_LINK } from './household';
 import { newId, randomToken, sha256Hex } from '../lib/crypto';
 import { requireSuperAdmin } from '../middleware/auth';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
@@ -79,4 +81,15 @@ adminRoutes.post('/admin/users/:id/recovery', async (c) => {
   const token = randomToken();
   await g.createInvite({ tokenHash: await sha256Hex(token), kind: 'recovery', householdId: null, role: null, targetUserId: uid, createdBy: c.get('userId')!, ttlMs: RECOVERY_TTL_MS });
   return c.json({ link: `${originOf(c)}/recover#${token}` }, 201);
+});
+
+/** App-wide settings (D-R34): the shared Shortcuts every household without its own is offered. */
+adminRoutes.get('/admin/settings', async (c) => c.json({ shortcutLinks: await globalDb(c.env.DB).appShortcutLinks() }));
+
+adminRoutes.patch('/admin/settings', async (c) => {
+  const b = await body(c, z.object({ shortcutPurchaseLink: SHORTCUT_LINK.nullable().optional(), shortcutFileLink: SHORTCUT_LINK.nullable().optional() }).strict());
+  // the same guard as a household's link: iCloud links are public, so no one's key may be inside
+  for (const l of [b.shortcutPurchaseLink, b.shortcutFileLink]) if (l && (await shortcutHasKey(l))) throw new HttpError(400, 'shortcut_has_key', 'This shortcut has a personal key inside');
+  await globalDb(c.env.DB).setAppShortcutLinks({ purchase: b.shortcutPurchaseLink, file: b.shortcutFileLink }, c.get('userId')!);
+  return c.json({ ok: true });
 });
