@@ -2,7 +2,7 @@
  * "Live card tracking" (D-R20): a personal add-only key and step-by-step iPhone Shortcuts setup for
  * Apple Pay purchases (Wallet "Transaction" automation) and for sharing bank / card files to the app.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -97,19 +97,40 @@ function PublishLink({ kind, link }: { kind: Kind; link: string | null }) {
   );
 }
 
-/**
- * One shortcut's setup: with a published link, install in one tap (it asks for the key) plus the few
- * phone-side steps Apple doesn't let any app do; the full manual steps stay one tap away. Without a link,
- * the manual steps (and, for the owner, how to publish one).
- */
-function ShortcutSetup({ kind, link, keyShown, isOwner }: { kind: Kind; link: string | null; keyShown: string; isOwner: boolean }) {
-  const { t } = useTranslation();
-  const manual = <Steps section={kind === 'purchase' ? 'applePay' : 'share'} count={kind === 'purchase' ? 8 : 7} values={{ key: keyShown }} />;
+/** A collapsed "Explain more" / "How to set it up": the details stay out of the way until someone needs them. */
+function More({ label, testId, children, plain }: { label: string; testId?: string; children: ReactNode; /** a light inline toggle (for background text) instead of a box */ plain?: boolean }) {
   return (
-    <div className="flex flex-col gap-3" data-testid={`live-setup-${kind}`}>
+    <details className={plain ? '-my-2' : 'rounded-xl border border-border px-3 py-1'} data-testid={testId}>
+      <summary className="min-h-11 cursor-pointer content-center font-medium text-accent">{label}</summary>
+      <div className="mb-2 mt-1 flex flex-col gap-2">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * One shortcut's setup: with a published link, an Install button up front and the phone-side steps
+ * Apple doesn't let any app do one tap away; the full manual steps behind "Didn't work?". Without a
+ * link, the manual steps behind "How to set it up" (and, for the owner, how to publish one).
+ */
+function ShortcutSetup({ kind, link, keyShown, isOwner, url, note }: { kind: Kind; link: string | null; keyShown: string; isOwner: boolean; url: string; note: string }) {
+  const { t } = useTranslation();
+  const purchase = kind === 'purchase';
+  const manual = (
+    <>
+      <CopyRow label={t(purchase ? 'live.urlPurchase' : 'live.urlFile')} value={url} testId={`live-url-${kind}`} />
+      <Steps section={purchase ? 'applePay' : 'share'} count={purchase ? 8 : 7} values={{ key: keyShown }} />
+    </>
+  );
+  const trouble = purchase && (
+    <p className="text-xs text-muted" data-testid="live-trouble">
+      {t('live.trouble')}
+    </p>
+  );
+  return (
+    <div className="flex flex-col gap-2" data-testid={`live-setup-${kind}`}>
       {link ? (
         <>
-          <div className="flex flex-col gap-2 rounded-xl bg-accent/5 p-3" data-testid={`live-quick-${kind}`}>
+          <div className="flex flex-col gap-2" data-testid={`live-quick-${kind}`}>
             <a
               href={link}
               target="_blank"
@@ -118,32 +139,36 @@ function ShortcutSetup({ kind, link, keyShown, isOwner }: { kind: Kind; link: st
               data-testid={`live-install-${kind}`}
             >
               <Download className="size-4" aria-hidden />
-              {t(kind === 'purchase' ? 'live.quick.installPurchase' : 'live.quick.installFile')}
+              {t(purchase ? 'live.quick.installPurchase' : 'live.quick.installFile')}
             </a>
-            <p>{t('live.quick.pasteKey')}</p>
-            {kind === 'purchase' ? (
-              <>
-                <p className="font-medium">{t('live.quick.automationTitle')}</p>
-                <Steps section="quickPurchase" count={5} />
-                <p className="text-xs text-muted">{t('live.quick.testPurchase')}</p>
-                <p className="text-xs text-muted" data-testid="live-trouble">{t('live.trouble')}</p>
-              </>
-            ) : (
-              <p>{t('live.quick.useFile')}</p>
-            )}
+            <More label={t('live.howTo')} testId={`live-howto-${kind}`}>
+              <p>{t('live.quick.pasteKey')}</p>
+              {purchase ? (
+                <>
+                  <p className="font-medium">{t('live.quick.automationTitle')}</p>
+                  <Steps section="quickPurchase" count={5} />
+                  <p className="text-xs text-muted">{t('live.quick.testPurchase')}</p>
+                </>
+              ) : (
+                <p>{t('live.quick.useFile')}</p>
+              )}
+              <p className="text-xs text-muted">{note}</p>
+            </More>
           </div>
-          <details className="rounded-xl border border-border p-3" data-testid={`live-manual-${kind}`}>
-            <summary className="min-h-11 cursor-pointer content-center font-medium">{t('live.quick.didntWork')}</summary>
-            <div className="mt-2 flex flex-col gap-2">
-              <p className="text-muted">{t('live.quick.manualIntro')}</p>
-              {manual}
-            </div>
-          </details>
+          <More label={t('live.quick.didntWork')} testId={`live-manual-${kind}`}>
+            {trouble}
+            <p className="text-muted">{t('live.quick.manualIntro')}</p>
+            {manual}
+          </More>
         </>
       ) : (
         <>
           {!isOwner && <p className="text-xs text-muted">{t('live.quick.askOwner')}</p>}
-          {manual}
+          <More label={t('live.howTo')} testId={`live-howto-${kind}`}>
+            {manual}
+            <p className="text-xs text-muted">{note}</p>
+            {trouble}
+          </More>
         </>
       )}
       {isOwner && <PublishLink kind={kind} link={link} />}
@@ -218,7 +243,12 @@ export function LiveCaptureCard() {
     <Card data-testid="live-capture">
       <CardTitle>{t('live.title')}</CardTitle>
       <div className="flex flex-col gap-4 text-sm">
-        <p className="text-muted">{t('live.intro')}</p>
+        <div className="flex flex-col gap-2">
+          <p className="text-muted">{t('live.introShort')}</p>
+          <More plain label={t('live.more')} testId="live-intro-more">
+            <p className="text-muted">{t('live.intro')}</p>
+          </More>
+        </div>
         {cards.length === 0 && (
           <p className="rounded-xl bg-warn/10 p-3 text-warn" data-testid="live-no-cards">
             {t('live.noCards')}{' '}
@@ -230,7 +260,7 @@ export function LiveCaptureCard() {
 
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.keyTitle')}</h3>
-          <p className="text-muted">{t('live.keyBody')}</p>
+          <p className="text-muted">{t('live.keyShort')}</p>
           {q.isPending ? (
             <Spinner />
           ) : q.error ? (
@@ -275,22 +305,21 @@ export function LiveCaptureCard() {
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.applePayTitle')}</h3>
           <p className="text-muted">{t('live.applePayBody')}</p>
-          <CopyRow label={t('live.urlPurchase')} value={`${origin}/api/hook/purchase`} testId="live-url-purchase" />
-          <ShortcutSetup kind="purchase" link={links.purchase} keyShown={keyShown} isOwner={isOwner} />
-          <p className="text-xs text-muted">{t('live.applePayNote')}</p>
+          <ShortcutSetup kind="purchase" link={links.purchase} keyShown={keyShown} isOwner={isOwner} url={`${origin}/api/hook/purchase`} note={t('live.applePayNote')} />
         </section>
 
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.shareTitle')}</h3>
           <p className="text-muted">{t('live.shareBody')}</p>
-          <CopyRow label={t('live.urlFile')} value={`${origin}/api/hook/file`} testId="live-url-file" />
-          <ShortcutSetup kind="file" link={links.file} keyShown={keyShown} isOwner={isOwner} />
-          <p className="text-xs text-muted">{t('live.sharePrivacy')}</p>
+          <ShortcutSetup kind="file" link={links.file} keyShown={keyShown} isOwner={isOwner} url={`${origin}/api/hook/file`} note={t('live.sharePrivacy')} />
         </section>
 
-        <section className="flex flex-col gap-1">
+        <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('live.monthlyTitle')}</h3>
-          <p className="text-muted">{t('live.monthlyBody')}</p>
+          <p className="text-muted">{t('live.monthlyShort')}</p>
+          <More plain label={t('live.more')} testId="live-monthly-more">
+            <p className="text-muted">{t('live.monthlyBody')}</p>
+          </More>
         </section>
       </div>
     </Card>

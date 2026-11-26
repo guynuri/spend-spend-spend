@@ -94,6 +94,10 @@ test('owner publishes the shared shortcut: one-tap install first, the manual ste
   await expect(manual.getByText('Get Contents of URL').first()).toBeVisible();
   await manual.locator('summary').click();
   await expectNoHorizontalOverflow(page);
+  // the steps stay folded until asked for
+  await expect(page.getByTestId('live-howto-purchase').getByText('Run Shortcut').first()).toBeHidden();
+  await page.getByTestId('live-howto-purchase').locator('summary').click();
+  await expect(page.getByTestId('live-howto-purchase').getByText('Run Shortcut').first()).toBeVisible();
   await page.getByTestId('live-quick-purchase').scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'e2e/screenshots/en/state-live-quick.png' });
   // remove it again (other specs see the default state)
