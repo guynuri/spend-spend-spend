@@ -5,6 +5,7 @@ import { tctx, originOf } from '../ctx';
 import { HttpError, body, notFound } from '../http';
 import { requireOwner } from '../middleware/auth';
 import { shortcutHasKey } from '../lib/shortcutCheck';
+import { SHORTCUT_LINK_RE } from '../../shared/shortcuts';
 import { newId, nowIso, randomToken, sha256Hex } from '../lib/crypto';
 import { INVITE_TTL_MS, RECOVERY_TTL_MS } from './auth';
 import { sendInviteEmail } from '../lib/email';
@@ -21,7 +22,7 @@ export const householdRoutes = tenantGroup();
 const members = (c: Ctx) => tctx(c).db.members;
 
 /** A shared shortcut's iCloud link (and nothing else: it is shown to every member as a link). */
-export const SHORTCUT_LINK = z.string().regex(/^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/);
+const SHORTCUT_LINK = z.string().regex(SHORTCUT_LINK_RE);
 
 householdRoutes.get('/', async (c) => {
   const { hh, role } = tctx(c);
@@ -72,7 +73,7 @@ householdRoutes.patch('/', async (c) => {
   const { shortcutPurchaseLink, shortcutFileLink, periodStartDay, statsByPeriod, ...rest } = b;
   if ((shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) && role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');
   // checked before anything is saved: a shared shortcut with someone's key inside would let anyone with the link add purchases
-  for (const l of [shortcutPurchaseLink, shortcutFileLink]) if (l && (await shortcutHasKey(l))) throw new HttpError(400, 'shortcut_has_key', 'This shortcut has a personal key inside');
+  for (const l of [shortcutPurchaseLink, shortcutFileLink]) if (l && c.env.SHORTCUT_CHECK !== 'skip' && (await shortcutHasKey(l))) throw new HttpError(400, 'shortcut_has_key', 'This shortcut has a personal key inside');
   if (periodStartDay !== undefined || statsByPeriod !== undefined) await members(c).setPeriods({ startDay: periodStartDay, statsByPeriod });
   if (shortcutPurchaseLink !== undefined || shortcutFileLink !== undefined) {
     if (role !== 'owner') throw new HttpError(403, 'forbidden_role', 'Owner only');

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { get, patch } from '../../api';
 import { Button, Card, CardTitle, ErrorState, Field, Input, Spinner } from '../../components/ui';
 import { useApiMutation } from '../../lib/mutate';
+import { SHORTCUT_LINK_RE } from '../../../shared/shortcuts';
 
 type Kind = 'purchase' | 'file';
-const LINK = /^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/;
 const QK = ['admin-settings'];
 
 /**
@@ -42,7 +42,7 @@ function LinkRow({ kind, link }: { kind: Kind; link: string | null }) {
   const field = kind === 'purchase' ? 'shortcutPurchaseLink' : 'shortcutFileLink';
   // every household's Settings shows the result, so refresh it too
   const save = useApiMutation((v: string | null) => patch('/api/admin/settings', { [field]: v }), { invalidate: [QK, ['household']], successKey: 'ledger.saved', onSuccess: () => setValue('') });
-  const ok = LINK.test(value.trim());
+  const ok = SHORTCUT_LINK_RE.test(value.trim());
   return (
     <div className="flex flex-col gap-2" data-testid={`admin-shortcut-${kind}`}>
       <span className="text-sm font-medium">{t(`admin.shortcuts.${kind}`)}</span>

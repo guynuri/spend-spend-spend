@@ -555,3 +555,8 @@ Format: date · milestone · what · why · alternatives rejected.
   household's own, else the app's, plus `shortcutLinksOwn`; an owner can still publish their own
   ("Use your own shortcut instead"), and removing it falls back to the app's.
 - The automation stays per person (Apple doesn't let automations be shared).
+- **Review follow-ups:** the app-wide link is verified, not best-effort: `checkShortcut` tells key / ok /
+  unverified apart, and the admin save refuses (503 `shortcut_unverified`, try again) when iCloud can't be
+  read. A household's own link keeps the best-effort check. `SHORTCUT_CHECK=skip` turns the iCloud call off
+  in tests and local e2e. App-wide changes are logged to the Worker's logs (audit_log is per household).
+  The link regex lives in `shared/shortcuts.ts` for server and client.

@@ -16,7 +16,7 @@ const child = spawn(
   'npx',
   [
     'wrangler', 'dev', '-c', 'dist/maazan/wrangler.json', '--persist-to', persist, '--port', port,
-    '--ip', '127.0.0.1', '--var', 'AI_PROVIDER:mock', '--var', 'BOOTSTRAP_TOKEN:e2e-bootstrap', '--var', 'RATE_LIMIT_AUTH:100000', '--log-level', 'warn',
+    '--ip', '127.0.0.1', '--var', 'AI_PROVIDER:mock', '--var', 'BOOTSTRAP_TOKEN:e2e-bootstrap', '--var', 'RATE_LIMIT_AUTH:100000', '--var', 'SHORTCUT_CHECK:skip', '--log-level', 'warn',
   ],
   { stdio: 'inherit', env: { ...process.env, CI: '1' }, shell: process.platform === 'win32' },
 );

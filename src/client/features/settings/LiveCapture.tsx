@@ -13,6 +13,7 @@ import { useApiMutation } from '../../lib/mutate';
 import { useAccounts } from '../../lib/queries';
 import { useRole } from '../../lib/session';
 import { intlLocale, type Locale } from '../../../shared/money';
+import { SHORTCUT_LINK_RE } from '../../../shared/shortcuts';
 
 interface CaptureKey {
   id: string;
@@ -53,7 +54,6 @@ function KeyStatus({ k }: { k: CaptureKey }) {
 }
 const QK = ['capture-keys'];
 type Kind = 'purchase' | 'file';
-const LINK = /^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}\/?$/;
 
 /** The household's shared shortcuts (iCloud links the owner published once). */
 function useShortcutLinks() {
@@ -72,7 +72,7 @@ function PublishLink({ kind, link, shared }: { kind: Kind; /** the household's o
     successKey: 'ledger.saved',
     onSuccess: () => setValue(''),
   });
-  const ok = LINK.test(value.trim());
+  const ok = SHORTCUT_LINK_RE.test(value.trim());
   return (
     <details className="rounded-xl border border-border p-3" data-testid={`live-publish-${kind}`}>
       <summary className="min-h-11 cursor-pointer content-center font-medium">{t(link ? 'live.publish.change' : shared ? 'live.publish.titleOwn' : 'live.publish.title')}</summary>

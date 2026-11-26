@@ -12,6 +12,8 @@ export interface AppEnv {
   AI_GLOBAL_DAILY_CALLS: string;
   /** Auth route limit per 5 min per IP (default 20); raised only for local e2e. */
   RATE_LIMIT_AUTH?: string;
+  /** 'skip' turns off the iCloud shortcut check (tests and local e2e have no iCloud). */
+  SHORTCUT_CHECK?: string;
   BOOTSTRAP_TOKEN?: string;
   AI_API_KEY?: string;
   RESEND_API_KEY?: string;

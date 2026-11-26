@@ -14,6 +14,7 @@ export default defineConfig(async () => {
             TEST_MIGRATIONS: migrations,
             BOOTSTRAP_TOKEN: 'test-bootstrap-token',
             AI_PROVIDER: 'mock',
+            SHORTCUT_CHECK: 'skip',
           },
         },
       }),

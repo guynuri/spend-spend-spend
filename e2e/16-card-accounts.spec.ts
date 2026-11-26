@@ -1,5 +1,5 @@
 /** Card accounts (D-R20): a card file goes into a credit-card account; live card tracking key in Settings. */
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 import { ensureAdmin, signIn } from './auth';
 import { ensureAccountNamed, expectNoHorizontalOverflow } from './helpers';
@@ -114,6 +114,16 @@ test('owner publishes the shared shortcut: one-tap install first, the manual ste
 
 test('the super-admin sets the shared shortcuts once; a household without its own gets the Install button', async ({ page }) => {
   await signIn(page, 'admin');
+  // app-wide state: removed even if an assertion fails, so other specs never see a shared link
+  const H = { 'X-MZ': '1', Origin: new URL(page.url()).origin };
+  try {
+    await sharedLinkFlow(page);
+  } finally {
+    await page.request.patch('/api/admin/settings', { headers: H, data: { shortcutPurchaseLink: null, shortcutFileLink: null } });
+  }
+});
+
+async function sharedLinkFlow(page: Page) {
   await page.goto('/admin');
   const card = page.getByTestId('admin-shortcuts');
   await expect(card).toBeVisible();
@@ -128,8 +138,8 @@ test('the super-admin sets the shared shortcuts once; a household without its ow
   await page.goto('/settings');
   await expect(page.getByTestId('live-install-purchase')).toHaveAttribute('href', link);
   await expect(page.getByTestId('live-publish-purchase').locator('summary')).toContainText('your own');
-  // clean up (other specs expect no shared link)
+  // removing it from the Admin page
   await page.goto('/admin');
   await card.getByTestId('admin-shortcut-remove-purchase').click();
   await expect(card.getByTestId('admin-shortcut-current-purchase')).toHaveCount(0);
-});
+}

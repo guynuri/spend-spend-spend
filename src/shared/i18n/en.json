@@ -234,7 +234,8 @@
     "owed_too_big": "The part paid back has to be less than the purchase.",
     "owed_split_exists": "This purchase is already split — change it in the split editor.",
     "owed_not_purchase": "Only a purchase can be paid back.",
-    "shortcut_has_key": "This shortcut has a personal key inside, so anyone with the link could add purchases. Remove the key from the shortcut (use an Import Question instead) and share it again."
+    "shortcut_has_key": "This shortcut has a personal key inside, so anyone with the link could add purchases. Remove the key from the shortcut (use an Import Question instead) and share it again.",
+    "shortcut_unverified": "Couldn’t check this shortcut with iCloud just now, so it wasn’t saved (a shared link must be checked for keys). Try again in a minute."
   },
   "auth": {
     "signInTitle": "Sign in",
