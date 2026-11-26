@@ -531,3 +531,18 @@ Format: date · milestone · what · why · alternatives rejected.
   in the automation ("Merchant: … / Amount: … / Card or Pass: …" from Shortcut Input's fields) and passes
   that Text to the shortcut; the server already reads "Key: value" lines. A text body with no number at
   all now answers `no_amount` with exactly this fix (and the key's line says "no number").
+
+## D-R33 · 2026-11-26 · Live card tracking: the setup that worked, folded away until needed
+- **Verified on a device:** an automation with a Text action ("Merchant: … / Amount: … / Card or Pass: …"
+  from Shortcut Input's fields) sending that Text as the Request Body (File) works. The manual steps and
+  the owner's build steps now describe exactly this; members' quick steps are the Text + "Run Shortcut"
+  with Input = the Text. One-tap install stays the owner's published iCloud link (D-R21): iOS doesn't let
+  automations be shared, so those two actions remain the phone-side part.
+- **Folded:** the card shows a one-line summary per part and the main action (Install / create a key);
+  the steps, notes and troubleshooting open from "How to set it up", "Didn't work?" and "Explain more".
+- **App icon (2026-11-26):** an original small piggy bank with a coin going into the slot, in the app's
+  blues (gradient background, white-to-pale-blue pig). It sits inside the 80 % safe circle, so the
+  maskable icon uses the full artwork with no flat-colour padding.
+- **Seen on a device (2026-11-26):** a shortcut's "Receive" input types have no Wallet transaction, so the
+  shared shortcut can't pick Merchant / Amount / Card from its input. The Text stays in each person's
+  automation; the shared shortcut only forwards it (receives Text, Request Body File = Shortcut Input).

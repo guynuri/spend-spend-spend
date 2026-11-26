@@ -8,8 +8,9 @@ const out = [
   ['public/icons/icon-192.png', 192, 0],
   ['public/icons/icon-512.png', 512, 0],
   ['public/icons/apple-touch-icon.png', 180, 0],
-  // maskable: content inside the 80 % safe zone
-  ['public/icons/maskable-512.png', 512, 0.12],
+  // maskable: the artwork already keeps the piggy bank inside the 80 % safe circle, and the gradient
+  // fills the whole square, so no padding (padding would frame it with a flat colour)
+  ['public/icons/maskable-512.png', 512, 0],
 ];
 for (const [file, size, pad] of out) {
   const inner = Math.round(size * (1 - 2 * pad));

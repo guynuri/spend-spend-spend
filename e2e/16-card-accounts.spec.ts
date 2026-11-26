@@ -44,6 +44,10 @@ test('live card tracking: create a key (shown once), see the setup steps, revoke
   await page.goto('/settings');
   const card = page.getByTestId('live-capture');
   await expect(card).toBeVisible();
+  // the address is folded under "How to set it up" until asked for
+  await expect(card.getByTestId('live-url-purchase')).toBeHidden();
+  await card.getByTestId('live-howto-purchase').locator('summary').click();
+  await expect(card.getByTestId('live-url-purchase')).toBeVisible();
   await expect(card.getByTestId('live-url-purchase')).toContainText('/api/hook/purchase');
   await card.getByTestId('live-create').click();
   await expect(card.getByTestId('live-token')).toContainText('mz_');
@@ -82,18 +86,23 @@ test('owner publishes the shared shortcut: one-tap install first, the manual ste
   const link = 'https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef';
   await setup.getByTestId('live-link-input-purchase').fill(link);
   await setup.getByTestId('live-link-save-purchase').click();
-  // now: install button + the few automation steps; the full steps are collapsed
+  // now: the install button up front; the automation steps and the full manual steps are folded
   await expect(page.getByTestId('live-install-purchase')).toHaveAttribute('href', link);
-  await expect(page.getByTestId('live-quick-purchase')).toContainText('Run Shortcut');
-  // run it by hand once first, so iOS asks for its permissions (an automation can't); and what to do if it fails
-  await expect(page.getByTestId('live-quick-purchase')).toContainText('Always Allow');
-  await expect(page.getByTestId('live-trouble')).toContainText('There was a problem with the automation');
   const manual = page.getByTestId('live-manual-purchase');
   await expect(manual.getByText('Get Contents of URL').first()).toBeHidden();
   await manual.locator('summary').click();
   await expect(manual.getByText('Get Contents of URL').first()).toBeVisible();
   await manual.locator('summary').click();
   await expectNoHorizontalOverflow(page);
+  // the steps stay folded until asked for
+  await expect(page.getByTestId('live-howto-purchase').getByText('Run Shortcut').first()).toBeHidden();
+  await page.getByTestId('live-howto-purchase').locator('summary').click();
+  const howTo = page.getByTestId('live-howto-purchase');
+  await expect(howTo.getByText('Run Shortcut').first()).toBeVisible();
+  // run it by hand once first, so iOS asks for its permissions (an automation can't); and what to do if it fails
+  await expect(howTo.getByText('Always Allow').first()).toBeVisible();
+  await expect(howTo.getByTestId('live-trouble')).toBeVisible();
+  await expect(howTo.getByTestId('live-trouble')).toContainText('There was a problem with the automation');
   await page.getByTestId('live-quick-purchase').scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'e2e/screenshots/en/state-live-quick.png' });
   // remove it again (other specs see the default state)
