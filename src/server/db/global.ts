@@ -253,8 +253,26 @@ export function globalDb(db: D1Database) {
         .bind(tokenHash)
         .first<{ id: string; household_id: string; user_id: string; role: string }>(),
     touchCaptureKey: (id: string) => db.prepare('UPDATE capture_keys SET last_used_at = ?2 WHERE id = ?1').bind(id, nowIso()).run(),
-    captureKeyResult: (id: string, result: string, detail: string | null) =>
-      db.prepare('UPDATE capture_keys SET last_result = ?2, last_detail = ?3 WHERE id = ?1').bind(id, result.slice(0, 40), detail?.slice(0, 200) ?? null).run(),
+    /**
+     * Records a hook request's outcome: the last one, then the last 5 (newest first, D-R35). Two separate
+     * writes, so a problem with the history never stops the last result from updating; the history is
+     * built here (not in SQL) so its order is guaranteed, and an unreadable one starts over.
+     */
+    captureKeyResult: async (id: string, result: string, detail: string | null) => {
+      const r = result.slice(0, 40);
+      const d = detail?.slice(0, 200) ?? null;
+      await db.prepare('UPDATE capture_keys SET last_result = ?2, last_detail = ?3 WHERE id = ?1').bind(id, r, d).run();
+      const row = await db.prepare('SELECT recent_json FROM capture_keys WHERE id = ?1').bind(id).first<{ recent_json: string | null }>();
+      let prev: unknown[] = [];
+      try {
+        const v: unknown = JSON.parse(row?.recent_json ?? '[]');
+        if (Array.isArray(v)) prev = v;
+      } catch {
+        /* unreadable: start over */
+      }
+      const recent = [{ at: nowIso(), result: r, detail: d }, ...prev].slice(0, 5);
+      await db.prepare('UPDATE capture_keys SET recent_json = ?2 WHERE id = ?1').bind(id, JSON.stringify(recent)).run();
+    },
 
     // ---------- rate limits ----------
     /** Increments and returns the count for key in the current fixed window. */

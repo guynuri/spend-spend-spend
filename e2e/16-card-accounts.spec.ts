@@ -67,6 +67,11 @@ test('live card tracking: create a key (shown once), see the setup steps, revoke
   await expect(card.getByTestId('live-key-status')).toHaveAttribute('data-result', 'no_amount');
   await expect(card.getByTestId('live-key-status')).toContainText('no amount');
   await expect(card.getByTestId('live-key-status')).toContainText('Received:');
+  // the hand-run test before it is one tap away, not lost
+  const earlier = card.getByTestId('live-key-earlier');
+  await expect(earlier.locator('summary')).toHaveText('1 earlier attempt');
+  await earlier.locator('summary').click();
+  await expect(earlier.getByTestId('live-key-attempt')).toHaveAttribute('data-result', 'test');
   await expectNoHorizontalOverflow(page);
   await card.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'e2e/screenshots/en/state-live-capture.png' });
