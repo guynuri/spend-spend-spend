@@ -560,3 +560,9 @@ Format: date · milestone · what · why · alternatives rejected.
   read. A household's own link keeps the best-effort check. `SHORTCUT_CHECK=skip` turns the iCloud call off
   in tests and local e2e. App-wide changes are logged to the Worker's logs (audit_log is per household).
   The link regex lives in `shared/shortcuts.ts` for server and client.
+
+## D-R35 · 2026-11-28 · A key keeps its last 5 attempts
+- A hand-run test replaced the only stored result, hiding the failed purchase before it. `capture_keys.
+  recent_json` (migration 0027) keeps the last 5 attempts newest first ({ at, result, detail } — never
+  values), written in the same UPDATE as the last result. Settings shows the last attempt on the key's line
+  and the earlier ones behind "N earlier attempts".

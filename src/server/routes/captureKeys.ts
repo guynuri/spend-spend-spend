@@ -20,6 +20,15 @@ captureKeyRoutes.use('*', async (c, next) => {
 });
 
 export const MAX_KEYS = 5;
+
+function recentOf(raw: string | null): CaptureKey['recent'] {
+  try {
+    const v: unknown = JSON.parse(raw ?? '[]');
+    return Array.isArray(v) ? (v as CaptureKey['recent']).slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
 export interface CaptureKey {
   id: string;
   label: string | null;
@@ -28,15 +37,17 @@ export interface CaptureKey {
   /** What the last request with this key came to ('added', 'test', 'unreadable_purchase', …) and what it carried. */
   lastResult: string | null;
   lastDetail: string | null;
+  /** The last 5 attempts, newest first (D-R35). */
+  recent: { at: string; result: string; detail: string | null }[];
 }
 
 captureKeyRoutes.get('/', async (c) => {
   const { db, userId } = tctx(c);
-  const rows = await db.all<{ id: string; label: string | null; created_at: string; last_used_at: string | null; last_result: string | null; last_detail: string | null }>(
-    'SELECT id, label, created_at, last_used_at, last_result, last_detail FROM capture_keys WHERE household_id = ?1 AND user_id = ?2 AND revoked_at IS NULL ORDER BY created_at',
+  const rows = await db.all<{ id: string; label: string | null; created_at: string; last_used_at: string | null; last_result: string | null; last_detail: string | null; recent_json: string | null }>(
+    'SELECT id, label, created_at, last_used_at, last_result, last_detail, recent_json FROM capture_keys WHERE household_id = ?1 AND user_id = ?2 AND revoked_at IS NULL ORDER BY created_at',
     userId,
   );
-  return c.json({ keys: rows.map((r) => ({ id: r.id, label: r.label, createdAt: r.created_at, lastUsedAt: r.last_used_at, lastResult: r.last_result, lastDetail: r.last_detail }) satisfies CaptureKey) });
+  return c.json({ keys: rows.map((r) => ({ id: r.id, label: r.label, createdAt: r.created_at, lastUsedAt: r.last_used_at, lastResult: r.last_result, lastDetail: r.last_detail, recent: recentOf(r.recent_json) }) satisfies CaptureKey) });
 });
 
 captureKeyRoutes.post('/', async (c) => {

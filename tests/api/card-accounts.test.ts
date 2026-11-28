@@ -157,6 +157,12 @@ describe('card accounts, Apple Pay captures and shared files (D-R20)', () => {
       expect(t.body).toMatchObject({ status: 'test', message: expect.stringContaining('Connected') });
     }
     expect((await keyNow()).lastResult).toBe('test');
+    // the last 5 attempts, newest first: a hand-run test doesn't hide the failure before it
+    const recent = (await json<{ keys: { recent: { at: string; result: string; detail: string | null }[] }[] }>('GET', '/api/capture-keys', { cookie })).body.keys[0]!.recent;
+    expect(recent).toHaveLength(5);
+    expect(recent.map((r) => r.result)).toEqual(['test', 'test', 'test', 'unreadable_purchase', 'unreadable_purchase']);
+    expect(recent[0]!.at >= recent[4]!.at).toBe(true);
+    expect(recent[3]!.detail).toContain('fields:');
     await hook('purchase', token, JSON.stringify({ merchant: 'Aroma', amount: '₪19.00', card: 'Max' }), { 'content-type': 'application/json' });
     expect((await keyNow()).lastResult).toBe('added');
 

@@ -1585,7 +1585,7 @@
       "s7": "Share → “Copy iCloud Link”, and paste the link below."
     },
     "trouble": "Got “There was a problem with the automation”? Look at your key above. “Not used yet” means the phone never reached the app: run the shortcut once by hand and choose “Always Allow”, and check that the automation’s “Run Shortcut” points to it with Input = the Text from step 4. Otherwise the line under the key says what the app received.",
-    "lastAttempt": "Last attempt",
+    "lastAttempt": "Last attempt:",
     "result": {
       "added": "a purchase was added ✓",
       "duplicate": "already added",
@@ -1611,7 +1611,9 @@
     "howTo": "How to set it up",
     "introShort": "Apple Pay purchases are added as you pay; the card file fills in the rest once a month.",
     "keyShort": "Each person makes their own key. It can only add, never read.",
-    "monthlyShort": "Apple Pay can’t see online purchases or the physical card: import the card file once a month."
+    "monthlyShort": "Apple Pay can’t see online purchases or the physical card: import the card file once a month.",
+    "earlier_one": "1 earlier attempt",
+    "earlier_other": "{{count}} earlier attempts"
   },
   "charts": {
     "other": "Other",

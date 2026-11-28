@@ -15,6 +15,11 @@ import { useRole } from '../../lib/session';
 import { intlLocale, type Locale } from '../../../shared/money';
 import { SHORTCUT_LINK_RE } from '../../../shared/shortcuts';
 
+interface Attempt {
+  at: string;
+  result: string;
+  detail: string | null;
+}
 interface CaptureKey {
   id: string;
   label: string | null;
@@ -22,32 +27,52 @@ interface CaptureKey {
   lastUsedAt: string | null;
   lastResult: string | null;
   lastDetail: string | null;
+  /** The last 5 attempts, newest first. */
+  recent: Attempt[];
 }
 const GOOD = new Set(['added', 'duplicate', 'skipped', 'imported']);
 /** A hand run: fine as a test, but after a real purchase it means the automation passed nothing on. */
 const NEUTRAL = new Set(['test']);
 
-/** "Last attempt 24 Nov, 21:14 · a purchase was added ✓", and what arrived when it went wrong. */
-function KeyStatus({ k }: { k: CaptureKey }) {
+/** One attempt: "24 Nov, 21:14 · a purchase was added ✓", and what arrived when it went wrong. */
+function AttemptLine({ a, testId }: { a: Attempt; testId?: string }) {
   const { t, i18n } = useTranslation();
-  if (!k.lastUsedAt) return <span className="text-xs text-muted">{t('live.neverUsed')}</span>;
-  const when = new Intl.DateTimeFormat(intlLocale(i18n.language as Locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(k.lastUsedAt));
-  const code = k.lastResult;
-  const ok = !code || GOOD.has(code) || NEUTRAL.has(code);
+  const when = new Intl.DateTimeFormat(intlLocale(i18n.language as Locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(a.at));
+  const ok = GOOD.has(a.result) || NEUTRAL.has(a.result);
   return (
-    <span className="block text-xs text-muted" data-testid="live-key-status" data-result={code ?? ''}>
-      {t('live.lastAttempt')} <bdi>{when}</bdi>
-      {code && (
-        <>
-          {' · '}
-          <span className={code && NEUTRAL.has(code) ? '' : ok ? 'text-good' : 'font-medium text-bad'}>{t(`live.result.${code}`, { defaultValue: t('live.result.other', { code }) })}</span>
-        </>
-      )}
-      {!ok && k.lastDetail && (
+    <span className="block" data-testid={testId} data-result={a.result}>
+      <bdi>{when}</bdi>
+      {' · '}
+      <span className={NEUTRAL.has(a.result) ? '' : ok ? 'text-good' : 'font-medium text-bad'}>{t(`live.result.${a.result}`, { defaultValue: t('live.result.other', { code: a.result }) })}</span>
+      {!ok && a.detail && (
         <span className="block">
           {t('live.received')}{' '}
-          <bdi dir="ltr">{k.lastDetail}</bdi>
+          <bdi dir="ltr">{a.detail}</bdi>
         </span>
+      )}
+    </span>
+  );
+}
+
+/** The key's last attempt on its line; the four before it one tap away (a hand-run test never hides a failure). */
+function KeyStatus({ k }: { k: CaptureKey }) {
+  const { t } = useTranslation();
+  if (!k.lastUsedAt) return <span className="text-xs text-muted">{t('live.neverUsed')}</span>;
+  // keys used before the history existed only have the last result
+  const recent = k.recent.length ? k.recent : k.lastResult ? [{ at: k.lastUsedAt, result: k.lastResult, detail: k.lastDetail }] : [];
+  const [last, ...earlier] = recent;
+  return (
+    <span className="block text-xs text-muted" data-testid="live-key-status" data-result={last?.result ?? ''}>
+      {t('live.lastAttempt')} {last ? <AttemptLine a={last} /> : null}
+      {earlier.length > 0 && (
+        <details className="mt-1" data-testid="live-key-earlier">
+          <summary className="cursor-pointer font-medium text-accent">{t('live.earlier', { count: earlier.length })}</summary>
+          <span className="mt-1 flex flex-col gap-1">
+            {earlier.map((a, i) => (
+              <AttemptLine key={i} a={a} testId="live-key-attempt" />
+            ))}
+          </span>
+        </details>
       )}
     </span>
   );

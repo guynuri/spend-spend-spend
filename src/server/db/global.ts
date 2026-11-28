@@ -253,8 +253,21 @@ export function globalDb(db: D1Database) {
         .bind(tokenHash)
         .first<{ id: string; household_id: string; user_id: string; role: string }>(),
     touchCaptureKey: (id: string) => db.prepare('UPDATE capture_keys SET last_used_at = ?2 WHERE id = ?1').bind(id, nowIso()).run(),
-    captureKeyResult: (id: string, result: string, detail: string | null) =>
-      db.prepare('UPDATE capture_keys SET last_result = ?2, last_detail = ?3 WHERE id = ?1').bind(id, result.slice(0, 40), detail?.slice(0, 200) ?? null).run(),
+    /** Records a hook request's outcome: the last one, and the last 5 (newest first, D-R35). */
+    captureKeyResult: (id: string, result: string, detail: string | null) => {
+      const entry = JSON.stringify({ at: nowIso(), result: result.slice(0, 40), detail: detail?.slice(0, 200) ?? null });
+      return db
+        .prepare(
+          `UPDATE capture_keys SET last_result = ?2, last_detail = ?3,
+             recent_json = (SELECT json_group_array(json(v)) FROM (
+               SELECT ?4 AS v, 0 AS k
+               UNION ALL SELECT value, CAST(key AS INTEGER) + 1 FROM json_each(COALESCE(capture_keys.recent_json, '[]'))
+               ORDER BY k LIMIT 5))
+           WHERE id = ?1`,
+        )
+        .bind(id, result.slice(0, 40), detail?.slice(0, 200) ?? null, entry)
+        .run();
+    },
 
     // ---------- rate limits ----------
     /** Increments and returns the count for key in the current fixed window. */
