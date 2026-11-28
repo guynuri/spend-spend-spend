@@ -24,7 +24,12 @@ export const MAX_KEYS = 5;
 function recentOf(raw: string | null): CaptureKey['recent'] {
   try {
     const v: unknown = JSON.parse(raw ?? '[]');
-    return Array.isArray(v) ? (v as CaptureKey['recent']).slice(0, 5) : [];
+    if (!Array.isArray(v)) return [];
+    // only well-formed entries (a bad one must never break the Settings page)
+    return v
+      .filter((e): e is CaptureKey['recent'][number] => !!e && typeof e === 'object' && typeof e.at === 'string' && !Number.isNaN(Date.parse(e.at)) && typeof e.result === 'string')
+      .map((e) => ({ at: e.at, result: e.result, detail: typeof e.detail === 'string' ? e.detail : null }))
+      .slice(0, 5);
   } catch {
     return [];
   }

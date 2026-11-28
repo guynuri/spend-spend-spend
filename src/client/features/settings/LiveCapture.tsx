@@ -35,12 +35,20 @@ const GOOD = new Set(['added', 'duplicate', 'skipped', 'imported']);
 const NEUTRAL = new Set(['test']);
 
 /** One attempt: "24 Nov, 21:14 · a purchase was added ✓", and what arrived when it went wrong. */
-function AttemptLine({ a, testId }: { a: Attempt; testId?: string }) {
-  const { t, i18n } = useTranslation();
-  const when = new Intl.DateTimeFormat(intlLocale(i18n.language as Locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(a.at));
+function useWhen() {
+  const { i18n } = useTranslation();
+  return (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(intlLocale(i18n.language as Locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
+  };
+}
+
+function AttemptLine({ a, testId, inline }: { a: Attempt; testId?: string; /** on the label's line */ inline?: boolean }) {
+  const { t } = useTranslation();
+  const when = useWhen()(a.at);
   const ok = GOOD.has(a.result) || NEUTRAL.has(a.result);
   return (
-    <span className="block" data-testid={testId} data-result={a.result}>
+    <span className={inline ? '' : 'block'} data-testid={testId} data-result={a.result}>
       <bdi>{when}</bdi>
       {' · '}
       <span className={NEUTRAL.has(a.result) ? '' : ok ? 'text-good' : 'font-medium text-bad'}>{t(`live.result.${a.result}`, { defaultValue: t('live.result.other', { code: a.result }) })}</span>
@@ -57,13 +65,14 @@ function AttemptLine({ a, testId }: { a: Attempt; testId?: string }) {
 /** The key's last attempt on its line; the four before it one tap away (a hand-run test never hides a failure). */
 function KeyStatus({ k }: { k: CaptureKey }) {
   const { t } = useTranslation();
+  const fmt = useWhen();
   if (!k.lastUsedAt) return <span className="text-xs text-muted">{t('live.neverUsed')}</span>;
   // keys used before the history existed only have the last result
   const recent = k.recent.length ? k.recent : k.lastResult ? [{ at: k.lastUsedAt, result: k.lastResult, detail: k.lastDetail }] : [];
   const [last, ...earlier] = recent;
   return (
     <span className="block text-xs text-muted" data-testid="live-key-status" data-result={last?.result ?? ''}>
-      {t('live.lastAttempt')} {last ? <AttemptLine a={last} /> : null}
+      {t('live.lastAttempt')} {last ? <AttemptLine a={last} inline /> : <bdi>{fmt(k.lastUsedAt)}</bdi>}
       {earlier.length > 0 && (
         <details className="mt-1" data-testid="live-key-earlier">
           <summary className="cursor-pointer font-medium text-accent">{t('live.earlier', { count: earlier.length })}</summary>

@@ -566,3 +566,7 @@ Format: date · milestone · what · why · alternatives rejected.
   recent_json` (migration 0027) keeps the last 5 attempts newest first ({ at, result, detail } — never
   values), written in the same UPDATE as the last result. Settings shows the last attempt on the key's line
   and the earlier ones behind "N earlier attempts".
+- **Review follow-ups:** the last result and the history are separate writes (a history problem never stops
+  the last result), the history is built in code so its order is guaranteed, and an unreadable one starts
+  over; migration 0027 seeds each used key's history with its existing last result; malformed entries are
+  dropped when read; a used key with no recorded result still shows its date.
